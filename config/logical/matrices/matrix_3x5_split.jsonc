@@ -1,4 +1,4 @@
-// config/keyboards/matrix_3x5_split.jsonc
+// config/logical/matrices/matrix_3x5_split.json
 {
   "name": "matrix_3x5_split",
   "version": "1.0",
