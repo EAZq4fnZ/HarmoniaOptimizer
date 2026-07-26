@@ -1,0 +1,200 @@
+// config/keyboards/matrix_3x5_split.jsonc
+{
+  "name": "matrix_3x5_split",
+  "version": "1.0",
+  "description": "",
+
+  "keys": {
+    // hand: left
+    // row: upper
+    "L-P-U": {
+      "hand": "left",
+      "finger": "pinky",
+      "row": "upper",
+      "column": "P"
+    },
+    "L-R-U": {
+      "hand": "left",
+      "finger": "ring",
+      "row": "upper",
+      "column": "R"
+    },
+    "L-M-U": {
+      "hand": "left",
+      "finger": "middle",
+      "row": "upper",
+      "column": "M"
+    },
+    "L-Ii-U": {
+      "hand": "left",
+      "finger": "index",
+      "row": "upper",
+      "column": "Ii"
+    },
+    "L-Io-U": {
+      "hand": "left",
+      "finger": "index",
+      "row": "upper",
+      "column": "Io"
+    },
+    // row: middle
+    "L-P-M": {
+      "hand": "left",
+      "finger": "pinky",
+      "row": "home",
+      "column": "P"
+    },
+    "L-R-M": {
+      "hand": "left",
+      "finger": "ring",
+      "row": "home",
+      "column": "R"
+    },
+    "L-M-M": {
+      "hand": "left",
+      "finger": "middle",
+      "row": "home",
+      "column": "M"
+    },
+    "L-Ii-M": {
+      "hand": "left",
+      "finger": "index",
+      "row": "home",
+      "column": "Ii"
+    },
+    "L-Io-M": {
+      "hand": "left",
+      "finger": "index",
+      "row": "home",
+      "column": "Io"
+    },
+    // row: lower
+    "L-P-L": {
+      "hand": "left",
+      "finger": "pinky",
+      "row": "lower",
+      "column": "P"
+    },
+    "L-R-L": {
+      "hand": "left",
+      "finger": "ring",
+      "row": "lower",
+      "column": "R"
+    },
+    "L-M-L": {
+      "hand": "left",
+      "finger": "middle",
+      "row": "lower",
+      "column": "M"
+    },
+    "L-Ii-L": {
+      "hand": "left",
+      "finger": "index",
+      "row": "lower",
+      "column": "Ii"
+    },
+    "L-Io-L": {
+      "hand": "left",
+      "finger": "index",
+      "row": "lower",
+      "column": "Io"
+    },
+
+
+
+    // hand: right
+    // row: upper
+    "R-Io-U": {
+      "hand": "right",
+      "finger": "index",
+      "row": "upper",
+      "column": "Io"
+    },
+    "R-Ii-U": {
+      "hand": "right",
+      "finger": "index",
+      "row": "upper",
+      "column": "Ii"
+    },
+    "R-M-U": {
+      "hand": "right",
+      "finger": "middle",
+      "row": "upper",
+      "column": "M"
+    },
+    "R-R-U": {
+      "hand": "right",
+      "finger": "ring",
+      "row": "upper",
+      "column": "R"
+    },
+    "R-P-U": {
+      "hand": "right",
+      "finger": "pinky",
+      "row": "upper",
+      "column": "P"
+    },
+    // row: middle
+    "R-Io-M": {
+      "hand": "right",
+      "finger": "index",
+      "row": "home",
+      "column": "Io"
+    }, 
+    "R-Ii-M": {
+      "hand": "right",
+      "finger": "index",
+      "row": "home",
+      "column": "Ii"
+    },
+    "R-M-M": {
+      "hand": "right",
+      "finger": "middle",
+      "row": "home",
+      "column": "M"
+    },
+    "R-R-M": {
+      "hand": "right",
+      "finger": "ring",
+      "row": "home",
+      "column": "R"
+    },
+    "R-P-M": {
+      "hand": "right",
+      "finger": "pinky",
+      "row": "home",
+      "column": "P"
+    },
+    // row: lower
+    "R-Io-L": {
+      "hand": "right",
+      "finger": "index",
+      "row": "lower",
+      "column": "Io"
+    },
+    "R-Ii-L": {
+      "hand": "right",
+      "finger": "index",
+      "row": "lower",
+      "column": "Ii"
+    },
+    "R-M-L": {
+      "hand": "right",
+      "finger": "middle",
+      "row": "lower",
+      "column": "M"
+    },
+    "R-R-L": {
+      "hand": "right",
+      "finger": "ring",
+      "row": "lower",
+      "column": "R"
+    },
+    "R-P-L": {
+      "hand": "right",
+      "finger": "pinky",
+      "row": "lower",
+      "column": "P"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+// config/layouts/harmonia_v5_1b.jsonc
+{
+  "name": "Harmonia",
+  "version": "5.1b",
+
+  "author":"Takashi Sarada",
+  "language":"Japanese",
+  "optimizer_version":"1.0",
+
+    "layers": {
+      "L0":{ // layer 0;Base layer(Alpha)
+        "Y": "L-R-U", "T": "L-M-U", "R": "L-Ii-U", "K": "L-Io-U", "U": "R-Io-U", "E": "R-Ii-U", "P": "R-M-U", "B": "R-R-U",
+        "F": "L-P-M", "L": "L-R-M", "A": "L-M-M", "I": "L-Ii-M", "O": "L-Io-M", "N": "R-Io-M", "H": "R-Ii-M", "D": "R-M-M", "M": "R-R-M", "Z": "R-P-M",
+        "W": "L-R-L", "V": "L-M-L", "C": "L-Ii-L", "S": "L-Io-L", "J": "R-Io-L", "G": "R-Ii-L", "X": "R-M-L", "Q": "R-R-L"
+      }
+    }
+}

@@ -1,0 +1,40 @@
+// config/keyboards/k04mini.jsonc
+{
+  "name": "k04mini",
+  "description": "K:04 mini physical keyboard (46-key). Coordinates are relative to the home position. Units are millimeters.",
+  "matrix_id":"matrix_3x5_split",
+
+  "geometry":{
+        "spacing": {
+            "column_pitch": 19.0,
+            "row_pitch": 19.0
+        },
+
+    "origin": {
+        "type": "split_center",
+        "positive": {
+            "x": "right",
+            "y": "lower",
+            "z": "up"
+        }
+    },
+
+    "stagger": {
+        "column": {
+            "P": 0,
+            "R": 0,
+            "M": 0,
+            "Ii": 0,
+            "Io": 0
+        }
+    },
+
+    "transform": {
+        "angles": {
+            "splay": 0.0,
+            "tenting": 0.0,
+            "rotation": 0.0
+        }
+    }
+  }
+}
