@@ -1,8 +1,8 @@
 # models/position.py
 from dataclasses import dataclass
 
+"""
 from .enums import Finger, Hand, Layer, Row
-
 
 @dataclass(slots=True, frozen=True)
 class Position:
@@ -12,3 +12,10 @@ class Position:
     row: Row
     column: int
     physical_column: int | None = None
+"""
+
+@dataclass(slots=True, frozen=True)
+class Position:
+    x: float
+    y: float
+    z: float
