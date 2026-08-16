@@ -8,3 +8,11 @@ from .logical_key import LogicalKey
 class Transition:
     source: LogicalKey
     target: LogicalKey
+
+    @property
+    def source_position(self):
+        return self.source.position
+
+    @property
+    def target_position(self):
+        return self.target.position
