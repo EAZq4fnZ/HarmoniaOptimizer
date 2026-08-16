@@ -70,7 +70,7 @@ class Layout:
     # --------------------------------------------------------
 
     @classmethod
-    def load(cls, path: str | Path) -> "Layout":
+    def load(cls, path: str | Path) -> Layout:
         """
         Load layout from JSON.
         """
