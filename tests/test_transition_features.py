@@ -1,7 +1,9 @@
 # tests/test_transition_features.py
 
 from models.logical_key import LogicalKey
+from models.logical_position import LogicalPosition
 from models.transition import Transition
+from models.enums import Layer, Hand, Finger, Row
 from models.transition_features import TransitionFeatures
 from evaluator.transition_features import extract_transition_features
 
@@ -14,20 +16,27 @@ def make_transition(
     source_row: str = "home",
     target_row: str = "home",
 ) -> Transition:
+
     source = LogicalKey(
         id="A",
-        hand=source_hand,
-        finger=source_finger,
-        row=source_row,
-        column="1",
+        position=LogicalPosition(
+            layer=Layer.L0,
+            hand=Hand(source_hand),
+            finger=Finger(source_finger),
+            row=Row(source_row),
+            column=1,
+        ),
     )
 
     target = LogicalKey(
         id="B",
-        hand=target_hand,
-        finger=target_finger,
-        row=target_row,
-        column="2",
+        position=LogicalPosition(
+            layer=Layer.L0,
+            hand=Hand(target_hand),
+            finger=Finger(target_finger),
+            row=Row(target_row),
+            column=2,
+        ),
     )
 
     return Transition(

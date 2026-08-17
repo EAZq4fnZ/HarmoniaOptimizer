@@ -6,13 +6,15 @@ from .logical_key import LogicalKey
 
 @dataclass(slots=True, frozen=True)
 class Transition:
+    """
+    A transition between two logical keys.
+
+    Represents one key-to-key movement.
+
+    Example
+    -------
+    H -> E
+    """
+
     source: LogicalKey
     target: LogicalKey
-
-    @property
-    def source_position(self):
-        return self.source.position
-
-    @property
-    def target_position(self):
-        return self.target.position
