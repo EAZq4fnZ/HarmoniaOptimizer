@@ -1,11 +1,11 @@
 # tests/test_transition_features.py
 
+from evaluator.transition_features import extract_transition_features
+from models.enums import Finger, Hand, Layer, Row
 from models.logical_key import LogicalKey
 from models.logical_position import LogicalPosition
 from models.transition import Transition
-from models.enums import Layer, Hand, Finger, Row
 from models.transition_features import TransitionFeatures
-from evaluator.transition_features import extract_transition_features
 
 
 def make_transition(
@@ -79,6 +79,8 @@ def test_same_hand():
 
 def test_same_finger():
     transition = make_transition(
+        source_hand="left",
+        target_hand="left",
         source_finger="index",
         target_finger="index",
     )
@@ -90,6 +92,8 @@ def test_same_finger():
 
 def test_different_fingers():
     transition = make_transition(
+        source_hand="left",
+        target_hand="left",
         source_finger="index",
         target_finger="middle",
     )
@@ -113,7 +117,7 @@ def test_same_row():
 def test_different_rows():
     transition = make_transition(
         source_row="home",
-        target_row="upper",
+        target_row="top",
     )
 
     features = extract_transition_features(transition)
@@ -127,3 +131,17 @@ def test_transition_is_preserved():
     features = extract_transition_features(transition)
 
     assert features.transition == transition
+
+
+def test_same_finger_requires_same_hand():
+    transition = make_transition(
+        source_hand="left",
+        target_hand="right",
+        source_finger="index",
+        target_finger="index",
+    )
+
+    features = extract_transition_features(transition)
+
+    assert features.same_finger is False
+
