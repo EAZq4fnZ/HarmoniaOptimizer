@@ -1,14 +1,20 @@
 # tests/test_candidate_evaluator.py
 
+import pytest
+
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.candidate_scorer import CandidateScorer
+from evaluator.character_statistics import CharacterStatistics
 from evaluator.constraint_set import ConstraintSet
+from evaluator.finger_load_pipeline import FingerLoadPipeline
 from evaluator.forbidden_position_constraint import (
     ForbiddenPositionConstraint,
 )
 from evaluator.layout_evaluator import LayoutEvaluator
 from evaluator.transition_statistics import TransitionStatistics
 from models.candidate_score import CandidateScoreWeights
+from models.enums import Finger, Hand
+from models.finger_load_budget import FingerLoadBudget
 from models.layout import Layout
 from models.transition_cost import TransitionCostWeights
 
@@ -50,7 +56,7 @@ def make_layout() -> Layout:
     )
 
 
-def make_weights() -> TransitionCostWeights:
+def make_transition_weights() -> TransitionCostWeights:
     return TransitionCostWeights(
         same_finger_penalty=10.0,
         same_hand_penalty=2.0,
@@ -61,7 +67,7 @@ def make_weights() -> TransitionCostWeights:
     )
 
 
-def make_statistics() -> TransitionStatistics:
+def make_transition_statistics() -> TransitionStatistics:
     statistics = TransitionStatistics()
 
     statistics.add(
@@ -73,12 +79,45 @@ def make_statistics() -> TransitionStatistics:
     return statistics
 
 
+def make_character_statistics() -> CharacterStatistics:
+    statistics = CharacterStatistics()
+
+    statistics.add(
+        {
+            "A": 70,
+            "B": 30,
+        }
+    )
+
+    return statistics
+
+
+def make_finger_load_budgets() -> tuple[
+    FingerLoadBudget,
+    ...
+]:
+    return (
+        FingerLoadBudget(
+            hand=Hand.LEFT,
+            finger=Finger.INDEX,
+            target_ratio=0.5,
+        ),
+        FingerLoadBudget(
+            hand=Hand.RIGHT,
+            finger=Finger.INDEX,
+            target_ratio=0.5,
+        ),
+    )
+
+
 def make_candidate_evaluator(
     constraint_set: ConstraintSet,
 ) -> CandidateEvaluator:
     layout_evaluator = LayoutEvaluator(
-        make_weights()
+        make_transition_weights()
     )
+
+    finger_load_pipeline = FingerLoadPipeline()
 
     candidate_scorer = CandidateScorer(
         CandidateScoreWeights(
@@ -90,63 +129,82 @@ def make_candidate_evaluator(
     return CandidateEvaluator(
         constraint_set=constraint_set,
         layout_evaluator=layout_evaluator,
+        finger_load_pipeline=finger_load_pipeline,
         candidate_scorer=candidate_scorer,
+        finger_load_budgets=make_finger_load_budgets(),
     )
 
 
-def test_valid_candidate_is_valid():
+def evaluate_valid_candidate():
     evaluator = make_candidate_evaluator(
         ConstraintSet([])
     )
 
-    result = evaluator.evaluate(
+    return evaluator.evaluate(
         make_layout(),
-        make_statistics(),
+        make_transition_statistics(),
+        make_character_statistics(),
     )
+
+
+def test_valid_candidate_is_valid():
+    result = evaluate_valid_candidate()
 
     assert result.is_valid is True
 
 
 def test_valid_candidate_has_layout_evaluation():
-    evaluator = make_candidate_evaluator(
-        ConstraintSet([])
-    )
-
-    result = evaluator.evaluate(
-        make_layout(),
-        make_statistics(),
-    )
+    result = evaluate_valid_candidate()
 
     assert result.layout_evaluation is not None
 
 
-def test_valid_candidate_has_score():
-    evaluator = make_candidate_evaluator(
-        ConstraintSet([])
-    )
-
-    result = evaluator.evaluate(
-        make_layout(),
-        make_statistics(),
-    )
-
-    # A -> B uses alternating hands and the same row.
-    assert result.score == -2.0
-
-
 def test_valid_candidate_has_candidate_score():
-    evaluator = make_candidate_evaluator(
-        ConstraintSet([])
-    )
-
-    result = evaluator.evaluate(
-        make_layout(),
-        make_statistics(),
-    )
+    result = evaluate_valid_candidate()
 
     assert result.candidate_score is not None
-    assert result.candidate_score.transition_score == -2.0
-    assert result.candidate_score.finger_load_score == 0.0
+
+
+def test_transition_score_is_included():
+    result = evaluate_valid_candidate()
+
+    assert result.candidate_score is not None
+
+    # A -> B:
+    # alternating hands, same row
+    # normalized transition score = -2.0
+    assert result.candidate_score.transition_score == pytest.approx(
+        -2.0
+    )
+
+
+def test_finger_load_score_is_included():
+    result = evaluate_valid_candidate()
+
+    assert result.candidate_score is not None
+
+    # A = left index = 70%
+    # target = 50%
+    # excess = 20%
+    #
+    # B = right index = 30%
+    # target = 50%
+    # excess = 0%
+    #
+    # total finger-load penalty = 0.2
+    assert result.candidate_score.finger_load_score == pytest.approx(
+        0.2
+    )
+
+
+def test_combined_candidate_score():
+    result = evaluate_valid_candidate()
+
+    # transition = -2.0
+    # finger load = +0.2
+    #
+    # final = -1.8
+    assert result.score == pytest.approx(-1.8)
 
 
 def test_candidate_preserves_layout():
@@ -158,7 +216,8 @@ def test_candidate_preserves_layout():
 
     result = evaluator.evaluate(
         layout,
-        make_statistics(),
+        make_transition_statistics(),
+        make_character_statistics(),
     )
 
     assert result.layout == layout
@@ -177,7 +236,8 @@ def test_invalid_candidate_is_rejected():
 
     result = evaluator.evaluate(
         make_layout(),
-        make_statistics(),
+        make_transition_statistics(),
+        make_character_statistics(),
     )
 
     assert result.is_valid is False
@@ -197,7 +257,8 @@ def test_invalid_candidate_has_no_layout_evaluation():
 
     result = evaluator.evaluate(
         make_layout(),
-        make_statistics(),
+        make_transition_statistics(),
+        make_character_statistics(),
     )
 
     assert result.layout_evaluation is None
@@ -216,7 +277,8 @@ def test_invalid_candidate_has_no_score():
 
     result = evaluator.evaluate(
         make_layout(),
-        make_statistics(),
+        make_transition_statistics(),
+        make_character_statistics(),
     )
 
     assert result.candidate_score is None
