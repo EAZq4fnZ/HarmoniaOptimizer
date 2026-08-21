@@ -27,3 +27,9 @@ class Layer(Enum):
     L1 = 1
     L2 = 2
     L3 = 3
+
+
+class RollDirection(Enum):
+    NONE = "none"
+    INWARD = "inward"
+    OUTWARD = "outward"

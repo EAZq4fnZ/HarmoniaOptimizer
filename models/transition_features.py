@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from .enums import RollDirection
 from .transition import Transition
 
 
@@ -19,3 +20,4 @@ class TransitionFeatures:
     same_finger: bool
     same_row: bool
     alternating_hands: bool
+    roll_direction: RollDirection

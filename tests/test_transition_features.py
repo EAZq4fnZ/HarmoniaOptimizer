@@ -1,7 +1,7 @@
 # tests/test_transition_features.py
 
 from evaluator.transition_features import extract_transition_features
-from models.enums import Finger, Hand, Layer, Row
+from models.enums import Finger, Hand, Layer, RollDirection, Row
 from models.logical_key import LogicalKey
 from models.logical_position import LogicalPosition
 from models.transition import Transition
@@ -145,3 +145,41 @@ def test_same_finger_requires_same_hand():
 
     assert features.same_finger is False
 
+
+def test_inward_roll_direction():
+    transition = make_transition(
+        source_hand="left",
+        target_hand="left",
+        source_finger="ring",
+        target_finger="middle",
+    )
+
+    features = extract_transition_features(transition)
+
+    assert features.roll_direction is RollDirection.INWARD
+
+
+def test_outward_roll_direction():
+    transition = make_transition(
+        source_hand="left",
+        target_hand="left",
+        source_finger="middle",
+        target_finger="ring",
+    )
+
+    features = extract_transition_features(transition)
+
+    assert features.roll_direction is RollDirection.OUTWARD
+
+
+def test_alternating_hands_have_no_roll():
+    transition = make_transition(
+        source_hand="left",
+        target_hand="right",
+        source_finger="index",
+        target_finger="middle",
+    )
+
+    features = extract_transition_features(transition)
+
+    assert features.roll_direction is RollDirection.NONE

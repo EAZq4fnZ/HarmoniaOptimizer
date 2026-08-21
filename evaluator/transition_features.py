@@ -3,6 +3,8 @@
 from models.transition import Transition
 from models.transition_features import TransitionFeatures
 
+from .roll_detector import detect_roll_direction
+
 
 def extract_transition_features(
     transition: Transition,
@@ -26,4 +28,5 @@ def extract_transition_features(
         same_finger=same_finger,
         same_row=source.row == target.row,
         alternating_hands=not same_hand,
+        roll_direction=detect_roll_direction(transition),
     )
