@@ -5,6 +5,9 @@ from models.candidate_score import CandidateScore, CandidateScoreWeights
 from models.constraint_evaluation import ConstraintEvaluation
 from models.constraint_violation import ConstraintViolation
 from models.layout import Layout
+from models.swap_candidate import SwapCandidate
+from models.swap_candidate_evaluation import SwapCandidateEvaluation
+from models.swap_move import SwapMove
 from optimizer.best_candidate_selector import BestCandidateSelector
 
 
@@ -245,3 +248,141 @@ def test_select_accepts_generator():
 
     assert result is not None
     assert result.score == 3.0
+
+
+def make_swap_candidate_evaluation(
+    score: float,
+    first_letter: str,
+    second_letter: str,
+    name: str,
+) -> SwapCandidateEvaluation:
+    evaluation = make_valid_evaluation(
+        transition_score=score,
+        name=name,
+    )
+
+    candidate = SwapCandidate(
+        move=SwapMove(
+            first_letter=first_letter,
+            second_letter=second_letter,
+        ),
+        layout=evaluation.layout,
+    )
+
+    return SwapCandidateEvaluation(
+        candidate=candidate,
+        evaluation=evaluation,
+    )
+
+
+def test_select_swap_candidate_returns_lowest_score():
+    selector = BestCandidateSelector()
+
+    high = make_swap_candidate_evaluation(
+        score=10.0,
+        first_letter="A",
+        second_letter="B",
+        name="high",
+    )
+
+    low = make_swap_candidate_evaluation(
+        score=3.0,
+        first_letter="C",
+        second_letter="D",
+        name="low",
+    )
+
+    middle = make_swap_candidate_evaluation(
+        score=7.0,
+        first_letter="E",
+        second_letter="F",
+        name="middle",
+    )
+
+    result = selector.select_swap_candidate(
+        (high, low, middle)
+    )
+
+    assert result == low
+    assert result.move == low.move
+
+
+def test_select_swap_candidate_preserves_move():
+    selector = BestCandidateSelector()
+
+    candidate = make_swap_candidate_evaluation(
+        score=3.0,
+        first_letter="A",
+        second_letter="T",
+        name="candidate",
+    )
+
+    result = selector.select_swap_candidate(
+        (candidate,)
+    )
+
+    assert result is not None
+    assert result.move.first_letter == "A"
+    assert result.move.second_letter == "T"
+
+
+def test_select_swap_candidate_returns_none_for_empty_input():
+    selector = BestCandidateSelector()
+
+    result = selector.select_swap_candidate(())
+
+    assert result is None
+
+
+def test_select_swap_candidate_preserves_first_on_tie():
+    selector = BestCandidateSelector()
+
+    first = make_swap_candidate_evaluation(
+        score=5.0,
+        first_letter="A",
+        second_letter="B",
+        name="first",
+    )
+
+    second = make_swap_candidate_evaluation(
+        score=5.0,
+        first_letter="C",
+        second_letter="D",
+        name="second",
+    )
+
+    result = selector.select_swap_candidate(
+        (first, second)
+    )
+
+    assert result == first
+    assert result.move == first.move
+
+
+def test_select_swap_candidate_accepts_generator():
+    selector = BestCandidateSelector()
+
+    evaluations = (
+        make_swap_candidate_evaluation(
+            score=score,
+            first_letter=first_letter,
+            second_letter=second_letter,
+            name=name,
+        )
+        for score, first_letter, second_letter, name in (
+            (10.0, "A", "B", "high"),
+            (2.0, "C", "D", "low"),
+            (7.0, "E", "F", "middle"),
+        )
+    )
+
+    result = selector.select_swap_candidate(
+        evaluations
+    )
+
+    assert result is not None
+    assert result.score == 2.0
+    assert result.move == SwapMove(
+        first_letter="C",
+        second_letter="D",
+    )

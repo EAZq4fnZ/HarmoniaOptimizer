@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from models.candidate_evaluation import CandidateEvaluation
+from models.swap_move import SwapMove
 
 
 @dataclass(slots=True, frozen=True)
@@ -14,6 +15,7 @@ class OptimizationStep:
     """
 
     iteration: int
+    move: SwapMove
     evaluation: CandidateEvaluation
 
     def __post_init__(self) -> None:

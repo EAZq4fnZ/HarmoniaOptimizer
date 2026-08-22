@@ -11,6 +11,7 @@ from models.constraint_evaluation import ConstraintEvaluation
 from models.layout import Layout
 from models.optimization_result import OptimizationResult
 from models.optimization_step import OptimizationStep
+from models.swap_move import SwapMove
 
 
 def make_layout(
@@ -126,10 +127,18 @@ def test_iteration_count():
         steps=(
             OptimizationStep(
                 iteration=1,
+                move=SwapMove(
+                    first_letter="A",
+                    second_letter="B",
+                ),
                 evaluation=first,
             ),
             OptimizationStep(
                 iteration=2,
+                move=SwapMove(
+                    first_letter="C",
+                    second_letter="D",
+                ),
                 evaluation=second,
             ),
         ),

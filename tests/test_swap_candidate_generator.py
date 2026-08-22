@@ -177,3 +177,61 @@ def test_candidate_metadata_is_preserved():
     assert candidate.version == layout.version
     assert candidate.layer == layout.layer
     assert candidate.description == layout.description
+
+
+def test_generate_candidates_returns_325_candidates():
+    layout = make_layout()
+    generator = SwapCandidateGenerator()
+
+    candidates = generator.generate_candidates(layout)
+
+    assert len(candidates) == 325
+
+
+def test_generate_candidates_preserves_swap_move():
+    layout = make_layout()
+    generator = SwapCandidateGenerator()
+
+    candidates = generator.generate_candidates(layout)
+
+    first = candidates[0]
+
+    assert first.move.first_letter == "A"
+    assert first.move.second_letter == "B"
+
+
+def test_generate_candidates_preserves_swapped_layout():
+    layout = make_layout()
+    generator = SwapCandidateGenerator()
+
+    candidates = generator.generate_candidates(layout)
+
+    first = candidates[0]
+
+    assert first.layout.position("A") == layout.position("B")
+    assert first.layout.position("B") == layout.position("A")
+
+
+def test_generate_matches_candidate_layouts():
+    layout = make_layout()
+    generator = SwapCandidateGenerator()
+
+    layouts = generator.generate(layout)
+    candidates = generator.generate_candidates(layout)
+
+    assert layouts == tuple(
+        candidate.layout
+        for candidate in candidates
+    )
+
+
+def test_last_generated_candidate_preserves_y_z_move():
+    layout = make_layout()
+    generator = SwapCandidateGenerator()
+
+    candidates = generator.generate_candidates(layout)
+
+    last = candidates[-1]
+
+    assert last.move.first_letter == "Y"
+    assert last.move.second_letter == "Z"

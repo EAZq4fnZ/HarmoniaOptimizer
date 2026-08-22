@@ -8,6 +8,7 @@ from evaluator.transition_statistics import TransitionStatistics
 from models.layout import Layout
 from models.optimization_result import OptimizationResult
 from models.optimization_step import OptimizationStep
+from models.swap_candidate_evaluation import SwapCandidateEvaluation
 from optimizer.best_candidate_selector import BestCandidateSelector
 from optimizer.swap_candidate_generator import SwapCandidateGenerator
 
@@ -22,7 +23,7 @@ class LocalSearchOptimizer:
     2. Evaluate every candidate.
     3. Select the valid candidate with the lowest score.
     4. Accept it only if it improves the current score.
-    5. Record every accepted improvement.
+    5. Record the accepted swap and evaluation.
     6. Repeat until no improvement exists or max_iterations is reached.
     """
 
@@ -87,23 +88,28 @@ class LocalSearchOptimizer:
             )
 
         for iteration in range(1, self._max_iterations + 1):
-            candidate_layouts = (
-                self._candidate_generator.generate(
+            swap_candidates = (
+                self._candidate_generator.generate_candidates(
                     current.layout
                 )
             )
 
             evaluations = (
-                self._candidate_evaluator.evaluate(
-                    layout=candidate_layout,
-                    transition_statistics=transition_statistics,
-                    character_statistics=character_statistics,
+                SwapCandidateEvaluation(
+                    candidate=candidate,
+                    evaluation=self._candidate_evaluator.evaluate(
+                        layout=candidate.layout,
+                        transition_statistics=transition_statistics,
+                        character_statistics=character_statistics,
+                    ),
                 )
-                for candidate_layout in candidate_layouts
+                for candidate in swap_candidates
             )
 
-            best = self._candidate_selector.select(
-                evaluations
+            best = (
+                self._candidate_selector.select_swap_candidate(
+                    evaluations
+                )
             )
 
             if best is None:
@@ -115,11 +121,12 @@ class LocalSearchOptimizer:
             if best.score >= current.score:
                 break
 
-            current = best
+            current = best.evaluation
 
             steps.append(
                 OptimizationStep(
                     iteration=iteration,
+                    move=best.move,
                     evaluation=current,
                 )
             )

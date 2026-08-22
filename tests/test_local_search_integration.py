@@ -238,8 +238,15 @@ def test_local_search_records_consistent_history():
     assert result.iteration_count == len(result.steps)
 
     if result.steps:
-        assert result.final_evaluation == result.steps[-1].evaluation
-        assert result.final_score == result.steps[-1].score
+        assert (
+            result.final_evaluation
+            == result.steps[-1].evaluation
+        )
+
+        assert (
+            result.final_score
+            == result.steps[-1].score
+        )
 
         scores = tuple(
             step.score
@@ -254,9 +261,40 @@ def test_local_search_records_consistent_history():
         assert all(
             current < previous
             for previous, current in zip(
-                (result.initial_score, *scores[:-1]),
+                (
+                    result.initial_score,
+                    *scores[:-1],
+                ),
                 scores,
             )
         )
     else:
-        assert result.final_evaluation == result.initial_evaluation
+        assert (
+            result.final_evaluation
+            == result.initial_evaluation
+        )
+
+
+def test_local_search_records_real_swap_moves():
+    layout = make_layout()
+
+    optimizer = LocalSearchOptimizer(
+        candidate_evaluator=make_candidate_evaluator(),
+        candidate_generator=SwapCandidateGenerator(),
+        max_iterations=3,
+    )
+
+    result = optimizer.optimize(
+        layout,
+        make_transition_statistics(),
+        make_character_statistics(),
+    )
+
+    for step in result.steps:
+        assert (
+            step.move.first_letter
+            != step.move.second_letter
+        )
+
+        assert step.move.first_letter in layout.mapping
+        assert step.move.second_letter in layout.mapping

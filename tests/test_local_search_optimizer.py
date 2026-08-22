@@ -8,6 +8,8 @@ from models.candidate_score import (
 from models.constraint_evaluation import ConstraintEvaluation
 from models.layout import Layout
 from models.optimization_result import OptimizationResult
+from models.swap_candidate import SwapCandidate
+from models.swap_move import SwapMove
 from optimizer.local_search_optimizer import LocalSearchOptimizer
 
 
@@ -49,6 +51,20 @@ def make_evaluation(
     )
 
 
+def make_swap_candidate(
+    layout: Layout,
+    first_letter: str,
+    second_letter: str,
+) -> SwapCandidate:
+    return SwapCandidate(
+        move=SwapMove(
+            first_letter=first_letter,
+            second_letter=second_letter,
+        ),
+        layout=layout,
+    )
+
+
 class FakeCandidateEvaluator:
     def __init__(
         self,
@@ -76,12 +92,15 @@ class FakeCandidateEvaluator:
 class FakeCandidateGenerator:
     def __init__(
         self,
-        candidates: dict[str, tuple[Layout, ...]],
+        candidates: dict[
+            str,
+            tuple[SwapCandidate, ...],
+        ],
     ) -> None:
         self._candidates = candidates
         self.generated_from: list[str] = []
 
-    def generate(
+    def generate_candidates(
         self,
         layout,
     ):
@@ -131,7 +150,13 @@ def test_optimizer_returns_initial_layout_when_no_improvement():
 
     generator = FakeCandidateGenerator(
         {
-            "initial": (worse,),
+            "initial": (
+                make_swap_candidate(
+                    worse,
+                    "A",
+                    "B",
+                ),
+            ),
         }
     )
 
@@ -167,7 +192,13 @@ def test_optimizer_accepts_better_candidate():
 
     generator = FakeCandidateGenerator(
         {
-            "initial": (better,),
+            "initial": (
+                make_swap_candidate(
+                    better,
+                    "A",
+                    "B",
+                ),
+            ),
             "better": (),
         }
     )
@@ -190,6 +221,10 @@ def test_optimizer_accepts_better_candidate():
     assert result.iteration_count == 1
 
     assert result.steps[0].iteration == 1
+    assert result.steps[0].move == SwapMove(
+        first_letter="A",
+        second_letter="B",
+    )
     assert result.steps[0].evaluation.layout == better
     assert result.steps[0].score == 5.0
 
@@ -209,8 +244,20 @@ def test_optimizer_repeats_until_local_optimum():
 
     generator = FakeCandidateGenerator(
         {
-            "initial": (second,),
-            "second": (third,),
+            "initial": (
+                make_swap_candidate(
+                    second,
+                    "A",
+                    "B",
+                ),
+            ),
+            "second": (
+                make_swap_candidate(
+                    third,
+                    "C",
+                    "D",
+                ),
+            ),
             "third": (),
         }
     )
@@ -247,6 +294,16 @@ def test_optimizer_repeats_until_local_optimum():
         2,
     )
 
+    assert result.steps[0].move == SwapMove(
+        first_letter="A",
+        second_letter="B",
+    )
+
+    assert result.steps[1].move == SwapMove(
+        first_letter="C",
+        second_letter="D",
+    )
+
     assert result.final_evaluation.layout == third
 
 
@@ -268,9 +325,21 @@ def test_optimizer_selects_best_candidate():
     generator = FakeCandidateGenerator(
         {
             "initial": (
-                candidate1,
-                candidate2,
-                candidate3,
+                make_swap_candidate(
+                    candidate1,
+                    "A",
+                    "B",
+                ),
+                make_swap_candidate(
+                    candidate2,
+                    "C",
+                    "D",
+                ),
+                make_swap_candidate(
+                    candidate3,
+                    "E",
+                    "F",
+                ),
             ),
             "candidate2": (),
         }
@@ -291,6 +360,11 @@ def test_optimizer_selects_best_candidate():
     assert result.final_score == 4.0
     assert result.iteration_count == 1
 
+    assert result.steps[0].move == SwapMove(
+        first_letter="C",
+        second_letter="D",
+    )
+
 
 def test_optimizer_does_not_accept_equal_score():
     initial = make_layout("initial")
@@ -305,7 +379,13 @@ def test_optimizer_does_not_accept_equal_score():
 
     generator = FakeCandidateGenerator(
         {
-            "initial": (equal,),
+            "initial": (
+                make_swap_candidate(
+                    equal,
+                    "A",
+                    "B",
+                ),
+            ),
         }
     )
 
@@ -341,8 +421,20 @@ def test_optimizer_respects_max_iterations():
 
     generator = FakeCandidateGenerator(
         {
-            "initial": (second,),
-            "second": (third,),
+            "initial": (
+                make_swap_candidate(
+                    second,
+                    "A",
+                    "B",
+                ),
+            ),
+            "second": (
+                make_swap_candidate(
+                    third,
+                    "C",
+                    "D",
+                ),
+            ),
         }
     )
 
@@ -361,7 +453,12 @@ def test_optimizer_respects_max_iterations():
     assert result.final_evaluation.layout == second
     assert result.final_score == 7.0
     assert result.iteration_count == 1
+
     assert result.steps[0].iteration == 1
+    assert result.steps[0].move == SwapMove(
+        first_letter="A",
+        second_letter="B",
+    )
 
 
 def test_zero_max_iterations_returns_initial_evaluation():
@@ -377,7 +474,13 @@ def test_zero_max_iterations_returns_initial_evaluation():
 
     generator = FakeCandidateGenerator(
         {
-            "initial": (better,),
+            "initial": (
+                make_swap_candidate(
+                    better,
+                    "A",
+                    "B",
+                ),
+            ),
         }
     )
 
@@ -431,8 +534,20 @@ def test_optimizer_generates_from_each_accepted_layout():
 
     generator = FakeCandidateGenerator(
         {
-            "initial": (second,),
-            "second": (third,),
+            "initial": (
+                make_swap_candidate(
+                    second,
+                    "A",
+                    "B",
+                ),
+            ),
+            "second": (
+                make_swap_candidate(
+                    third,
+                    "C",
+                    "D",
+                ),
+            ),
             "third": (),
         }
     )
@@ -472,8 +587,20 @@ def test_optimizer_records_accepted_steps():
 
     generator = FakeCandidateGenerator(
         {
-            "initial": (second,),
-            "second": (third,),
+            "initial": (
+                make_swap_candidate(
+                    second,
+                    "A",
+                    "B",
+                ),
+            ),
+            "second": (
+                make_swap_candidate(
+                    third,
+                    "C",
+                    "D",
+                ),
+            ),
             "third": (),
         }
     )
@@ -496,9 +623,17 @@ def test_optimizer_records_accepted_steps():
     assert len(result.steps) == 2
 
     assert result.steps[0].iteration == 1
+    assert result.steps[0].move == SwapMove(
+        first_letter="A",
+        second_letter="B",
+    )
     assert result.steps[0].score == 7.0
     assert result.steps[0].evaluation.layout == second
 
     assert result.steps[1].iteration == 2
+    assert result.steps[1].move == SwapMove(
+        first_letter="C",
+        second_letter="D",
+    )
     assert result.steps[1].score == 3.0
     assert result.steps[1].evaluation.layout == third
