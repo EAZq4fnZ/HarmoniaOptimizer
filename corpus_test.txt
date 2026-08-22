@@ -1,0 +1,8 @@
+the quick brown fox jumps over the lazy dog
+
+this is a small test corpus for harmonia optimizer.
+keyboard layout optimization should consider common letter
+frequencies and transitions in english text.
+
+the optimizer evaluates finger load, hand alternation,
+same finger transitions, row changes, and rolling motions.
