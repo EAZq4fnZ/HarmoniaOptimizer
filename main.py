@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 from collections.abc import Sequence
+from pathlib import Path
 
 from app.optimization_app import OptimizationApp
+from config_loader.optimization_config_loader import (
+    OptimizationConfigLoader,
+)
 from models.layout import Layout
+
+
+DEFAULT_CONFIG_PATH = Path(
+    "config/optimization/default.json"
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,6 +44,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG_PATH,
+        help=(
+            "Path to the optimization configuration "
+            "JSON file "
+            "(default: config/optimization/default.json)."
+        ),
+    )
+
+    parser.add_argument(
         "--max-iterations",
         type=int,
         default=10,
@@ -52,6 +71,7 @@ def run(
     layout_path: Path,
     corpus_path: Path,
     max_iterations: int,
+    config_path: Path = DEFAULT_CONFIG_PATH,
 ) -> str:
     """
     Run one optimization and return its formatted report.
@@ -66,6 +86,10 @@ def run(
         layout_path
     )
 
+    config = OptimizationConfigLoader.load(
+        config_path
+    )
+
     text = corpus_path.read_text(
         encoding="utf-8"
     )
@@ -76,6 +100,7 @@ def run(
         )
 
     app = OptimizationApp(
+        config=config,
         max_iterations=max_iterations,
     )
 
@@ -106,6 +131,7 @@ def main(
         report = run(
             layout_path=args.layout,
             corpus_path=args.corpus,
+            config_path=args.config,
             max_iterations=args.max_iterations,
         )
     except (

@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "transition_cost_weights": {
+    "same_finger_penalty": 10.0,
+    "same_hand_penalty": 2.0,
+    "row_change_penalty": 1.5,
+    "alternation_reward": 2.0,
+    "inward_roll_reward": 1.5,
+    "outward_roll_reward": 0.5
+  },
+  "candidate_score_weights": {
+    "transition_weight": 1.0,
+    "finger_load_weight": 1.0
+  },
+  "finger_load_budgets": [
+    {
+      "hand": "left",
+      "finger": "index",
+      "target_ratio": 0.25,
+      "tolerance": 0.05
+    },
+    {
+      "hand": "left",
+      "finger": "middle",
+      "target_ratio": 0.15,
+      "tolerance": 0.05
+    },
+    {
+      "hand": "left",
+      "finger": "ring",
+      "target_ratio": 0.07,
+      "tolerance": 0.03
+    },
+    {
+      "hand": "left",
+      "finger": "pinky",
+      "target_ratio": 0.03,
+      "tolerance": 0.02
+    },
+    {
+      "hand": "right",
+      "finger": "index",
+      "target_ratio": 0.25,
+      "tolerance": 0.05
+    },
+    {
+      "hand": "right",
+      "finger": "middle",
+      "target_ratio": 0.15,
+      "tolerance": 0.05
+    },
+    {
+      "hand": "right",
+      "finger": "ring",
+      "target_ratio": 0.07,
+      "tolerance": 0.03
+    },
+    {
+      "hand": "right",
+      "finger": "pinky",
+      "target_ratio": 0.03,
+      "tolerance": 0.02
+    }
+  ]
+}

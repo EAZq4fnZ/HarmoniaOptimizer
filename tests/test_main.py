@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from main import (
+    DEFAULT_CONFIG_PATH,
     build_parser,
     main,
     run,
@@ -77,6 +78,49 @@ def make_corpus_file(
     return path
 
 
+def make_config_file(
+    tmp_path: Path,
+) -> Path:
+    path = tmp_path / "optimization.json"
+
+    data = {
+        "version": "1.0",
+        "transition_cost_weights": {
+            "same_finger_penalty": 10.0,
+            "same_hand_penalty": 2.0,
+            "row_change_penalty": 1.5,
+            "alternation_reward": 2.0,
+            "inward_roll_reward": 1.5,
+            "outward_roll_reward": 0.5,
+        },
+        "candidate_score_weights": {
+            "transition_weight": 1.0,
+            "finger_load_weight": 1.0,
+        },
+        "finger_load_budgets": [
+            {
+                "hand": "left",
+                "finger": "index",
+                "target_ratio": 0.25,
+                "tolerance": 0.05,
+            },
+            {
+                "hand": "right",
+                "finger": "index",
+                "target_ratio": 0.25,
+                "tolerance": 0.05,
+            },
+        ],
+    }
+
+    path.write_text(
+        json.dumps(data),
+        encoding="utf-8",
+    )
+
+    return path
+
+
 def test_build_parser():
     parser = build_parser()
 
@@ -95,7 +139,25 @@ def test_build_parser():
         "corpus.txt"
     )
 
+    assert args.config == DEFAULT_CONFIG_PATH
     assert args.max_iterations == 10
+
+
+def test_build_parser_accepts_config():
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "layout.json",
+            "corpus.txt",
+            "--config",
+            "custom.json",
+        ]
+    )
+
+    assert args.config == Path(
+        "custom.json"
+    )
 
 
 def test_build_parser_accepts_max_iterations():
@@ -124,9 +186,14 @@ def test_run_returns_report(
         tmp_path
     )
 
+    config_path = make_config_file(
+        tmp_path
+    )
+
     report = run(
         layout_path=layout_path,
         corpus_path=corpus_path,
+        config_path=config_path,
         max_iterations=0,
     )
 
@@ -151,9 +218,14 @@ def test_run_with_one_iteration(
         tmp_path
     )
 
+    config_path = make_config_file(
+        tmp_path
+    )
+
     report = run(
         layout_path=layout_path,
         corpus_path=corpus_path,
+        config_path=config_path,
         max_iterations=1,
     )
 
@@ -165,6 +237,10 @@ def test_run_rejects_empty_corpus(
     tmp_path: Path,
 ):
     layout_path = make_layout_file(
+        tmp_path
+    )
+
+    config_path = make_config_file(
         tmp_path
     )
 
@@ -185,6 +261,7 @@ def test_run_rejects_empty_corpus(
         run(
             layout_path=layout_path,
             corpus_path=corpus_path,
+            config_path=config_path,
             max_iterations=0,
         )
 
@@ -200,6 +277,10 @@ def test_run_rejects_negative_iterations(
         tmp_path
     )
 
+    config_path = make_config_file(
+        tmp_path
+    )
+
     with pytest.raises(
         ValueError,
         match="max_iterations",
@@ -207,6 +288,7 @@ def test_run_rejects_negative_iterations(
         run(
             layout_path=layout_path,
             corpus_path=corpus_path,
+            config_path=config_path,
             max_iterations=-1,
         )
 
@@ -223,10 +305,16 @@ def test_main_prints_report(
         tmp_path
     )
 
+    config_path = make_config_file(
+        tmp_path
+    )
+
     exit_code = main(
         [
             str(layout_path),
             str(corpus_path),
+            "--config",
+            str(config_path),
             "--max-iterations",
             "0",
         ]
@@ -254,6 +342,10 @@ def test_main_missing_layout_exits(
         tmp_path
     )
 
+    config_path = make_config_file(
+        tmp_path
+    )
+
     missing_layout = (
         tmp_path
         / "missing.json"
@@ -266,6 +358,41 @@ def test_main_missing_layout_exits(
             [
                 str(missing_layout),
                 str(corpus_path),
+                "--config",
+                str(config_path),
+                "--max-iterations",
+                "0",
+            ]
+        )
+
+    assert exc_info.value.code == 2
+
+
+def test_main_missing_config_exits(
+    tmp_path: Path,
+):
+    layout_path = make_layout_file(
+        tmp_path
+    )
+
+    corpus_path = make_corpus_file(
+        tmp_path
+    )
+
+    missing_config = (
+        tmp_path
+        / "missing-config.json"
+    )
+
+    with pytest.raises(
+        SystemExit,
+    ) as exc_info:
+        main(
+            [
+                str(layout_path),
+                str(corpus_path),
+                "--config",
+                str(missing_config),
                 "--max-iterations",
                 "0",
             ]
@@ -278,6 +405,10 @@ def test_main_empty_corpus_exits(
     tmp_path: Path,
 ):
     layout_path = make_layout_file(
+        tmp_path
+    )
+
+    config_path = make_config_file(
         tmp_path
     )
 
@@ -298,6 +429,8 @@ def test_main_empty_corpus_exits(
             [
                 str(layout_path),
                 str(corpus_path),
+                "--config",
+                str(config_path),
                 "--max-iterations",
                 "0",
             ]
