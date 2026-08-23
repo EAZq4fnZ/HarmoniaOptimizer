@@ -13,7 +13,15 @@ from models.constraint_config import (
     ForbiddenPositionConstraintConfig,
     VowelPositionConstraintConfig,
 )
-
+from evaluator.vowel_hand_distribution_constraint import (
+    VowelHandDistributionConstraint,
+)
+from models.constraint_config import (
+    ConstraintConfig,
+    ForbiddenPositionConstraintConfig,
+    VowelHandDistributionConstraintConfig,
+    VowelPositionConstraintConfig,
+)
 
 def make_config(
     *,
@@ -190,3 +198,74 @@ def test_create_returns_new_constraints():
         first.constraints[1]
         is not second.constraints[1]
     )
+
+
+def test_create_with_vowel_hand_distribution_enabled():
+    config = ConstraintConfig(
+        version="1.0",
+        vowel_position=VowelPositionConstraintConfig(
+            enabled=False,
+            allowed_positions=frozenset(),
+        ),
+        forbidden_position=(
+            ForbiddenPositionConstraintConfig(
+                enabled=False,
+                forbidden_positions=frozenset(),
+            )
+        ),
+        vowel_hand_distribution=(
+            VowelHandDistributionConstraintConfig(
+                enabled=True,
+                min_left_vowels=2,
+                max_left_vowels=3,
+            )
+        ),
+    )
+
+    result = ConstraintFactory.create(
+        config
+    )
+
+    assert len(result.constraints) == 1
+
+    assert isinstance(
+        result.constraints[0],
+        VowelHandDistributionConstraint,
+    )
+
+
+def test_create_preserves_vowel_hand_distribution_limits():
+    config = ConstraintConfig(
+        version="1.0",
+        vowel_position=VowelPositionConstraintConfig(
+            enabled=False,
+            allowed_positions=frozenset(),
+        ),
+        forbidden_position=(
+            ForbiddenPositionConstraintConfig(
+                enabled=False,
+                forbidden_positions=frozenset(),
+            )
+        ),
+        vowel_hand_distribution=(
+            VowelHandDistributionConstraintConfig(
+                enabled=True,
+                min_left_vowels=2,
+                max_left_vowels=3,
+            )
+        ),
+    )
+
+    result = ConstraintFactory.create(
+        config
+    )
+
+    constraint = result.constraints[0]
+
+    assert isinstance(
+        constraint,
+        VowelHandDistributionConstraint,
+    )
+
+    assert constraint.min_left_vowels == 2
+    assert constraint.max_left_vowels == 3

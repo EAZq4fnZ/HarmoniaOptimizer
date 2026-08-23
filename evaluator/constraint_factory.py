@@ -6,6 +6,9 @@ from evaluator.constraint_set import ConstraintSet
 from evaluator.forbidden_position_constraint import (
     ForbiddenPositionConstraint,
 )
+from evaluator.vowel_hand_distribution_constraint import (
+    VowelHandDistributionConstraint,
+)
 from evaluator.vowel_position_constraint import (
     VowelPositionConstraint,
 )
@@ -31,6 +34,22 @@ class ConstraintFactory:
                         .vowel_position
                         .allowed_positions
                     )
+                )
+            )
+
+        if config.vowel_hand_distribution.enabled:
+            constraints.append(
+                VowelHandDistributionConstraint(
+                    min_left_vowels=(
+                        config
+                        .vowel_hand_distribution
+                        .min_left_vowels
+                    ),
+                    max_left_vowels=(
+                        config
+                        .vowel_hand_distribution
+                        .max_left_vowels
+                    ),
                 )
             )
 

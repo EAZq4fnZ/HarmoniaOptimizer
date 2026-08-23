@@ -175,3 +175,39 @@ def test_load_invalid_json_is_rejected(
         ConstraintConfigLoader.load(
             path
         )
+
+
+def test_from_dict_loads_vowel_hand_distribution():
+    data = make_config_dict()
+
+    data["vowel_hand_distribution"] = {
+        "enabled": True,
+        "min_left_vowels": 2,
+        "max_left_vowels": 3,
+    }
+
+    config = ConstraintConfigLoader.from_dict(
+        data
+    )
+
+    distribution = (
+        config.vowel_hand_distribution
+    )
+
+    assert distribution.enabled is True
+    assert distribution.min_left_vowels == 2
+    assert distribution.max_left_vowels == 3
+
+
+def test_missing_vowel_hand_distribution_is_disabled():
+    config = ConstraintConfigLoader.from_dict(
+        make_config_dict()
+    )
+
+    distribution = (
+        config.vowel_hand_distribution
+    )
+
+    assert distribution.enabled is False
+    assert distribution.min_left_vowels == 0
+    assert distribution.max_left_vowels == 5
