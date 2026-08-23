@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "vowel_position": {
+    "enabled": false,
+    "allowed_positions": []
+  },
+  "forbidden_position": {
+    "enabled": false,
+    "forbidden_positions": []
+  }
+}

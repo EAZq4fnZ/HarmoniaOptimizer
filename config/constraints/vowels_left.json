@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "vowel_position": {
+    "enabled": true,
+    "allowed_positions": [
+      "L-R-T-1",
+      "L-M-T-2",
+      "L-I-T-3",
+      "L-I-T-4",
+      "L-R-H-1",
+      "L-M-H-2",
+      "L-I-H-3",
+      "L-I-H-4"
+    ]
+  },
+  "forbidden_position": {
+    "enabled": false,
+    "forbidden_positions": []
+  }
+}

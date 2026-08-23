@@ -7,6 +7,9 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from app.optimization_app import OptimizationApp
+from config_loader.constraint_config_loader import (
+    ConstraintConfigLoader,
+)
 from config_loader.optimization_config_loader import (
     OptimizationConfigLoader,
 )
@@ -15,6 +18,10 @@ from models.layout import Layout
 
 DEFAULT_CONFIG_PATH = Path(
     "config/optimization/default.json"
+)
+
+DEFAULT_CONSTRAINT_CONFIG_PATH = Path(
+    "config/constraints/default.json"
 )
 
 
@@ -55,6 +62,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--constraints",
+        type=Path,
+        default=DEFAULT_CONSTRAINT_CONFIG_PATH,
+        help=(
+            "Path to the constraint configuration "
+            "JSON file "
+            "(default: config/constraints/default.json)."
+        ),
+    )
+
+    parser.add_argument(
         "--max-iterations",
         type=int,
         default=10,
@@ -72,6 +90,9 @@ def run(
     corpus_path: Path,
     max_iterations: int,
     config_path: Path = DEFAULT_CONFIG_PATH,
+    constraint_config_path: Path = (
+        DEFAULT_CONSTRAINT_CONFIG_PATH
+    ),
 ) -> str:
     """
     Run one optimization and return its formatted report.
@@ -90,6 +111,10 @@ def run(
         config_path
     )
 
+    constraint_config = ConstraintConfigLoader.load(
+        constraint_config_path
+    )
+
     text = corpus_path.read_text(
         encoding="utf-8"
     )
@@ -101,6 +126,7 @@ def run(
 
     app = OptimizationApp(
         config=config,
+        constraint_config=constraint_config,
         max_iterations=max_iterations,
     )
 
@@ -132,6 +158,7 @@ def main(
             layout_path=args.layout,
             corpus_path=args.corpus,
             config_path=args.config,
+            constraint_config_path=args.constraints,
             max_iterations=args.max_iterations,
         )
     except (

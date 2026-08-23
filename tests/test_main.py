@@ -9,6 +9,7 @@ import pytest
 
 from main import (
     DEFAULT_CONFIG_PATH,
+    DEFAULT_CONSTRAINT_CONFIG_PATH,
     build_parser,
     main,
     run,
@@ -141,6 +142,10 @@ def test_build_parser():
 
     assert args.config == DEFAULT_CONFIG_PATH
     assert args.max_iterations == 10
+    assert (
+        args.constraints
+        == DEFAULT_CONSTRAINT_CONFIG_PATH
+    )
 
 
 def test_build_parser_accepts_config():
@@ -195,6 +200,7 @@ def test_run_returns_report(
         corpus_path=corpus_path,
         config_path=config_path,
         max_iterations=0,
+        constraint_config_path=make_constraint_config_file(tmp_path),
     )
 
     assert isinstance(
@@ -227,6 +233,7 @@ def test_run_with_one_iteration(
         corpus_path=corpus_path,
         config_path=config_path,
         max_iterations=1,
+        constraint_config_path=make_constraint_config_file(tmp_path),
     )
 
     assert "Optimization Result" in report
@@ -263,6 +270,7 @@ def test_run_rejects_empty_corpus(
             corpus_path=corpus_path,
             config_path=config_path,
             max_iterations=0,
+            constraint_config_path=make_constraint_config_file(tmp_path),
         )
 
 
@@ -290,6 +298,7 @@ def test_run_rejects_negative_iterations(
             corpus_path=corpus_path,
             config_path=config_path,
             max_iterations=-1,
+            constraint_config_path=make_constraint_config_file(tmp_path),
         )
 
 
@@ -317,6 +326,8 @@ def test_main_prints_report(
             str(config_path),
             "--max-iterations",
             "0",
+            "--constraints",
+            str(make_constraint_config_file(tmp_path)),
         ]
     )
 
@@ -362,6 +373,8 @@ def test_main_missing_layout_exits(
                 str(config_path),
                 "--max-iterations",
                 "0",
+                "--constraints",
+                str(make_constraint_config_file(tmp_path)),
             ]
         )
 
@@ -395,6 +408,8 @@ def test_main_missing_config_exits(
                 str(missing_config),
                 "--max-iterations",
                 "0",
+                "--constraints",
+                str(make_constraint_config_file(tmp_path)),
             ]
         )
 
@@ -433,7 +448,90 @@ def test_main_empty_corpus_exits(
                 str(config_path),
                 "--max-iterations",
                 "0",
+                "--constraints",
+                str(make_constraint_config_file(tmp_path)),
             ]
         )
 
     assert exc_info.value.code == 2
+
+
+def test_build_parser_accepts_constraints():
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "layout.json",
+            "corpus.txt",
+            "--constraints",
+            "constraints.json",
+        ]
+    )
+
+    assert args.constraints == Path(
+        "constraints.json"
+    )
+
+
+def test_main_missing_constraint_config_exits(
+    tmp_path: Path,
+):
+    layout_path = make_layout_file(
+        tmp_path
+    )
+
+    corpus_path = make_corpus_file(
+        tmp_path
+    )
+
+    config_path = make_config_file(
+        tmp_path
+    )
+
+    missing_constraints = (
+        tmp_path
+        / "missing-constraints.json"
+    )
+
+    with pytest.raises(
+        SystemExit,
+    ) as exc_info:
+        main(
+            [
+                str(layout_path),
+                str(corpus_path),
+                "--config",
+                str(config_path),
+                "--constraints",
+                str(missing_constraints),
+                "--max-iterations",
+                "0",
+            ]
+        )
+
+    assert exc_info.value.code == 2
+
+
+def make_constraint_config_file(
+    tmp_path: Path,
+) -> Path:
+    path = tmp_path / "constraints.json"
+
+    data = {
+        "version": "1.0",
+        "vowel_position": {
+            "enabled": False,
+            "allowed_positions": [],
+        },
+        "forbidden_position": {
+            "enabled": False,
+            "forbidden_positions": [],
+        },
+    }
+
+    path.write_text(
+        json.dumps(data),
+        encoding="utf-8",
+    )
+
+    return path

@@ -5,10 +5,11 @@ from __future__ import annotations
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.candidate_scorer import CandidateScorer
 from evaluator.character_analyzer import CharacterAnalyzer
-from evaluator.constraint_set import ConstraintSet
+from evaluator.constraint_factory import ConstraintFactory
 from evaluator.corpus_analyzer import CorpusAnalyzer
 from evaluator.finger_load_pipeline import FingerLoadPipeline
 from evaluator.layout_evaluator import LayoutEvaluator
+from models.constraint_config import ConstraintConfig
 from models.corpus import Corpus
 from models.corpus_entry import CorpusEntry
 from models.layout import Layout
@@ -28,6 +29,9 @@ class OptimizationApp:
         Corpus
           -> transition statistics
           -> character statistics
+        ConstraintConfig
+          -> ConstraintFactory
+          -> ConstraintSet
         CandidateEvaluator
         LocalSearchOptimizer
         OptimizationReporter
@@ -36,6 +40,7 @@ class OptimizationApp:
     def __init__(
         self,
         config: OptimizationConfig,
+        constraint_config: ConstraintConfig,
         max_iterations: int = 10,
     ) -> None:
         if max_iterations < 0:
@@ -44,11 +49,16 @@ class OptimizationApp:
             )
 
         self._config = config
+        self._constraint_config = constraint_config
         self._max_iterations = max_iterations
 
     @property
     def config(self) -> OptimizationConfig:
         return self._config
+
+    @property
+    def constraint_config(self) -> ConstraintConfig:
+        return self._constraint_config
 
     @property
     def max_iterations(self) -> int:
@@ -122,11 +132,14 @@ class OptimizationApp:
         self,
     ) -> CandidateEvaluator:
         """
-        Build the evaluator from the supplied optimization config.
+        Build the evaluator from supplied optimization
+        and constraint configuration.
         """
 
         return CandidateEvaluator(
-            constraint_set=ConstraintSet(()),
+            constraint_set=ConstraintFactory.create(
+                self._constraint_config
+            ),
             layout_evaluator=LayoutEvaluator(
                 self._config.transition_cost_weights
             ),

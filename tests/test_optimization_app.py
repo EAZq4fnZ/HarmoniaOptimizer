@@ -4,6 +4,11 @@ import pytest
 
 from app.optimization_app import OptimizationApp
 from models.candidate_score import CandidateScoreWeights
+from models.constraint_config import (
+    ConstraintConfig,
+    ForbiddenPositionConstraintConfig,
+    VowelPositionConstraintConfig,
+)
 from models.corpus import Corpus
 from models.corpus_entry import CorpusEntry
 from models.enums import Finger, Hand
@@ -137,6 +142,7 @@ def make_app(
 ) -> OptimizationApp:
     return OptimizationApp(
         config=make_config(),
+        constraint_config=make_constraint_config(),
         max_iterations=max_iterations,
     )
 
@@ -154,16 +160,30 @@ def test_app_preserves_config():
 
     app = OptimizationApp(
         config=config,
+        constraint_config=make_constraint_config(),
         max_iterations=1,
     )
 
     assert app.config is config
 
 
+def test_app_preserves_constraint_config():
+    constraint_config = make_constraint_config()
+
+    app = OptimizationApp(
+        config=make_config(),
+        constraint_config=constraint_config,
+        max_iterations=1,
+    )
+
+    assert app.constraint_config is constraint_config
+
+
 def test_app_rejects_negative_max_iterations():
     with pytest.raises(ValueError):
         OptimizationApp(
             config=make_config(),
+            constraint_config=make_constraint_config(),
             max_iterations=-1,
         )
 
@@ -245,3 +265,17 @@ def test_format_result():
     assert "Optimization Result" in report
     assert "Initial score:" in report
     assert "Final score:" in report
+
+
+def make_constraint_config() -> ConstraintConfig:
+    return ConstraintConfig(
+        version="1.0",
+        vowel_position=VowelPositionConstraintConfig(
+            enabled=False,
+            allowed_positions=frozenset(),
+        ),
+        forbidden_position=ForbiddenPositionConstraintConfig(
+            enabled=False,
+            forbidden_positions=frozenset(),
+        ),
+    )
