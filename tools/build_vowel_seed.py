@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 from config_loader.constraint_config_loader import (
@@ -81,7 +82,8 @@ def main() -> int:
             "config/optimization/default.json"
         ),
         help=(
-            "Path to the optimization configuration JSON file."
+            "Path to the optimization configuration "
+            "JSON file."
         ),
     )
 
@@ -90,7 +92,8 @@ def main() -> int:
         type=Path,
         required=True,
         help=(
-            "Path to the constraint configuration JSON file."
+            "Path to the constraint configuration "
+            "JSON file."
         ),
     )
 
@@ -158,12 +161,66 @@ def main() -> int:
         ),
     )
 
+    started_at = time.perf_counter()
+
+    def show_progress(
+        completed: int,
+        total: int,
+    ) -> None:
+        elapsed = (
+            time.perf_counter()
+            - started_at
+        )
+
+        if elapsed > 0:
+            rate = completed / elapsed
+        else:
+            rate = 0.0
+
+        remaining = total - completed
+
+        if rate > 0:
+            eta = remaining / rate
+        else:
+            eta = 0.0
+
+        if total > 0:
+            percent = (
+                completed
+                / total
+                * 100.0
+            )
+        else:
+            percent = 100.0
+
+        print(
+            "\r"
+            f"Progress: "
+            f"{completed:,} / {total:,} "
+            f"({percent:5.1f}%) | "
+            f"{rate:,.0f} cand/s | "
+            f"ETA {eta:,.1f}s",
+            end="",
+            flush=True,
+        )
+
     result = builder.build(
         layout=layout,
         transition_statistics=transition_statistics,
         character_statistics=character_statistics,
+        progress_callback=show_progress,
+        progress_interval=1000,
     )
 
+    elapsed = (
+        time.perf_counter()
+        - started_at
+    )
+
+    # Finish the progress line.
+    print()
+
+    print()
     print("Best Vowel Seed")
     print("================")
     print()
@@ -184,6 +241,17 @@ def main() -> int:
             f"{vowel}: "
             f"{result.layout.position(vowel)}"
         )
+
+    print()
+    print("Search statistics")
+    print("-----------------")
+    print(
+        "Candidates: "
+        f"{builder.evaluated_candidate_count:,}"
+    )
+    print(
+        f"Elapsed:    {elapsed:.3f} seconds"
+    )
 
     if args.output is not None:
         output_data = {

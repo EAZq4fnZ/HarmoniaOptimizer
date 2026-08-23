@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from itertools import permutations
+from math import perm
 
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.character_statistics import CharacterStatistics
@@ -18,6 +20,8 @@ class VowelSeedBuilder:
     All assignments of A/E/I/O/U to five distinct allowed positions
     are evaluated. The valid candidate with the lowest score is
     returned.
+
+    An optional progress callback can be supplied by the caller.
     """
 
     VOWELS = ("A", "E", "I", "O", "U")
@@ -34,19 +38,51 @@ class VowelSeedBuilder:
 
         self._evaluator = evaluator
         self._allowed_positions = allowed_positions
+        self._evaluated_candidate_count = 0
 
     @property
     def allowed_positions(self) -> frozenset[str]:
         return self._allowed_positions
+
+    @property
+    def evaluated_candidate_count(self) -> int:
+        return self._evaluated_candidate_count
 
     def build(
         self,
         layout: Layout,
         transition_statistics: TransitionStatistics,
         character_statistics: CharacterStatistics,
+        progress_callback: (
+            Callable[[int, int], None] | None
+        ) = None,
+        progress_interval: int = 1000,
     ) -> CandidateEvaluation:
+        """
+        Search all vowel assignments and return the best valid one.
+
+        progress_callback receives:
+
+            completed_candidates
+            total_candidates
+
+        at each progress interval and when the search completes.
+        """
+
+        if progress_interval <= 0:
+            raise ValueError(
+                "progress_interval must be greater than 0"
+            )
+
         candidate_positions = tuple(
             sorted(self._allowed_positions)
+        )
+
+        self._evaluated_candidate_count = 0
+
+        total_candidates = perm(
+            len(candidate_positions),
+            len(self.VOWELS),
         )
 
         best: CandidateEvaluation | None = None
@@ -60,11 +96,28 @@ class VowelSeedBuilder:
                 vowel_positions=vowel_positions,
             )
 
+            self._evaluated_candidate_count += 1
+
             evaluation = self._evaluator.evaluate(
                 layout=candidate_layout,
                 transition_statistics=transition_statistics,
                 character_statistics=character_statistics,
             )
+
+            if (
+                progress_callback is not None
+                and (
+                    self._evaluated_candidate_count
+                    % progress_interval
+                    == 0
+                    or self._evaluated_candidate_count
+                    == total_candidates
+                )
+            ):
+                progress_callback(
+                    self._evaluated_candidate_count,
+                    total_candidates,
+                )
 
             if not evaluation.is_valid:
                 continue
@@ -141,9 +194,12 @@ class VowelSeedBuilder:
             sorted(vacated_positions)
         )
 
-        if len(displaced_letters) != len(available_positions):
+        if len(displaced_letters) != len(
+            available_positions
+        ):
             raise ValueError(
-                "displaced-letter and vacated-position counts differ"
+                "displaced-letter and vacated-position "
+                "counts differ"
             )
 
         mapping = dict(
