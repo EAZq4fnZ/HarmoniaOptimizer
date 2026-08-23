@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from itertools import permutations
-from math import perm
+from itertools import combinations, permutations
+from math import comb, perm
 
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.character_statistics import CharacterStatistics
@@ -20,9 +20,9 @@ class VowelSeedBuilder:
     All assignments of A/E/I/O/U to five distinct allowed positions
     are evaluated.
 
-    Optional left-hand vowel limits can be supplied so that only
-    assignments satisfying the requested hand distribution are sent
-    to CandidateEvaluator.
+    Optional left-hand vowel limits can be supplied. When they are
+    supplied, only assignments satisfying the requested hand
+    distribution are generated.
 
     An optional progress callback can also be supplied by the caller.
     """
@@ -68,14 +68,12 @@ class VowelSeedBuilder:
 
         If min_left_vowels and max_left_vowels are supplied,
         only assignments whose number of left-hand vowels falls
-        within that inclusive range are evaluated.
+        within that inclusive range are generated and evaluated.
 
         progress_callback receives:
 
             completed_candidates
             total_candidates
-
-        at each progress interval and when the search completes.
         """
 
         if progress_interval <= 0:
@@ -184,17 +182,11 @@ class VowelSeedBuilder:
         """
         Generate vowel-position assignments.
 
-        Without hand limits, all permutations are generated.
+        Without hand limits, generate all permutations.
 
-        With hand limits, only assignments satisfying the requested
-        number of left-hand vowels are yielded.
+        With hand limits, directly generate only assignments
+        satisfying the requested number of left-hand vowels.
         """
-
-        # These arguments are kept explicit because a later
-        # optimization can generate candidates directly from
-        # left/right position groups.
-        _ = left_positions
-        _ = right_positions
 
         if (
             min_left_vowels is None
@@ -206,21 +198,78 @@ class VowelSeedBuilder:
             )
             return
 
-        for vowel_positions in permutations(
-            candidate_positions,
-            len(self.VOWELS),
+        vowel_indexes = tuple(
+            range(len(self.VOWELS))
+        )
+
+        for left_count in range(
+            min_left_vowels,
+            max_left_vowels + 1,
         ):
-            left_count = sum(
-                position.startswith("L-")
-                for position in vowel_positions
+            right_count = (
+                len(self.VOWELS)
+                - left_count
             )
 
-            if (
-                min_left_vowels
-                <= left_count
-                <= max_left_vowels
+            if left_count > len(left_positions):
+                continue
+
+            if right_count > len(right_positions):
+                continue
+
+            for left_indexes in combinations(
+                vowel_indexes,
+                left_count,
             ):
-                yield vowel_positions
+                left_index_set = set(
+                    left_indexes
+                )
+
+                right_indexes = tuple(
+                    index
+                    for index in vowel_indexes
+                    if index not in left_index_set
+                )
+
+                for left_assignment in permutations(
+                    left_positions,
+                    left_count,
+                ):
+                    for right_assignment in permutations(
+                        right_positions,
+                        right_count,
+                    ):
+                        result: list[str | None] = (
+                            [None] * len(self.VOWELS)
+                        )
+
+                        for index, position in zip(
+                            left_indexes,
+                            left_assignment,
+                            strict=True,
+                        ):
+                            result[index] = position
+
+                        for index, position in zip(
+                            right_indexes,
+                            right_assignment,
+                            strict=True,
+                        ):
+                            result[index] = position
+
+                        if any(
+                            position is None
+                            for position in result
+                        ):
+                            raise RuntimeError(
+                                "incomplete vowel assignment"
+                            )
+
+                        yield tuple(
+                            position
+                            for position in result
+                            if position is not None
+                        )
 
     def _count_candidate_positions(
         self,
@@ -230,8 +279,10 @@ class VowelSeedBuilder:
         max_left_vowels: int | None,
     ) -> int:
         """
-        Return the number of assignments that will actually be
-        evaluated.
+        Return the number of assignments that will be evaluated.
+
+        When hand limits are active, calculate the total
+        combinatorially instead of enumerating candidates.
         """
 
         if (
@@ -243,21 +294,55 @@ class VowelSeedBuilder:
                 len(self.VOWELS),
             )
 
-        return sum(
-            1
-            for vowel_positions in permutations(
-                candidate_positions,
-                len(self.VOWELS),
-            )
-            if (
-                min_left_vowels
-                <= sum(
-                    position.startswith("L-")
-                    for position in vowel_positions
-                )
-                <= max_left_vowels
-            )
+        left_count_available = sum(
+            position.startswith("L-")
+            for position in candidate_positions
         )
+
+        right_count_available = (
+            len(candidate_positions)
+            - left_count_available
+        )
+
+        total = 0
+
+        for left_vowel_count in range(
+            min_left_vowels,
+            max_left_vowels + 1,
+        ):
+            right_vowel_count = (
+                len(self.VOWELS)
+                - left_vowel_count
+            )
+
+            if (
+                left_vowel_count
+                > left_count_available
+            ):
+                continue
+
+            if (
+                right_vowel_count
+                > right_count_available
+            ):
+                continue
+
+            total += (
+                comb(
+                    len(self.VOWELS),
+                    left_vowel_count,
+                )
+                * perm(
+                    left_count_available,
+                    left_vowel_count,
+                )
+                * perm(
+                    right_count_available,
+                    right_vowel_count,
+                )
+            )
+
+        return total
 
     def _validate_hand_limits(
         self,

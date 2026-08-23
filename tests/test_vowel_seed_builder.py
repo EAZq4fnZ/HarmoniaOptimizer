@@ -327,3 +327,72 @@ def test_generate_positions_without_limits_preserves_all():
     )
 
     assert len(positions) == 6720
+
+
+def test_balanced_candidate_count_is_376320():
+    allowed_positions = (
+        allowed_left_positions()
+        | allowed_right_positions()
+    )
+
+    builder = VowelSeedBuilder(
+        evaluator=DummyEvaluator(),
+        allowed_positions=allowed_positions,
+    )
+
+    candidate_positions = tuple(
+        sorted(
+            allowed_positions
+        )
+    )
+
+    count = builder._count_candidate_positions(
+        candidate_positions=candidate_positions,
+        min_left_vowels=2,
+        max_left_vowels=3,
+    )
+
+    assert count == 376320
+
+
+def test_balanced_generator_produces_expected_count():
+    allowed_positions = (
+        allowed_left_positions()
+        | allowed_right_positions()
+    )
+
+    builder = VowelSeedBuilder(
+        evaluator=DummyEvaluator(),
+        allowed_positions=allowed_positions,
+    )
+
+    candidate_positions = tuple(
+        sorted(
+            allowed_positions
+        )
+    )
+
+    left_positions = tuple(
+        position
+        for position in candidate_positions
+        if position.startswith("L-")
+    )
+
+    right_positions = tuple(
+        position
+        for position in candidate_positions
+        if position.startswith("R-")
+    )
+
+    count = sum(
+        1
+        for _ in builder._generate_vowel_positions(
+            candidate_positions=candidate_positions,
+            left_positions=left_positions,
+            right_positions=right_positions,
+            min_left_vowels=2,
+            max_left_vowels=3,
+        )
+    )
+
+    assert count == 376320
