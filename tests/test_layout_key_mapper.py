@@ -147,3 +147,27 @@ def test_mapper_unknown_letter():
         match="Unknown letter",
     ):
         mapper.key("@")
+
+
+def test_key_returns_cached_logical_key():
+    layout = make_layout()
+    mapper = LayoutKeyMapper(
+        layout
+    )
+
+    first = mapper.key("A")
+    second = mapper.key("A")
+
+    assert first is second
+
+
+def test_key_cache_uses_normalized_letter():
+    layout = make_layout()
+    mapper = LayoutKeyMapper(
+        layout
+    )
+
+    upper = mapper.key("A")
+    lower = mapper.key("a")
+
+    assert upper is lower

@@ -1,0 +1,294 @@
+===== layout_key_mapper.py =====
+# models/layout_key_mapper.py
+
+from .enums import Layer
+from .layout import Layout
+from .logical_key import LogicalKey
+from .logical_position_parser import LogicalPositionParser
+
+
+class LayoutKeyMapper:
+    """
+    Convert layout letter assignments into LogicalKey objects.
+
+    Layout stores:
+        A -> "L-M-H-2"
+
+    LayoutKeyMapper converts this into:
+        LogicalKey(
+            id="A",
+            position=LogicalPosition(...),
+        )
+    """
+
+    def __init__(self, layout: Layout) -> None:
+        self._layout = layout
+        self._layer = self._parse_layer(layout.layer)
+
+    @staticmethod
+    def _parse_layer(layer: str) -> Layer:
+        """
+        Convert a layout layer string such as "L0" into Layer.L0.
+        """
+
+        try:
+            return Layer[layer.upper()]
+        except KeyError:
+            raise ValueError(
+                f"Unknown layout layer: {layer!r}"
+            ) from None
+
+    def key(self, letter: str) -> LogicalKey:
+        """
+        Convert a letter in the layout into a LogicalKey.
+        """
+
+        normalized_letter = letter.upper()
+
+        position_id = self._layout.position(
+            normalized_letter
+        )
+
+        position = LogicalPositionParser.parse(
+            position_id,
+            layer=self._layer,
+        )
+
+        return LogicalKey(
+            id=normalized_letter,
+            position=position,
+        )
+
+    def keys(self) -> tuple[LogicalKey, ...]:
+        """
+        Return all logical keys in the layout.
+        """
+
+        return tuple(
+            self.key(letter)
+            for letter in self._layout.letters()
+        )
+
+===== logical_position_parser.py =====
+# models/logical_position_parser.py
+
+from .enums import Finger, Hand, Layer, Row
+from .logical_position import LogicalPosition
+
+
+class LogicalPositionParser:
+    """
+    Parse a canonical logical position ID into LogicalPosition.
+
+    Canonical format
+    ----------------
+    HAND-FINGER-ROW-COLUMN
+
+    Examples
+    --------
+    L-M-H-2
+    R-I-T-4
+    L-R-B-1
+    """
+
+    _HAND_MAP = {
+        "L": Hand.LEFT,
+        "R": Hand.RIGHT,
+    }
+
+    _FINGER_MAP = {
+        "P": Finger.PINKY,
+        "R": Finger.RING,
+        "M": Finger.MIDDLE,
+        "I": Finger.INDEX,
+    }
+
+    _ROW_MAP = {
+        "T": Row.TOP,
+        "H": Row.HOME,
+        "B": Row.BOTTOM,
+    }
+
+    @classmethod
+    def parse(
+        cls,
+        position_id: str,
+        *,
+        layer: Layer = Layer.L0,
+    ) -> LogicalPosition:
+        """
+        Parse a logical position ID.
+
+        Example
+        -------
+        L-M-H-2
+
+        ->
+        LogicalPosition(
+            layer=Layer.L0,
+            hand=Hand.LEFT,
+            finger=Finger.MIDDLE,
+            row=Row.HOME,
+            column=2,
+        )
+        """
+
+        parts = position_id.strip().upper().split("-")
+
+        if len(parts) != 4:
+            raise ValueError(
+                "Logical position ID must use "
+                "HAND-FINGER-ROW-COLUMN format: "
+                f"{position_id!r}"
+            )
+
+        hand_code, finger_code, row_code, column_code = parts
+
+        try:
+            hand = cls._HAND_MAP[hand_code]
+        except KeyError:
+            raise ValueError(
+                f"Unknown hand code: {hand_code!r}"
+            ) from None
+
+        try:
+            finger = cls._FINGER_MAP[finger_code]
+        except KeyError:
+            raise ValueError(
+                f"Unknown finger code: {finger_code!r}"
+            ) from None
+
+        try:
+            row = cls._ROW_MAP[row_code]
+        except KeyError:
+            raise ValueError(
+                f"Unknown row code: {row_code!r}"
+            ) from None
+
+        try:
+            column = int(column_code)
+        except ValueError:
+            raise ValueError(
+                f"Column must be an integer: {column_code!r}"
+            ) from None
+
+        if column < 0:
+            raise ValueError(
+                f"Column must be zero or greater: {column}"
+            )
+
+        return LogicalPosition(
+            layer=layer,
+            hand=hand,
+            finger=finger,
+            row=row,
+            column=column,
+        )
+
+===== layout_evaluator.py =====
+# evaluator/layout_evaluator.py
+
+from models.layout import Layout
+from models.layout_evaluation import (
+    LayoutEvaluation,
+    LayoutTransitionEvaluation,
+)
+from models.layout_key_mapper import LayoutKeyMapper
+from models.transition import Transition
+from models.transition_cost import TransitionCostWeights
+
+from .transition_cost import TransitionCostEvaluator
+from .transition_evaluator import TransitionEvaluator
+from .transition_statistics import TransitionStatistics
+
+
+class LayoutEvaluator:
+    """
+    Evaluate a complete layout using transition statistics.
+
+    Lower total cost is better.
+    """
+
+    def __init__(
+        self,
+        weights: TransitionCostWeights,
+    ) -> None:
+        self._transition_evaluator = TransitionEvaluator()
+        self._cost_evaluator = TransitionCostEvaluator(
+            weights
+        )
+
+    def evaluate(
+        self,
+        layout: Layout,
+        statistics: TransitionStatistics,
+    ) -> LayoutEvaluation:
+        mapper = LayoutKeyMapper(layout)
+
+        transition_results: list[
+            LayoutTransitionEvaluation
+        ] = []
+
+        total_cost = 0.0
+        evaluated_weight = 0.0
+        skipped_weight = 0.0
+
+        for (
+            source_letter,
+            target_letter,
+        ), weighted_count in statistics.weighted().items():
+
+            if (
+                source_letter not in layout
+                or target_letter not in layout
+            ):
+                skipped_weight += weighted_count
+                continue
+
+            source_key = mapper.key(source_letter)
+            target_key = mapper.key(target_letter)
+
+            transition = Transition(
+                source=source_key,
+                target=target_key,
+            )
+
+            evaluation = (
+                self._transition_evaluator.evaluate(
+                    transition
+                )
+            )
+
+            cost = self._cost_evaluator.evaluate(
+                evaluation
+            )
+
+            weighted_cost = (
+                cost.total * weighted_count
+            )
+
+            raw_count = statistics.raw_count(
+                source_letter,
+                target_letter,
+            )
+
+            transition_results.append(
+                LayoutTransitionEvaluation(
+                    source=source_letter.upper(),
+                    target=target_letter.upper(),
+                    raw_count=raw_count,
+                    weighted_count=weighted_count,
+                    cost=cost,
+                    weighted_cost=weighted_cost,
+                )
+            )
+
+            total_cost += weighted_cost
+            evaluated_weight += weighted_count
+
+        return LayoutEvaluation(
+            total_cost=total_cost,
+            evaluated_weight=evaluated_weight,
+            skipped_weight=skipped_weight,
+            transitions=tuple(transition_results),
+        )
