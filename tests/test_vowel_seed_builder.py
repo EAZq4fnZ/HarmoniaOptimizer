@@ -60,6 +60,19 @@ def allowed_left_positions() -> frozenset[str]:
     })
 
 
+def allowed_right_positions() -> frozenset[str]:
+    return frozenset({
+        "R-I-T-4",
+        "R-I-T-3",
+        "R-M-T-2",
+        "R-R-T-1",
+        "R-I-H-4",
+        "R-I-H-3",
+        "R-M-H-2",
+        "R-R-H-1",
+    })
+
+
 def make_builder() -> VowelSeedBuilder:
     return VowelSeedBuilder(
         evaluator=DummyEvaluator(),
@@ -239,3 +252,78 @@ def test_assign_vowels_rejects_duplicate_targets():
                 "L-R-H-1",
             ),
         )
+
+
+def test_generate_positions_respects_left_vowel_limits():
+    allowed_positions = (
+        allowed_left_positions()
+        | allowed_right_positions()
+    )
+
+    builder = VowelSeedBuilder(
+        evaluator=DummyEvaluator(),
+        allowed_positions=allowed_positions,
+    )
+
+    candidate_positions = tuple(
+        sorted(
+            allowed_positions
+        )
+    )
+
+    left_positions = tuple(
+        position
+        for position in candidate_positions
+        if position.startswith("L-")
+    )
+
+    right_positions = tuple(
+        position
+        for position in candidate_positions
+        if position.startswith("R-")
+    )
+
+    positions = tuple(
+        builder._generate_vowel_positions(
+            candidate_positions=candidate_positions,
+            left_positions=left_positions,
+            right_positions=right_positions,
+            min_left_vowels=2,
+            max_left_vowels=3,
+        )
+    )
+
+    assert positions
+
+    for vowel_positions in positions:
+        left_count = sum(
+            position.startswith("L-")
+            for position in vowel_positions
+        )
+
+        assert left_count in {
+            2,
+            3,
+        }
+
+
+def test_generate_positions_without_limits_preserves_all():
+    builder = make_builder()
+
+    candidate_positions = tuple(
+        sorted(
+            allowed_left_positions()
+        )
+    )
+
+    positions = tuple(
+        builder._generate_vowel_positions(
+            candidate_positions=candidate_positions,
+            left_positions=candidate_positions,
+            right_positions=(),
+            min_left_vowels=None,
+            max_left_vowels=None,
+        )
+    )
+
+    assert len(positions) == 6720

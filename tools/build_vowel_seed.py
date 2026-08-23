@@ -161,6 +161,11 @@ def main() -> int:
         ),
     )
 
+    distribution = (
+        constraint_config
+        .vowel_hand_distribution
+    )
+
     started_at = time.perf_counter()
 
     def show_progress(
@@ -193,13 +198,17 @@ def main() -> int:
         else:
             percent = 100.0
 
-        print(
-            "\r"
+        progress_text = (
             f"Progress: "
             f"{completed:,} / {total:,} "
             f"({percent:5.1f}%) | "
             f"{rate:,.0f} cand/s | "
-            f"ETA {eta:,.1f}s",
+            f"ETA {eta:,.1f}s"
+        )
+
+        print(
+            "\r"
+            f"{progress_text:<100}",
             end="",
             flush=True,
         )
@@ -210,6 +219,16 @@ def main() -> int:
         character_statistics=character_statistics,
         progress_callback=show_progress,
         progress_interval=1000,
+        min_left_vowels=(
+            distribution.min_left_vowels
+            if distribution.enabled
+            else None
+        ),
+        max_left_vowels=(
+            distribution.max_left_vowels
+            if distribution.enabled
+            else None
+        ),
     )
 
     elapsed = (
@@ -217,7 +236,6 @@ def main() -> int:
         - started_at
     )
 
-    # Finish the progress line.
     print()
 
     print()
