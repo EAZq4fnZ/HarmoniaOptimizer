@@ -35,7 +35,21 @@ class LayoutEvaluator:
         layout: Layout,
         statistics: TransitionStatistics,
     ) -> LayoutEvaluation:
-        mapper = LayoutKeyMapper(layout)
+        """
+        Evaluate one layout against transition statistics.
+
+        LogicalKey objects are built once for the layout and then
+        reused through a dictionary lookup for all transitions.
+        """
+
+        mapper = LayoutKeyMapper(
+            layout
+        )
+
+        key_map = {
+            key.id: key
+            for key in mapper.keys()
+        }
 
         transition_results: list[
             LayoutTransitionEvaluation
@@ -49,16 +63,23 @@ class LayoutEvaluator:
             source_letter,
             target_letter,
         ), weighted_count in statistics.weighted().items():
+            source_id = source_letter.upper()
+            target_id = target_letter.upper()
+
+            source_key = key_map.get(
+                source_id
+            )
+
+            target_key = key_map.get(
+                target_id
+            )
 
             if (
-                source_letter not in layout
-                or target_letter not in layout
+                source_key is None
+                or target_key is None
             ):
                 skipped_weight += weighted_count
                 continue
-
-            source_key = mapper.key(source_letter)
-            target_key = mapper.key(target_letter)
 
             transition = Transition(
                 source=source_key,
@@ -76,7 +97,8 @@ class LayoutEvaluator:
             )
 
             weighted_cost = (
-                cost.total * weighted_count
+                cost.total
+                * weighted_count
             )
 
             raw_count = statistics.raw_count(
@@ -86,8 +108,8 @@ class LayoutEvaluator:
 
             transition_results.append(
                 LayoutTransitionEvaluation(
-                    source=source_letter.upper(),
-                    target=target_letter.upper(),
+                    source=source_id,
+                    target=target_id,
                     raw_count=raw_count,
                     weighted_count=weighted_count,
                     cost=cost,
@@ -102,5 +124,7 @@ class LayoutEvaluator:
             total_cost=total_cost,
             evaluated_weight=evaluated_weight,
             skipped_weight=skipped_weight,
-            transitions=tuple(transition_results),
+            transitions=tuple(
+                transition_results
+            ),
         )
