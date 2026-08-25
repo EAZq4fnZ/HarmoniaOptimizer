@@ -75,3 +75,166 @@ def test_clear():
 
     assert statistics.raw() == {}
     assert statistics.weighted() == {}
+
+
+def test_evaluation_records():
+    statistics = TransitionStatistics()
+
+    statistics.add(
+        {
+            ("a", "b"): 3,
+            ("C", "d"): 2,
+        }
+    )
+
+    assert (
+        statistics.evaluation_records()
+        == (
+            ("A", "B", 3, 3.0),
+            ("C", "D", 2, 2.0),
+        )
+    )
+
+
+def test_evaluation_records_are_cached():
+    statistics = TransitionStatistics()
+
+    statistics.add(
+        {
+            ("a", "b"): 3,
+        }
+    )
+
+    first = (
+        statistics.evaluation_records()
+    )
+
+    second = (
+        statistics.evaluation_records()
+    )
+
+    assert first is second
+
+
+def test_evaluation_record_cache_is_invalidated():
+    statistics = TransitionStatistics()
+
+    statistics.add(
+        {
+            ("a", "b"): 3,
+        }
+    )
+
+    first = (
+        statistics.evaluation_records()
+    )
+
+    statistics.add(
+        {
+            ("c", "d"): 2,
+        }
+    )
+
+    second = (
+        statistics.evaluation_records()
+    )
+
+    assert first is not second
+
+    assert (
+        ("C", "D", 2, 2.0)
+        in second
+    )
+
+def test_affected_transition_indexes_by_letter() -> None:
+    statistics = TransitionStatistics()
+
+    statistics.add(
+        {
+            ("A", "B"): 10,
+            ("C", "A"): 20,
+            ("B", "C"): 30,
+            ("A", "A"): 40,
+        }
+    )
+
+    records = (
+        statistics.indexed_evaluation_records()
+    )
+
+    affected = (
+        statistics
+        .affected_transition_indexes_by_letter()
+    )
+
+    assert len(affected) == 26
+
+    a_index = ord("A") - ord("A")
+    b_index = ord("B") - ord("A")
+    c_index = ord("C") - ord("A")
+    d_index = ord("D") - ord("A")
+
+    a_records = {
+        records[index][:2]
+        for index in affected[a_index]
+    }
+
+    b_records = {
+        records[index][:2]
+        for index in affected[b_index]
+    }
+
+    c_records = {
+        records[index][:2]
+        for index in affected[c_index]
+    }
+
+    assert a_records == {
+        (a_index, b_index),
+        (c_index, a_index),
+        (a_index, a_index),
+    }
+
+    assert b_records == {
+        (a_index, b_index),
+        (b_index, c_index),
+    }
+
+    assert c_records == {
+        (c_index, a_index),
+        (b_index, c_index),
+    }
+
+    assert affected[d_index] == ()
+
+def test_affected_transition_indexes_cache_is_invalidated() -> None:
+    statistics = TransitionStatistics()
+
+    statistics.add(
+        {
+            ("A", "B"): 10,
+        }
+    )
+
+    first = (
+        statistics
+        .affected_transition_indexes_by_letter()
+    )
+
+    statistics.add(
+        {
+            ("C", "A"): 20,
+        }
+    )
+
+    second = (
+        statistics
+        .affected_transition_indexes_by_letter()
+    )
+
+    assert second is not first
+
+    a_index = ord("A") - ord("A")
+
+    assert len(first[a_index]) == 1
+    assert len(second[a_index]) == 2

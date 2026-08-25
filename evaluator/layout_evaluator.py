@@ -7,7 +7,10 @@ from models.layout_evaluation import (
 )
 from models.layout_key_mapper import LayoutKeyMapper
 from models.transition import Transition
-from models.transition_cost import TransitionCostWeights
+from models.transition_cost import (
+    TransitionCost,
+    TransitionCostWeights,
+)
 
 from .transition_cost import TransitionCostEvaluator
 from .transition_evaluator import TransitionEvaluator
@@ -19,16 +22,30 @@ class LayoutEvaluator:
     Evaluate a complete layout using transition statistics.
 
     Lower total cost is better.
+
+    Transition costs are cached by canonical logical-position IDs.
+    Structural transition cost depends on the source and target
+    positions, not on the letters assigned to those positions.
     """
 
     def __init__(
         self,
         weights: TransitionCostWeights,
     ) -> None:
-        self._transition_evaluator = TransitionEvaluator()
-        self._cost_evaluator = TransitionCostEvaluator(
-            weights
+        self._transition_evaluator = (
+            TransitionEvaluator()
         )
+
+        self._cost_evaluator = (
+            TransitionCostEvaluator(
+                weights
+            )
+        )
+
+        self._transition_cost_cache: dict[
+            tuple[str, str],
+            TransitionCost,
+        ] = {}
 
     def evaluate(
         self,
@@ -38,17 +55,18 @@ class LayoutEvaluator:
         """
         Evaluate one layout against transition statistics.
 
-        LogicalKey objects are built once for the layout and then
-        reused through a dictionary lookup for all transitions.
+        Canonical position IDs are used as the transition-cost
+        cache key. LogicalKey objects are created only on cache
+        misses.
         """
 
         mapper = LayoutKeyMapper(
             layout
         )
 
-        key_map = {
-            key.id: key
-            for key in mapper.keys()
+        position_map = {
+            letter.upper(): position
+            for letter, position in layout.items()
         }
 
         transition_results: list[
@@ -60,50 +78,78 @@ class LayoutEvaluator:
         skipped_weight = 0.0
 
         for (
-            source_letter,
-            target_letter,
-        ), weighted_count in statistics.weighted().items():
-            source_id = source_letter.upper()
-            target_id = target_letter.upper()
-
-            source_key = key_map.get(
-                source_id
+            source_id,
+            target_id,
+            raw_count,
+            weighted_count,
+        ) in statistics.evaluation_records():
+            source_position_id = (
+                position_map.get(
+                    source_id
+                )
             )
 
-            target_key = key_map.get(
-                target_id
+            target_position_id = (
+                position_map.get(
+                    target_id
+                )
             )
 
             if (
-                source_key is None
-                or target_key is None
+                source_position_id is None
+                or target_position_id is None
             ):
                 skipped_weight += weighted_count
                 continue
 
-            transition = Transition(
-                source=source_key,
-                target=target_key,
+            cache_key = (
+                source_position_id,
+                target_position_id,
             )
 
-            evaluation = (
-                self._transition_evaluator.evaluate(
-                    transition
+            cost = (
+                self
+                ._transition_cost_cache
+                .get(cache_key)
+            )
+
+            if cost is None:
+                source_key = mapper.key(
+                    source_id
                 )
-            )
 
-            cost = self._cost_evaluator.evaluate(
-                evaluation
-            )
+                target_key = mapper.key(
+                    target_id
+                )
+
+                transition = Transition(
+                    source=source_key,
+                    target=target_key,
+                )
+
+                evaluation = (
+                    self
+                    ._transition_evaluator
+                    .evaluate(
+                        transition
+                    )
+                )
+
+                cost = (
+                    self
+                    ._cost_evaluator
+                    .evaluate(
+                        evaluation
+                    )
+                )
+
+                self._transition_cost_cache[
+                    cache_key
+                ] = cost
 
             weighted_cost = (
                 cost.total
                 * weighted_count
-            )
-
-            raw_count = statistics.raw_count(
-                source_letter,
-                target_letter,
             )
 
             transition_results.append(

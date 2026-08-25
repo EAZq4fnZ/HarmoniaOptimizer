@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from itertools import combinations, permutations
 from math import comb, perm
 
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.character_statistics import CharacterStatistics
+from evaluator.fast_candidate_evaluator import (
+    FastCandidateEvaluator,
+)
 from evaluator.transition_statistics import TransitionStatistics
 from models.candidate_evaluation import CandidateEvaluation
 from models.layout import Layout
@@ -24,15 +27,37 @@ class VowelSeedBuilder:
     supplied, only assignments satisfying the requested hand
     distribution are generated.
 
+    An optional fast evaluator can be supplied for exhaustive search.
+
+    When the fast evaluator is present, candidate layouts are represented
+    as A-Z indexed position lists during exhaustive search. This avoids
+    constructing a Layout or a complete letter-to-position mapping for
+    every candidate.
+
+    Only the final winning indexed candidate is converted back into a
+    mapping and Layout and evaluated with the normal CandidateEvaluator.
+
     An optional progress callback can also be supplied by the caller.
     """
 
     VOWELS = ("A", "E", "I", "O", "U")
 
+    VOWEL_INDEXES = (
+        0,   # A
+        4,   # E
+        8,   # I
+        14,  # O
+        20,  # U
+    )
+
+    LETTER_COUNT = 26
+    A_ORD = ord("A")
+
     def __init__(
         self,
         evaluator: CandidateEvaluator,
         allowed_positions: frozenset[str],
+        fast_evaluator: FastCandidateEvaluator | None = None,
     ) -> None:
         if len(allowed_positions) < len(self.VOWELS):
             raise ValueError(
@@ -40,6 +65,7 @@ class VowelSeedBuilder:
             )
 
         self._evaluator = evaluator
+        self._fast_evaluator = fast_evaluator
         self._allowed_positions = allowed_positions
         self._evaluated_candidate_count = 0
 
@@ -66,14 +92,16 @@ class VowelSeedBuilder:
         """
         Search vowel assignments and return the best valid one.
 
-        If min_left_vowels and max_left_vowels are supplied,
-        only assignments whose number of left-hand vowels falls
-        within that inclusive range are generated and evaluated.
+        Normal path:
+            Layout objects are evaluated normally.
 
-        progress_callback receives:
+        Fast path:
+            Logical positions are converted to integer IDs once.
+            Exhaustive search then operates on 26-entry integer
+            position lists.
 
-            completed_candidates
-            total_candidates
+            Only the final winning candidate is converted back
+            into a Layout.
         """
 
         if progress_interval <= 0:
@@ -112,6 +140,142 @@ class VowelSeedBuilder:
 
         best: CandidateEvaluation | None = None
 
+        best_score: float | None = None
+        best_position_indexes: list[int] | None = None
+
+        position_indexes: dict[str, int] | None = None
+
+        cost_matrix: (
+            tuple[
+                tuple[float, ...],
+                ...
+            ]
+            | None
+        ) = None
+
+        position_finger_indexes: (
+            tuple[int, ...]
+            | None
+        ) = None
+
+        allowed_ratios: (
+            tuple[float, ...]
+            | None
+        ) = None
+
+        base_position_indexes: (
+            list[int]
+            | None
+        ) = None
+
+        original_vowel_position_indexes: (
+            frozenset[int]
+            | None
+        ) = None
+
+        letter_index_by_position_index: (
+            tuple[int, ...]
+            | None
+        ) = None
+
+        position_ids_by_index: (
+            tuple[str, ...]
+            | None
+        ) = None
+
+        if self._fast_evaluator is not None:
+            base_string_positions = (
+                self._layout_to_indexed_positions(
+                    layout
+                )
+            )
+
+            # Important:
+            # position integer IDs are assigned in lexicographic
+            # logical-position order.
+            #
+            # This means sorting integer position IDs preserves
+            # the exact behavior of:
+            #
+            #     sorted(vacated_positions)
+            #
+            # in the original string-based implementation.
+            position_ids_by_index = tuple(
+                sorted(
+                    position
+                    for position
+                    in base_string_positions
+                    if position is not None
+                )
+            )
+
+            (
+                position_indexes,
+                cost_matrix,
+                position_finger_indexes,
+                allowed_ratios,
+            ) = (
+                self
+                ._fast_evaluator
+                .prepare_position_index(
+                    position_ids_by_index
+                )
+            )
+
+            base_position_indexes = [
+                (
+                    -1
+                    if position is None
+                    else position_indexes[
+                        position
+                    ]
+                )
+                for position
+                in base_string_positions
+            ]
+
+            original_vowel_position_indexes = (
+                frozenset(
+                    base_position_indexes[
+                        vowel_index
+                    ]
+                    for vowel_index
+                    in self.VOWEL_INDEXES
+                )
+            )
+
+            mutable_letter_indexes = [
+                -1
+            ] * len(
+                position_ids_by_index
+            )
+
+            for (
+                letter_index,
+                position_index,
+            ) in enumerate(
+                base_position_indexes
+            ):
+                if position_index >= 0:
+                    mutable_letter_indexes[
+                        position_index
+                    ] = letter_index
+
+            if any(
+                letter_index < 0
+                for letter_index
+                in mutable_letter_indexes
+            ):
+                raise RuntimeError(
+                    "incomplete position-to-letter index"
+                )
+
+            letter_index_by_position_index = (
+                tuple(
+                    mutable_letter_indexes
+                )
+            )
+
         for vowel_positions in self._generate_vowel_positions(
             candidate_positions=candidate_positions,
             left_positions=left_positions,
@@ -119,18 +283,104 @@ class VowelSeedBuilder:
             min_left_vowels=min_left_vowels,
             max_left_vowels=max_left_vowels,
         ):
-            candidate_layout = self._assign_vowels(
-                layout=layout,
-                vowel_positions=vowel_positions,
-            )
-
             self._evaluated_candidate_count += 1
 
-            evaluation = self._evaluator.evaluate(
-                layout=candidate_layout,
-                transition_statistics=transition_statistics,
-                character_statistics=character_statistics,
-            )
+            if self._fast_evaluator is None:
+                candidate_layout = self._assign_vowels(
+                    layout=layout,
+                    vowel_positions=vowel_positions,
+                )
+
+                evaluation = self._evaluator.evaluate(
+                    layout=candidate_layout,
+                    transition_statistics=transition_statistics,
+                    character_statistics=character_statistics,
+                )
+
+                if (
+                    evaluation.is_valid
+                    and evaluation.score is not None
+                ):
+                    if best is None:
+                        best = evaluation
+
+                    elif (
+                        best.score is not None
+                        and evaluation.score < best.score
+                    ):
+                        best = evaluation
+
+            else:
+                if (
+                    position_indexes is None
+                    or cost_matrix is None
+                    or position_finger_indexes is None
+                    or allowed_ratios is None
+                    or base_position_indexes is None
+                    or original_vowel_position_indexes is None
+                    or letter_index_by_position_index is None
+                ):
+                    raise RuntimeError(
+                        "position-indexed search data "
+                        "was not initialized"
+                    )
+
+                vowel_position_indexes = tuple(
+                    position_indexes[
+                        position
+                    ]
+                    for position
+                    in vowel_positions
+                )
+
+                candidate_position_indexes = (
+                    self
+                    ._assign_vowels_position_indexed(
+                        base_positions=(
+                            base_position_indexes
+                        ),
+                        vowel_position_indexes=(
+                            vowel_position_indexes
+                        ),
+                        original_vowel_positions=(
+                            original_vowel_position_indexes
+                        ),
+                        letter_index_by_position=(
+                            letter_index_by_position_index
+                        ),
+                    )
+                )
+
+                score = (
+                    self
+                    ._fast_evaluator
+                    .evaluate_position_indexed(
+                        positions=(
+                            candidate_position_indexes
+                        ),
+                        cost_matrix=cost_matrix,
+                        position_finger_indexes=(
+                            position_finger_indexes
+                        ),
+                        allowed_ratios=(
+                            allowed_ratios
+                        ),
+                        transition_statistics=(
+                            transition_statistics
+                        ),
+                        character_statistics=(
+                            character_statistics
+                        ),
+                    )
+                )
+                if (
+                    best_score is None
+                    or score < best_score
+                ):
+                    best_score = score
+                    best_position_indexes = (
+                        candidate_position_indexes
+                    )
 
             if (
                 progress_callback is not None
@@ -147,21 +397,45 @@ class VowelSeedBuilder:
                     total_candidates,
                 )
 
-            if not evaluation.is_valid:
-                continue
+        if self._fast_evaluator is not None:
+            if (
+                best_position_indexes is None
+                or position_ids_by_index is None
+            ):
+                raise ValueError(
+                    "no valid vowel seed could be generated"
+                )
 
-            if evaluation.score is None:
-                continue
+            best_mapping = (
+                self
+                ._position_indexed_to_mapping(
+                    best_position_indexes,
+                    position_ids_by_index,
+                )
+            )
 
-            if best is None:
-                best = evaluation
-                continue
+            best_layout = Layout(
+                name=layout.name,
+                version=layout.version,
+                layer=layout.layer,
+                description=layout.description,
+                mapping=best_mapping,
+            )
+
+            best = self._evaluator.evaluate(
+                layout=best_layout,
+                transition_statistics=transition_statistics,
+                character_statistics=character_statistics,
+            )
 
             if (
-                best.score is not None
-                and evaluation.score < best.score
+                not best.is_valid
+                or best.score is None
             ):
-                best = evaluation
+                raise RuntimeError(
+                    "fast evaluator selected a candidate "
+                    "that failed normal evaluation"
+                )
 
         if best is None:
             raise ValueError(
@@ -387,27 +661,28 @@ class VowelSeedBuilder:
                 "max_left_vowels"
             )
 
-    def _assign_vowels(
+    def _assign_vowels_mapping(
         self,
         layout: Layout,
         vowel_positions: tuple[str, ...],
-    ) -> Layout:
+    ) -> dict[str, str]:
         """
-        Return a new layout with vowels assigned to vowel_positions.
+        Return a mapping with vowels assigned to vowel_positions.
+
+        This preserves the exact displacement semantics of
+        _assign_vowels().
 
         Consonants displaced from target positions are moved into
         positions vacated by the vowels.
+
+        This mapping path remains available for compatibility and
+        testing. The fast exhaustive-search path uses
+        _assign_vowels_indexed() instead.
         """
 
-        if len(vowel_positions) != len(self.VOWELS):
-            raise ValueError(
-                "vowel_positions must contain exactly 5 positions"
-            )
-
-        if len(set(vowel_positions)) != len(self.VOWELS):
-            raise ValueError(
-                "vowel_positions must be unique"
-            )
+        self._validate_vowel_positions(
+            vowel_positions
+        )
 
         original_vowel_positions = {
             layout.position(vowel)
@@ -464,6 +739,449 @@ class VowelSeedBuilder:
             strict=True,
         ):
             mapping[letter] = position
+
+        return mapping
+
+    def _mapping_to_indexed_positions(
+        self,
+        mapping: Mapping[str, str],
+    ) -> list[str | None]:
+        """
+        Convert an A-Z mapping to a 26-entry indexed position list.
+
+        index 0  -> A
+        index 1  -> B
+        ...
+        index 25 -> Z
+
+        This helper remains available for compatibility and tests.
+        Fast exhaustive search does not use this conversion anymore.
+        """
+
+        positions: list[str | None] = [
+            None
+        ] * self.LETTER_COUNT
+
+        for letter, position in mapping.items():
+            index = self._letter_index(
+                letter
+            )
+
+            if index is not None:
+                positions[index] = position
+
+        return positions
+
+    def _layout_to_indexed_positions(
+        self,
+        layout: Layout,
+    ) -> list[str | None]:
+        """
+        Convert the original layout into A-Z indexed positions.
+
+        This is performed once before exhaustive fast search.
+        """
+
+        positions: list[str | None] = [
+            None
+        ] * self.LETTER_COUNT
+
+        for letter, position in layout.items():
+            index = self._letter_index(
+                letter
+            )
+
+            if index is not None:
+                positions[index] = position
+
+        return positions
+
+    def _assign_vowels_indexed(
+        self,
+        layout: Layout,
+        base_positions: list[str | None],
+        vowel_positions: tuple[str, ...],
+    ) -> list[str | None]:
+        """
+        Return a 26-entry indexed position list with vowels assigned.
+
+        This preserves exactly the same displacement semantics as
+        _assign_vowels_mapping(), without constructing a mapping or
+        Layout for every candidate.
+        """
+
+        self._validate_vowel_positions(
+            vowel_positions
+        )
+
+        if len(base_positions) != self.LETTER_COUNT:
+            raise ValueError(
+                "base_positions must contain exactly 26 entries"
+            )
+
+        original_vowel_positions = {
+            layout.position(vowel)
+            for vowel in self.VOWELS
+        }
+
+        target_positions = set(
+            vowel_positions
+        )
+
+        displaced_positions = (
+            target_positions
+            - original_vowel_positions
+        )
+
+        vacated_positions = (
+            original_vowel_positions
+            - target_positions
+        )
+
+        displaced_letters = tuple(
+            sorted(
+                layout.letter(position)
+                for position in displaced_positions
+            )
+        )
+
+        available_positions = tuple(
+            sorted(vacated_positions)
+        )
+
+        if len(displaced_letters) != len(
+            available_positions
+        ):
+            raise ValueError(
+                "displaced-letter and vacated-position "
+                "counts differ"
+            )
+
+        positions = list(
+            base_positions
+        )
+
+        for vowel, position in zip(
+            self.VOWELS,
+            vowel_positions,
+            strict=True,
+        ):
+            index = self._letter_index(
+                vowel
+            )
+
+            if index is None:
+                raise RuntimeError(
+                    "vowel could not be converted "
+                    "to an alphabet index"
+                )
+
+            positions[index] = position
+
+        for letter, position in zip(
+            displaced_letters,
+            available_positions,
+            strict=True,
+        ):
+            index = self._letter_index(
+                letter
+            )
+
+            if index is None:
+                raise RuntimeError(
+                    "displaced letter could not be converted "
+                    "to an alphabet index"
+                )
+
+            positions[index] = position
+
+        return positions
+
+    def _assign_vowels_position_indexed(
+        self,
+        *,
+        base_positions: list[int],
+        vowel_position_indexes: tuple[int, ...],
+        original_vowel_positions: frozenset[int],
+        letter_index_by_position: tuple[int, ...],
+    ) -> list[int]:
+        """
+        Assign vowels using integer logical-position IDs only.
+
+        This preserves the displacement semantics of
+        _assign_vowels_mapping() and _assign_vowels_indexed().
+
+        The exhaustive-search hot path avoids constructing
+        target/displaced/vacated sets for every candidate.
+        """
+
+        if (
+            len(vowel_position_indexes)
+            != len(self.VOWELS)
+        ):
+            raise ValueError(
+                "vowel_position_indexes must contain "
+                "exactly 5 positions"
+            )
+
+        # The exhaustive generator already guarantees uniqueness.
+        #
+        # Keep validation here because this helper is also exercised
+        # directly by tests and may be called independently.
+        if (
+            len(set(vowel_position_indexes))
+            != len(self.VOWELS)
+        ):
+            raise ValueError(
+                "vowel_position_indexes must be unique"
+            )
+
+        (
+            target_0,
+            target_1,
+            target_2,
+            target_3,
+            target_4,
+        ) = vowel_position_indexes
+
+        displaced_positions: list[int] = []
+
+        if target_0 not in original_vowel_positions:
+            displaced_positions.append(
+                target_0
+            )
+
+        if target_1 not in original_vowel_positions:
+            displaced_positions.append(
+                target_1
+            )
+
+        if target_2 not in original_vowel_positions:
+            displaced_positions.append(
+                target_2
+            )
+
+        if target_3 not in original_vowel_positions:
+            displaced_positions.append(
+                target_3
+            )
+
+        if target_4 not in original_vowel_positions:
+            displaced_positions.append(
+                target_4
+            )
+
+        vacated_positions = [
+            position_index
+            for position_index
+            in original_vowel_positions
+            if (
+                position_index != target_0
+                and position_index != target_1
+                and position_index != target_2
+                and position_index != target_3
+                and position_index != target_4
+            )
+        ]
+
+        displaced_letter_indexes = [
+            letter_index_by_position[
+                position_index
+            ]
+            for position_index
+            in displaced_positions
+        ]
+
+        # Integer position IDs were assigned in the same order
+        # as sorted logical-position strings.
+        displaced_letter_indexes.sort()
+        vacated_positions.sort()
+
+        if (
+            len(displaced_letter_indexes)
+            != len(vacated_positions)
+        ):
+            raise ValueError(
+                "displaced-letter and vacated-position "
+                "counts differ"
+            )
+
+        positions = list(
+            base_positions
+        )
+
+        positions[
+            self.VOWEL_INDEXES[0]
+        ] = target_0
+
+        positions[
+            self.VOWEL_INDEXES[1]
+        ] = target_1
+
+        positions[
+            self.VOWEL_INDEXES[2]
+        ] = target_2
+
+        positions[
+            self.VOWEL_INDEXES[3]
+        ] = target_3
+
+        positions[
+            self.VOWEL_INDEXES[4]
+        ] = target_4
+
+        for (
+            letter_index,
+            position_index,
+        ) in zip(
+            displaced_letter_indexes,
+            vacated_positions,
+            strict=True,
+        ):
+            positions[
+                letter_index
+            ] = position_index
+
+        return positions
+
+    def _position_indexed_to_mapping(
+        self,
+        positions: list[int],
+        position_ids_by_index: tuple[str, ...],
+    ) -> dict[str, str]:
+        """
+        Convert A-Z indexed integer logical positions back
+        into the normal letter-to-position mapping.
+
+        This is used only for the final winning candidate.
+        """
+
+        if len(positions) != self.LETTER_COUNT:
+            raise ValueError(
+                "positions must contain exactly 26 entries"
+            )
+
+        mapping: dict[str, str] = {}
+
+        for (
+            letter_index,
+            position_index,
+        ) in enumerate(
+            positions
+        ):
+            if position_index < 0:
+                continue
+
+            letter = chr(
+                self.A_ORD
+                + letter_index
+            )
+
+            mapping[letter] = (
+                position_ids_by_index[
+                    position_index
+                ]
+            )
+
+        return mapping
+
+    def _indexed_positions_to_mapping(
+        self,
+        positions: list[str | None],
+    ) -> dict[str, str]:
+        """
+        Convert indexed A-Z positions back into a mapping.
+
+        This is used only for the final winning candidate.
+        """
+
+        if len(positions) != self.LETTER_COUNT:
+            raise ValueError(
+                "positions must contain exactly 26 entries"
+            )
+
+        mapping: dict[str, str] = {}
+
+        for index, position in enumerate(
+            positions
+        ):
+            if position is None:
+                continue
+
+            letter = chr(
+                self.A_ORD
+                + index
+            )
+
+            mapping[letter] = position
+
+        return mapping
+
+    def _validate_vowel_positions(
+        self,
+        vowel_positions: tuple[str, ...],
+    ) -> None:
+        """
+        Validate a five-position vowel assignment.
+        """
+
+        if len(vowel_positions) != len(self.VOWELS):
+            raise ValueError(
+                "vowel_positions must contain exactly 5 positions"
+            )
+
+        if len(set(vowel_positions)) != len(self.VOWELS):
+            raise ValueError(
+                "vowel_positions must be unique"
+            )
+
+    def _letter_index(
+        self,
+        letter: str,
+    ) -> int | None:
+        """
+        Return A-Z index for a single ASCII letter.
+
+        A -> 0
+        ...
+        Z -> 25
+
+        Return None for unsupported IDs.
+        """
+
+        if len(letter) != 1:
+            return None
+
+        index = (
+            ord(letter.upper())
+            - self.A_ORD
+        )
+
+        if (
+            0
+            <= index
+            < self.LETTER_COUNT
+        ):
+            return index
+
+        return None
+
+    def _assign_vowels(
+        self,
+        layout: Layout,
+        vowel_positions: tuple[str, ...],
+    ) -> Layout:
+        """
+        Return a new Layout with vowels assigned to vowel_positions.
+
+        This is the object-producing compatibility version of
+        _assign_vowels_mapping().
+        """
+
+        mapping = self._assign_vowels_mapping(
+            layout=layout,
+            vowel_positions=vowel_positions,
+        )
 
         return Layout(
             name=layout.name,

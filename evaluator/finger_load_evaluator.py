@@ -15,7 +15,16 @@ from .character_statistics import CharacterStatistics
 class FingerLoadEvaluator:
     """
     Calculate character load for every hand/finger pair.
+
+    The hand/finger pair for each logical position is cached because
+    it depends only on the position, not on the letter assigned to it.
     """
+
+    def __init__(self) -> None:
+        self._position_pair_cache: dict[
+            str,
+            tuple[Hand, Finger],
+        ] = {}
 
     def evaluate(
         self,
@@ -28,45 +37,89 @@ class FingerLoadEvaluator:
         Characters that are not present in the layout are ignored.
         """
 
-        mapper = LayoutKeyMapper(layout)
+        mapper = LayoutKeyMapper(
+            layout
+        )
 
-        raw_loads: dict[tuple[Hand, Finger], int] = defaultdict(int)
-        weighted_loads: dict[tuple[Hand, Finger], float] = defaultdict(float)
+        position_map = {
+            letter.upper(): position
+            for letter, position in layout.items()
+        }
 
-        for character, raw_count in statistics.raw().items():
-            try:
-                key = mapper.key(character)
-            except KeyError:
+        raw_statistics = statistics.raw()
+        weighted_statistics = statistics.weighted()
+
+        raw_loads: dict[
+            tuple[Hand, Finger],
+            int,
+        ] = defaultdict(int)
+
+        weighted_loads: dict[
+            tuple[Hand, Finger],
+            float,
+        ] = defaultdict(float)
+
+        characters = (
+            set(raw_statistics)
+            | set(weighted_statistics)
+        )
+
+        for character in characters:
+            character_id = character.upper()
+
+            position_id = position_map.get(
+                character_id
+            )
+
+            if position_id is None:
                 continue
 
-            pair = (
-                key.position.hand,
-                key.position.finger,
+            pair = self._position_pair_cache.get(
+                position_id
+            )
+
+            if pair is None:
+                key = mapper.key(
+                    character_id
+                )
+
+                pair = (
+                    key.position.hand,
+                    key.position.finger,
+                )
+
+                self._position_pair_cache[
+                    position_id
+                ] = pair
+
+            raw_count = raw_statistics.get(
+                character,
+                0,
+            )
+
+            weighted_count = weighted_statistics.get(
+                character,
+                0.0,
             )
 
             raw_loads[pair] += raw_count
-
-        for character, weighted_count in statistics.weighted().items():
-            try:
-                key = mapper.key(character)
-            except KeyError:
-                continue
-
-            pair = (
-                key.position.hand,
-                key.position.finger,
-            )
-
             weighted_loads[pair] += weighted_count
 
-        pairs = set(raw_loads) | set(weighted_loads)
+        pairs = (
+            set(raw_loads)
+            | set(weighted_loads)
+        )
 
         return tuple(
             FingerLoad(
                 hand=hand,
                 finger=finger,
-                raw_count=raw_loads[(hand, finger)],
-                weighted_count=weighted_loads[(hand, finger)],
+                raw_count=raw_loads[
+                    (hand, finger)
+                ],
+                weighted_count=weighted_loads[
+                    (hand, finger)
+                ],
             )
             for hand, finger in sorted(
                 pairs,

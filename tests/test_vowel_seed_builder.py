@@ -396,3 +396,157 @@ def test_balanced_generator_produces_expected_count():
     )
 
     assert count == 376320
+
+
+def test_assign_vowels_mapping_matches_assign_vowels() -> None:
+    builder = make_builder()
+    layout = make_layout()
+
+    vowel_positions = (
+        "L-R-T-1",
+        "L-M-T-2",
+        "L-I-T-3",
+        "L-R-H-1",
+        "L-M-H-2",
+    )
+
+    mapped = builder._assign_vowels_mapping(
+        layout=layout,
+        vowel_positions=vowel_positions,
+    )
+
+    assigned = builder._assign_vowels(
+        layout=layout,
+        vowel_positions=vowel_positions,
+    )
+
+    assert mapped == assigned.mapping
+
+
+def test_mapping_to_indexed_positions_matches_mapping() -> None:
+    builder = make_builder()
+    layout = make_layout()
+
+    positions = builder._mapping_to_indexed_positions(
+        layout.mapping
+    )
+
+    for letter, position in layout.mapping.items():
+        index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        assert positions[index] == position
+
+def test_assign_vowels_position_indexed_matches_mapping() -> None:
+    builder = make_builder()
+    layout = make_layout()
+
+    vowel_positions = (
+        "L-R-T-1",
+        "L-M-T-2",
+        "L-I-T-3",
+        "L-R-H-1",
+        "L-M-H-2",
+    )
+
+    expected_mapping = (
+        builder._assign_vowels_mapping(
+            layout=layout,
+            vowel_positions=vowel_positions,
+        )
+    )
+
+    base_string_positions = (
+        builder._layout_to_indexed_positions(
+            layout
+        )
+    )
+
+    position_ids_by_index = tuple(
+        sorted(
+            position
+            for position
+            in base_string_positions
+            if position is not None
+        )
+    )
+
+    position_indexes = {
+        position: index
+        for index, position
+        in enumerate(
+            position_ids_by_index
+        )
+    }
+
+    base_position_indexes = [
+        (
+            -1
+            if position is None
+            else position_indexes[
+                position
+            ]
+        )
+        for position
+        in base_string_positions
+    ]
+
+    original_vowel_positions = frozenset(
+        base_position_indexes[
+            vowel_index
+        ]
+        for vowel_index
+        in builder.VOWEL_INDEXES
+    )
+
+    letter_index_by_position = [
+        -1
+    ] * len(
+        position_ids_by_index
+    )
+
+    for (
+        letter_index,
+        position_index,
+    ) in enumerate(
+        base_position_indexes
+    ):
+        if position_index >= 0:
+            letter_index_by_position[
+                position_index
+            ] = letter_index
+
+    vowel_position_indexes = tuple(
+        position_indexes[
+            position
+        ]
+        for position
+        in vowel_positions
+    )
+
+    result = (
+        builder
+        ._assign_vowels_position_indexed(
+            base_positions=base_position_indexes,
+            vowel_position_indexes=(
+                vowel_position_indexes
+            ),
+            original_vowel_positions=(
+                original_vowel_positions
+            ),
+            letter_index_by_position=tuple(
+                letter_index_by_position
+            ),
+        )
+    )
+
+    result_mapping = (
+        builder._position_indexed_to_mapping(
+            result,
+            position_ids_by_index,
+        )
+    )
+
+    assert result_mapping == expected_mapping

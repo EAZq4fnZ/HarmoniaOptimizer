@@ -18,6 +18,18 @@ from evaluator.candidate_scorer import CandidateScorer
 from evaluator.character_analyzer import CharacterAnalyzer
 from evaluator.constraint_factory import ConstraintFactory
 from evaluator.corpus_analyzer import CorpusAnalyzer
+from evaluator.fast_candidate_evaluator import (
+    FastCandidateEvaluator,
+)
+from evaluator.fast_candidate_scorer import (
+    FastCandidateScorer,
+)
+from evaluator.fast_finger_load_score_evaluator import (
+    FastFingerLoadScoreEvaluator,
+)
+from evaluator.fast_layout_score_evaluator import (
+    FastLayoutScoreEvaluator,
+)
 from evaluator.finger_load_pipeline import FingerLoadPipeline
 from evaluator.layout_evaluator import LayoutEvaluator
 from models.corpus import Corpus
@@ -51,6 +63,36 @@ def build_evaluator(
         ),
         finger_load_budgets=(
             optimization_config.finger_load_budgets
+        ),
+    )
+
+
+def build_fast_evaluator(
+    optimization_config_path: Path,
+    constraint_config_path: Path,
+) -> FastCandidateEvaluator:
+    optimization_config = OptimizationConfigLoader.load(
+        optimization_config_path
+    )
+
+    constraint_config = ConstraintConfigLoader.load(
+        constraint_config_path
+    )
+
+    return FastCandidateEvaluator(
+        constraint_set=ConstraintFactory.create(
+            constraint_config
+        ),
+        layout_evaluator=FastLayoutScoreEvaluator(
+            optimization_config.transition_cost_weights
+        ),
+        finger_load_evaluator=(
+            FastFingerLoadScoreEvaluator(
+                optimization_config.finger_load_budgets
+            )
+        ),
+        candidate_scorer=FastCandidateScorer(
+            optimization_config.candidate_score_weights
         ),
     )
 
@@ -152,8 +194,14 @@ def main() -> int:
         constraint_config_path=args.constraints,
     )
 
+    fast_evaluator = build_fast_evaluator(
+        optimization_config_path=args.config,
+        constraint_config_path=args.constraints,
+    )
+
     builder = VowelSeedBuilder(
         evaluator=evaluator,
+        fast_evaluator=fast_evaluator,
         allowed_positions=(
             constraint_config
             .vowel_position
