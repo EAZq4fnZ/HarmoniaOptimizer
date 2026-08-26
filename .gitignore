@@ -26,3 +26,14 @@ build/
 
 # IDE
 .idea/
+
+# Profiling artifacts
+*.prof
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Test / lint caches
+.pytest_cache/
+.ruff_cache/
