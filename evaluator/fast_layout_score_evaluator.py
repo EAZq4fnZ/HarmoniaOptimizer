@@ -56,6 +56,7 @@ class PreparedPositionIndexedTransitions:
 
     records: tuple[tuple[int, int, float], ...]
     permanently_skipped_weight: float
+    evaluated_weight: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -754,6 +755,7 @@ class FastLayoutScoreEvaluator:
 
         records: list[tuple[int, int, float]] = []
         permanently_skipped_weight = 0.0
+        evaluated_weight = 0.0
 
         append_record = records.append
 
@@ -779,12 +781,14 @@ class FastLayoutScoreEvaluator:
                     weighted_count,
                 )
             )
+            evaluated_weight += weighted_count
 
         return PreparedPositionIndexedTransitions(
             records=tuple(records),
             permanently_skipped_weight=(
                 permanently_skipped_weight
             ),
+        evaluated_weight=evaluated_weight,
         )
 
     def evaluate_prepared_position_indexed(
@@ -852,6 +856,125 @@ class FastLayoutScoreEvaluator:
             total_cost=total_cost,
             evaluated_weight=evaluated_weight,
             skipped_weight=skipped_weight,
+        )
+
+    def evaluate_prepared_position_indexed_complete(
+        self,
+        position_indexes: Sequence[int],
+        cost_matrix: Sequence[
+            Sequence[float]
+        ],
+        prepared: PreparedPositionIndexedTransitions,
+    ) -> FastLayoutScore:
+        """
+        Evaluate a complete A-Z position-indexed layout using prepared
+        transition records.
+
+        This is a specialized hot path for exhaustive searches where all
+        26 letters are guaranteed to have valid position indexes.
+
+        Unlike evaluate_prepared_position_indexed(), this method does not
+        perform per-transition missing-letter checks.
+        """
+
+        if len(position_indexes) != 26:
+            raise ValueError(
+                "position_indexes must contain exactly 26 entries"
+            )
+
+        positions = position_indexes
+        matrix = cost_matrix
+
+        total_cost = 0.0
+
+        for (
+            source_index,
+            target_index,
+            weighted_count,
+        ) in prepared.records:
+            source_position_index = positions[
+                source_index
+            ]
+
+            target_position_index = positions[
+                target_index
+            ]
+
+            total_cost += (
+                matrix[
+                    source_position_index
+                ][
+                    target_position_index
+                ]
+                * weighted_count
+            )
+
+        return FastLayoutScore(
+            total_cost=total_cost,
+            evaluated_weight=(
+                prepared.evaluated_weight
+            ),
+            skipped_weight=(
+                prepared.permanently_skipped_weight
+            ),
+        )
+
+    def evaluate_prepared_position_indexed_complete_flat(
+        self,
+        position_indexes: Sequence[int],
+        flat_costs: Sequence[float],
+        position_count: int,
+        prepared: PreparedPositionIndexedTransitions,
+    ) -> FastLayoutScore:
+        """
+        Evaluate a complete A-Z position-indexed layout using prepared
+        transition records and a flat row-major position-cost table.
+
+        This is a specialized hot path for exhaustive searches where all
+        26 letters are guaranteed to have valid position indexes.
+        """
+
+        if len(position_indexes) != 26:
+            raise ValueError(
+                "position_indexes must contain exactly 26 entries"
+            )
+
+        positions = position_indexes
+        costs = flat_costs
+        stride = position_count
+
+        total_cost = 0.0
+
+        for (
+            source_index,
+            target_index,
+            weighted_count,
+        ) in prepared.records:
+            source_position_index = positions[
+                source_index
+            ]
+
+            target_position_index = positions[
+                target_index
+            ]
+
+            total_cost += (
+                costs[
+                    source_position_index
+                    * stride
+                    + target_position_index
+                ]
+                * weighted_count
+            )
+
+        return FastLayoutScore(
+            total_cost=total_cost,
+            evaluated_weight=(
+                prepared.evaluated_weight
+            ),
+            skipped_weight=(
+                prepared.permanently_skipped_weight
+            ),
         )
 
     def prepare_prepared_position_indexed_delta(
@@ -1567,3 +1690,4 @@ class FastLayoutScoreEvaluator:
                     )
 
         return cost
+

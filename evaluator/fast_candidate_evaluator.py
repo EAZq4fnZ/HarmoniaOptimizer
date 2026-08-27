@@ -577,6 +577,102 @@ class FastCandidateEvaluator:
             finger_load_penalty=finger_load_penalty,
         )
 
+    def evaluate_prepared_position_indexed_complete(
+        self,
+        positions: list[int],
+        cost_matrix: tuple[
+            tuple[float, ...],
+            ...
+        ],
+        prepared_transitions: PreparedPositionIndexedTransitions,
+        position_finger_indexes: tuple[int, ...],
+        allowed_ratios: tuple[float, ...],
+        character_statistics: CharacterStatistics,
+    ) -> float:
+        """
+        Return the final score for a complete A-Z position-indexed layout.
+
+        This uses the specialized prepared transition hot path that assumes
+        every letter has a valid position index.
+        """
+
+        layout_score = (
+            self._layout_evaluator
+            .evaluate_prepared_position_indexed_complete(
+                positions,
+                cost_matrix,
+                prepared_transitions,
+            )
+        )
+
+        finger_load_penalty = (
+            self._finger_load_evaluator
+            .evaluate_position_indexed(
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                character_statistics,
+            )
+        )
+
+        return self._candidate_scorer.score(
+            transition_total_cost=layout_score.total_cost,
+            evaluated_transition_weight=(
+                layout_score.evaluated_weight
+            ),
+            finger_load_penalty=finger_load_penalty,
+        )
+
+    def evaluate_prepared_position_indexed_complete_flat(
+        self,
+        positions: list[int],
+        flat_costs: tuple[float, ...],
+        position_count: int,
+        prepared_transitions: PreparedPositionIndexedTransitions,
+        position_finger_indexes: tuple[int, ...],
+        allowed_ratios: tuple[float, ...],
+        character_statistics: CharacterStatistics,
+    ) -> float:
+        """
+        Return the final score for a complete A-Z position-indexed layout
+        using a flat transition-cost table.
+
+        This uses the specialized prepared transition hot path that assumes
+        every letter has a valid position index.
+
+        Transition scoring uses a flat row-major position-cost table.
+        Finger-load scoring continues to use the normal fully
+        position-indexed path.
+        """
+
+        layout_score = (
+            self._layout_evaluator
+            .evaluate_prepared_position_indexed_complete_flat(
+                positions,
+                flat_costs,
+                position_count,
+                prepared_transitions,
+            )
+        )
+
+        finger_load_penalty = (
+            self._finger_load_evaluator
+            .evaluate_position_indexed(
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                character_statistics,
+            )
+        )
+
+        return self._candidate_scorer.score(
+            transition_total_cost=layout_score.total_cost,
+            evaluated_transition_weight=(
+                layout_score.evaluated_weight
+            ),
+            finger_load_penalty=finger_load_penalty,
+        )
+
     def evaluate_prepared_position_indexed_delta(
         self,
         positions: list[int],

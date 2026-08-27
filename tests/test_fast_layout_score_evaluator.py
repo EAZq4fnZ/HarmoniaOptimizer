@@ -828,6 +828,96 @@ def test_evaluate_prepared_position_indexed_matches_evaluate() -> None:
         )
     )
 
+def test_evaluate_prepared_position_indexed_complete_matches_prepared() -> None:
+    layout = make_layout()
+    statistics = make_statistics()
+
+    evaluator = FastLayoutScoreEvaluator(
+        make_weights()
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        letter_index = ord(letter) - ord("A")
+
+        if 0 <= letter_index < 26:
+            string_positions[
+                letter_index
+            ] = str(position)
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    assert len(logical_positions) == 26
+
+    (
+        position_indexes,
+        cost_matrix,
+    ) = evaluator.build_position_index(
+        logical_positions
+    )
+
+    integer_positions = (
+        evaluator.convert_to_position_indexes(
+            string_positions,
+            position_indexes,
+        )
+    )
+
+    assert len(integer_positions) == 26
+    assert all(
+        position_index >= 0
+        for position_index in integer_positions
+    )
+
+    prepared = (
+        evaluator
+        .prepare_position_indexed_transitions(
+            statistics
+        )
+    )
+
+    normal_result = (
+        evaluator
+        .evaluate_prepared_position_indexed(
+            integer_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    complete_result = (
+        evaluator
+        .evaluate_prepared_position_indexed_complete(
+            integer_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    assert complete_result.total_cost == pytest.approx(
+        normal_result.total_cost
+    )
+
+    assert (
+        complete_result.evaluated_weight
+        == pytest.approx(
+            normal_result.evaluated_weight
+        )
+    )
+
+    assert (
+        complete_result.skipped_weight
+        == pytest.approx(
+            normal_result.skipped_weight
+        )
+    )
 
 def test_prepared_position_indexed_preserves_skipped_transitions() -> None:
     layout = make_layout()
@@ -1516,3 +1606,139 @@ def test_prepared_position_indexed_delta_rejects_invalid_changed_index() -> None
             ),
         )
 
+def test_prepared_transition_evaluated_weight_matches_records() -> None:
+    statistics = make_statistics()
+
+    evaluator = FastLayoutScoreEvaluator(
+        make_weights()
+    )
+
+    prepared = (
+        evaluator
+        .prepare_position_indexed_transitions(
+            statistics
+        )
+    )
+
+    expected_weight = sum(
+        weighted_count
+        for (
+            _source_index,
+            _target_index,
+            weighted_count,
+        ) in prepared.records
+    )
+
+    assert prepared.evaluated_weight == pytest.approx(
+        expected_weight
+    )
+
+def test_evaluate_prepared_position_indexed_complete_flat_matches_complete(
+    ) -> None:
+        layout = make_layout()
+        statistics = make_statistics()
+
+        evaluator = FastLayoutScoreEvaluator(
+            make_weights()
+        )
+
+        string_positions: list[str | None] = [
+            None
+        ] * 26
+
+        for letter, position in layout.mapping.items():
+            letter_index = (
+                ord(letter)
+                - ord("A")
+            )
+
+            if 0 <= letter_index < 26:
+                string_positions[
+                    letter_index
+                ] = str(position)
+
+        logical_positions = tuple(
+            position
+            for position in string_positions
+            if position is not None
+        )
+
+        assert len(logical_positions) == 26
+
+        (
+            position_indexes,
+            cost_matrix,
+        ) = evaluator.build_position_index(
+            logical_positions
+        )
+
+        (
+            flat_position_indexes,
+            flat_costs,
+            position_count,
+        ) = evaluator.build_flat_position_costs(
+            logical_positions
+        )
+
+        assert (
+            flat_position_indexes
+            == position_indexes
+        )
+
+        integer_positions = (
+            evaluator.convert_to_position_indexes(
+                string_positions,
+                position_indexes,
+            )
+        )
+
+        assert len(integer_positions) == 26
+        assert all(
+            position_index >= 0
+            for position_index
+            in integer_positions
+        )
+
+        prepared = (
+            evaluator
+            .prepare_position_indexed_transitions(
+                statistics
+            )
+        )
+
+        expected = (
+            evaluator
+            .evaluate_prepared_position_indexed_complete(
+                integer_positions,
+                cost_matrix,
+                prepared,
+            )
+        )
+
+        actual = (
+            evaluator
+            .evaluate_prepared_position_indexed_complete_flat(
+                integer_positions,
+                flat_costs,
+                position_count,
+                prepared,
+            )
+        )
+
+        assert actual.total_cost == pytest.approx(
+            expected.total_cost
+        )
+
+        assert (
+            actual.evaluated_weight
+            == pytest.approx(
+                expected.evaluated_weight
+            )
+        )
+
+        assert (
+            actual.skipped_weight
+            == pytest.approx(
+                expected.skipped_weight
+            )
+        )

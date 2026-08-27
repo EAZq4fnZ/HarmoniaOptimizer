@@ -550,3 +550,198 @@ def test_assign_vowels_position_indexed_matches_mapping() -> None:
     )
 
     assert result_mapping == expected_mapping
+
+def test_generate_vowel_position_indexes_matches_string_generator() -> None:
+    builder = make_builder()
+
+    candidate_positions = (
+        "L-I-H-1",
+        "L-I-H-2",
+        "L-I-H-3",
+        "R-I-H-1",
+        "R-I-H-2",
+        "R-I-H-3",
+    )
+
+    left_positions = tuple(
+        position
+        for position in candidate_positions
+        if position.startswith("L-")
+    )
+
+    right_positions = tuple(
+        position
+        for position in candidate_positions
+        if position.startswith("R-")
+    )
+
+    position_indexes = {
+        position: index
+        for index, position in enumerate(
+            candidate_positions
+        )
+    }
+
+    candidate_position_indexes = tuple(
+        position_indexes[position]
+        for position in candidate_positions
+    )
+
+    left_position_indexes = tuple(
+        position_indexes[position]
+        for position in left_positions
+    )
+
+    right_position_indexes = tuple(
+        position_indexes[position]
+        for position in right_positions
+    )
+
+    string_candidates = list(
+        builder._generate_vowel_positions(
+            candidate_positions=candidate_positions,
+            left_positions=left_positions,
+            right_positions=right_positions,
+            min_left_vowels=2,
+            max_left_vowels=3,
+        )
+    )
+
+    integer_candidates = list(
+        builder._generate_vowel_position_indexes(
+            candidate_position_indexes=(
+                candidate_position_indexes
+            ),
+            left_position_indexes=(
+                left_position_indexes
+            ),
+            right_position_indexes=(
+                right_position_indexes
+            ),
+            min_left_vowels=2,
+            max_left_vowels=3,
+        )
+    )
+
+    converted_string_candidates = [
+        tuple(
+            position_indexes[position]
+            for position in candidate
+        )
+        for candidate in string_candidates
+    ]
+
+    assert (
+        integer_candidates
+        == converted_string_candidates
+    )
+
+def test_assign_vowels_position_indexed_fast_matches_checked() -> None:
+    builder = make_builder()
+    layout = make_layout()
+
+    base_string_positions = (
+        builder._layout_to_indexed_positions(
+            layout
+        )
+    )
+
+    position_ids = tuple(
+        sorted(
+            position
+            for position in base_string_positions
+            if position is not None
+        )
+    )
+
+    position_indexes = {
+        position: index
+        for index, position in enumerate(
+            position_ids
+        )
+    }
+
+    base_positions = [
+        (
+            -1
+            if position is None
+            else position_indexes[position]
+        )
+        for position in base_string_positions
+    ]
+
+    original_vowel_positions = frozenset(
+        base_positions[index]
+        for index in builder.VOWEL_INDEXES
+    )
+
+    original_vowel_positions_sorted = tuple(
+        sorted(
+            original_vowel_positions
+        )
+    )
+
+    letter_index_by_position = [
+        -1
+    ] * len(position_ids)
+
+    for (
+        letter_index,
+        position_index,
+    ) in enumerate(
+        base_positions
+    ):
+        if position_index >= 0:
+            letter_index_by_position[
+                position_index
+            ] = letter_index
+
+    vowel_positions = (
+        "L-R-T-1",
+        "L-M-T-2",
+        "L-I-T-3",
+        "L-I-T-4",
+        "L-R-H-1",
+    )
+
+    vowel_position_indexes = tuple(
+        position_indexes[position]
+        for position in vowel_positions
+    )
+
+    checked = (
+        builder
+        ._assign_vowels_position_indexed(
+            base_positions=base_positions,
+            vowel_position_indexes=(
+                vowel_position_indexes
+            ),
+            original_vowel_positions=(
+                original_vowel_positions
+            ),
+            letter_index_by_position=tuple(
+                letter_index_by_position
+            ),
+        )
+    )
+
+    fast = (
+        builder
+        ._assign_vowels_position_indexed_fast(
+            base_positions=base_positions,
+            vowel_position_indexes=(
+                vowel_position_indexes
+            ),
+            original_vowel_positions=(
+                original_vowel_positions
+            ),
+            original_vowel_positions_sorted=(
+                original_vowel_positions_sorted
+            ),
+            letter_index_by_position=tuple(
+                letter_index_by_position
+            ),
+        )
+    )
+
+    assert fast == checked
