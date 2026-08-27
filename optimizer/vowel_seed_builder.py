@@ -183,6 +183,8 @@ class VowelSeedBuilder:
             | None
         ) = None
 
+        prepared_transitions = None
+
         if self._fast_evaluator is not None:
             base_string_positions = (
                 self._layout_to_indexed_positions(
@@ -276,6 +278,14 @@ class VowelSeedBuilder:
                 )
             )
 
+            prepared_transitions = (
+                self
+                ._fast_evaluator
+                .prepare_position_indexed_transitions(
+                    transition_statistics
+                )
+            )    
+
         for vowel_positions in self._generate_vowel_positions(
             candidate_positions=candidate_positions,
             left_positions=left_positions,
@@ -319,6 +329,7 @@ class VowelSeedBuilder:
                     or base_position_indexes is None
                     or original_vowel_position_indexes is None
                     or letter_index_by_position_index is None
+                    or prepared_transitions is None
                 ):
                     raise RuntimeError(
                         "position-indexed search data "
@@ -354,25 +365,26 @@ class VowelSeedBuilder:
                 score = (
                     self
                     ._fast_evaluator
-                    .evaluate_position_indexed(
+                    .evaluate_prepared_position_indexed(
                         positions=(
                             candidate_position_indexes
                         ),
                         cost_matrix=cost_matrix,
+                        prepared_transitions=(
+                            prepared_transitions
+                        ),
                         position_finger_indexes=(
                             position_finger_indexes
                         ),
                         allowed_ratios=(
                             allowed_ratios
                         ),
-                        transition_statistics=(
-                            transition_statistics
-                        ),
                         character_statistics=(
                             character_statistics
                         ),
                     )
                 )
+
                 if (
                     best_score is None
                     or score < best_score
@@ -924,10 +936,6 @@ class VowelSeedBuilder:
                 "exactly 5 positions"
             )
 
-        # The exhaustive generator already guarantees uniqueness.
-        #
-        # Keep validation here because this helper is also exercised
-        # directly by tests and may be called independently.
         if (
             len(set(vowel_position_indexes))
             != len(self.VOWELS)
@@ -992,8 +1000,6 @@ class VowelSeedBuilder:
             in displaced_positions
         ]
 
-        # Integer position IDs were assigned in the same order
-        # as sorted logical-position strings.
         displaced_letter_indexes.sort()
         vacated_positions.sort()
 
@@ -1190,3 +1196,4 @@ class VowelSeedBuilder:
             description=layout.description,
             mapping=mapping,
         )
+

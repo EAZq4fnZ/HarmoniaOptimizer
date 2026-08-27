@@ -745,3 +745,774 @@ def test_evaluate_position_indexed_flat_matches_evaluate() -> None:
             normal_result.skipped_weight
         )
     )
+
+
+def test_evaluate_prepared_position_indexed_matches_evaluate() -> None:
+    layout = make_layout()
+    statistics = make_statistics()
+
+    evaluator = FastLayoutScoreEvaluator(
+        make_weights()
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= index < 26:
+            string_positions[index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+    ) = evaluator.build_position_index(
+        logical_positions
+    )
+
+    integer_positions = (
+        evaluator.convert_to_position_indexes(
+            string_positions,
+            position_indexes,
+        )
+    )
+
+    prepared = (
+        evaluator.prepare_position_indexed_transitions(
+            statistics
+        )
+    )
+
+    prepared_result = (
+        evaluator.evaluate_prepared_position_indexed(
+            integer_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    normal_result = evaluator.evaluate(
+        layout,
+        statistics,
+    )
+
+    assert (
+        prepared_result.total_cost
+        == pytest.approx(
+            normal_result.total_cost
+        )
+    )
+
+    assert (
+        prepared_result.evaluated_weight
+        == pytest.approx(
+            normal_result.evaluated_weight
+        )
+    )
+
+    assert (
+        prepared_result.skipped_weight
+        == pytest.approx(
+            normal_result.skipped_weight
+        )
+    )
+
+
+def test_prepared_position_indexed_preserves_skipped_transitions() -> None:
+    layout = make_layout()
+    statistics = make_statistics()
+
+    statistics.add(
+        {
+            ("?", "A"): 9,
+            ("A", "?"): 11,
+        }
+    )
+
+    evaluator = FastLayoutScoreEvaluator(
+        make_weights()
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= index < 26:
+            string_positions[index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+    ) = evaluator.build_position_index(
+        logical_positions
+    )
+
+    integer_positions = (
+        evaluator.convert_to_position_indexes(
+            string_positions,
+            position_indexes,
+        )
+    )
+
+    prepared = (
+        evaluator.prepare_position_indexed_transitions(
+            statistics
+        )
+    )
+
+    prepared_result = (
+        evaluator.evaluate_prepared_position_indexed(
+            integer_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    full_result = evaluator.evaluate_position_indexed(
+        integer_positions,
+        cost_matrix,
+        statistics,
+    )
+
+    assert (
+        prepared_result.total_cost
+        == pytest.approx(
+            full_result.total_cost
+        )
+    )
+
+    assert (
+        prepared_result.evaluated_weight
+        == pytest.approx(
+            full_result.evaluated_weight
+        )
+    )
+
+    assert (
+        prepared_result.skipped_weight
+        == pytest.approx(
+            full_result.skipped_weight
+        )
+    )
+
+
+def test_prepared_position_indexed_handles_missing_layout_letter() -> None:
+    layout = make_layout()
+    statistics = make_statistics()
+
+    evaluator = FastLayoutScoreEvaluator(
+        make_weights()
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= index < 26:
+            string_positions[index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+    ) = evaluator.build_position_index(
+        logical_positions
+    )
+
+    integer_positions = list(
+        evaluator.convert_to_position_indexes(
+            string_positions,
+            position_indexes,
+        )
+    )
+
+    integer_positions[
+        ord("A") - ord("A")
+    ] = -1
+
+    prepared = (
+        evaluator.prepare_position_indexed_transitions(
+            statistics
+        )
+    )
+
+    prepared_result = (
+        evaluator.evaluate_prepared_position_indexed(
+            integer_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    full_result = evaluator.evaluate_position_indexed(
+        integer_positions,
+        cost_matrix,
+        statistics,
+    )
+
+    assert (
+        prepared_result.total_cost
+        == pytest.approx(
+            full_result.total_cost
+        )
+    )
+
+    assert (
+        prepared_result.evaluated_weight
+        == pytest.approx(
+            full_result.evaluated_weight
+        )
+    )
+
+    assert (
+        prepared_result.skipped_weight
+        == pytest.approx(
+            full_result.skipped_weight
+        )
+    )
+
+def _prepare_prepared_delta_test_data():
+    layout = make_layout()
+    statistics = make_statistics()
+
+    evaluator = FastLayoutScoreEvaluator(
+        make_weights()
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= index < 26:
+            string_positions[index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+    ) = evaluator.build_position_index(
+        logical_positions
+    )
+
+    base_positions = list(
+        evaluator.convert_to_position_indexes(
+            string_positions,
+            position_indexes,
+        )
+    )
+
+    prepared = (
+        evaluator.prepare_position_indexed_transitions(
+            statistics
+        )
+    )
+
+    baseline = (
+        evaluator
+        .prepare_prepared_position_indexed_delta(
+            base_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    return (
+        evaluator,
+        statistics,
+        cost_matrix,
+        base_positions,
+        prepared,
+        baseline,
+    )
+
+
+def test_prepared_position_indexed_delta_matches_prepared_full() -> None:
+    (
+        evaluator,
+        _statistics,
+        cost_matrix,
+        base_positions,
+        prepared,
+        baseline,
+    ) = _prepare_prepared_delta_test_data()
+
+    candidate_positions = list(
+        base_positions
+    )
+
+    a_index = ord("A") - ord("A")
+    e_index = ord("E") - ord("A")
+
+    (
+        candidate_positions[a_index],
+        candidate_positions[e_index],
+    ) = (
+        candidate_positions[e_index],
+        candidate_positions[a_index],
+    )
+
+    full_result = (
+        evaluator.evaluate_prepared_position_indexed(
+            candidate_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    delta_result = (
+        evaluator
+        .evaluate_prepared_position_indexed_delta(
+            candidate_positions,
+            cost_matrix,
+            baseline,
+            (
+                a_index,
+                e_index,
+            ),
+        )
+    )
+
+    assert delta_result.total_cost == pytest.approx(
+        full_result.total_cost
+    )
+
+    assert (
+        delta_result.evaluated_weight
+        == pytest.approx(
+            full_result.evaluated_weight
+        )
+    )
+
+    assert (
+        delta_result.skipped_weight
+        == pytest.approx(
+            full_result.skipped_weight
+        )
+    )
+
+
+def test_prepared_position_indexed_delta_without_changes_matches_baseline() -> None:
+    (
+        evaluator,
+        _statistics,
+        cost_matrix,
+        base_positions,
+        _prepared,
+        baseline,
+    ) = _prepare_prepared_delta_test_data()
+
+    result = (
+        evaluator
+        .evaluate_prepared_position_indexed_delta(
+            base_positions,
+            cost_matrix,
+            baseline,
+            (),
+        )
+    )
+
+    assert result.total_cost == pytest.approx(
+        baseline.total_cost
+    )
+
+    assert (
+        result.evaluated_weight
+        == pytest.approx(
+            baseline.evaluated_weight
+        )
+    )
+
+    assert (
+        result.skipped_weight
+        == pytest.approx(
+            baseline.skipped_weight
+        )
+    )
+
+
+def test_prepared_position_indexed_delta_handles_missing_layout_letter() -> None:
+    (
+        evaluator,
+        _statistics,
+        cost_matrix,
+        base_positions,
+        prepared,
+        baseline,
+    ) = _prepare_prepared_delta_test_data()
+
+    candidate_positions = list(
+        base_positions
+    )
+
+    a_index = ord("A") - ord("A")
+
+    candidate_positions[
+        a_index
+    ] = -1
+
+    full_result = (
+        evaluator.evaluate_prepared_position_indexed(
+            candidate_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    delta_result = (
+        evaluator
+        .evaluate_prepared_position_indexed_delta(
+            candidate_positions,
+            cost_matrix,
+            baseline,
+            (
+                a_index,
+            ),
+        )
+    )
+
+    assert delta_result.total_cost == pytest.approx(
+        full_result.total_cost
+    )
+
+    assert (
+        delta_result.evaluated_weight
+        == pytest.approx(
+            full_result.evaluated_weight
+        )
+    )
+
+    assert (
+        delta_result.skipped_weight
+        == pytest.approx(
+            full_result.skipped_weight
+        )
+    )
+
+
+def test_prepared_position_indexed_delta_preserves_permanent_skips() -> None:
+    layout = make_layout()
+    statistics = make_statistics()
+
+    statistics.add(
+        {
+            ("?", "A"): 9,
+            ("A", "?"): 11,
+        }
+    )
+
+    evaluator = FastLayoutScoreEvaluator(
+        make_weights()
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= index < 26:
+            string_positions[index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+    ) = evaluator.build_position_index(
+        logical_positions
+    )
+
+    base_positions = list(
+        evaluator.convert_to_position_indexes(
+            string_positions,
+            position_indexes,
+        )
+    )
+
+    prepared = (
+        evaluator.prepare_position_indexed_transitions(
+            statistics
+        )
+    )
+
+    baseline = (
+        evaluator
+        .prepare_prepared_position_indexed_delta(
+            base_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    candidate_positions = list(
+        base_positions
+    )
+
+    a_index = ord("A") - ord("A")
+    e_index = ord("E") - ord("A")
+
+    (
+        candidate_positions[a_index],
+        candidate_positions[e_index],
+    ) = (
+        candidate_positions[e_index],
+        candidate_positions[a_index],
+    )
+
+    full_result = (
+        evaluator.evaluate_prepared_position_indexed(
+            candidate_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    delta_result = (
+        evaluator
+        .evaluate_prepared_position_indexed_delta(
+            candidate_positions,
+            cost_matrix,
+            baseline,
+            (
+                a_index,
+                e_index,
+            ),
+        )
+    )
+
+    assert delta_result.total_cost == pytest.approx(
+        full_result.total_cost
+    )
+
+    assert (
+        delta_result.evaluated_weight
+        == pytest.approx(
+            full_result.evaluated_weight
+        )
+    )
+
+    assert (
+        delta_result.skipped_weight
+        == pytest.approx(
+            full_result.skipped_weight
+        )
+    )
+
+
+def test_prepared_position_indexed_delta_matches_multiple_changes() -> None:
+    (
+        evaluator,
+        _statistics,
+        cost_matrix,
+        base_positions,
+        prepared,
+        baseline,
+    ) = _prepare_prepared_delta_test_data()
+
+    candidate_positions = list(
+        base_positions
+    )
+
+    indexes = tuple(
+        ord(letter) - ord("A")
+        for letter in (
+            "A",
+            "E",
+            "I",
+            "O",
+        )
+    )
+
+    (
+        a_index,
+        e_index,
+        i_index,
+        o_index,
+    ) = indexes
+
+    (
+        candidate_positions[a_index],
+        candidate_positions[e_index],
+    ) = (
+        candidate_positions[e_index],
+        candidate_positions[a_index],
+    )
+
+    (
+        candidate_positions[i_index],
+        candidate_positions[o_index],
+    ) = (
+        candidate_positions[o_index],
+        candidate_positions[i_index],
+    )
+
+    full_result = (
+        evaluator.evaluate_prepared_position_indexed(
+            candidate_positions,
+            cost_matrix,
+            prepared,
+        )
+    )
+
+    delta_result = (
+        evaluator
+        .evaluate_prepared_position_indexed_delta(
+            candidate_positions,
+            cost_matrix,
+            baseline,
+            indexes,
+        )
+    )
+
+    assert delta_result.total_cost == pytest.approx(
+        full_result.total_cost
+    )
+
+    assert (
+        delta_result.evaluated_weight
+        == pytest.approx(
+            full_result.evaluated_weight
+        )
+    )
+
+    assert (
+        delta_result.skipped_weight
+        == pytest.approx(
+            full_result.skipped_weight
+        )
+    )
+
+
+def test_prepared_position_indexed_delta_reuses_affected_index_cache() -> None:
+    (
+        evaluator,
+        _statistics,
+        cost_matrix,
+        base_positions,
+        _prepared,
+        baseline,
+    ) = _prepare_prepared_delta_test_data()
+
+    candidate_positions = list(
+        base_positions
+    )
+
+    a_index = ord("A") - ord("A")
+    e_index = ord("E") - ord("A")
+
+    (
+        candidate_positions[a_index],
+        candidate_positions[e_index],
+    ) = (
+        candidate_positions[e_index],
+        candidate_positions[a_index],
+    )
+
+    evaluator.evaluate_prepared_position_indexed_delta(
+        candidate_positions,
+        cost_matrix,
+        baseline,
+        (
+            a_index,
+            e_index,
+        ),
+    )
+
+    cache_size_after_first = len(
+        baseline.affected_indexes_cache
+    )
+
+    evaluator.evaluate_prepared_position_indexed_delta(
+        candidate_positions,
+        cost_matrix,
+        baseline,
+        (
+            e_index,
+            a_index,
+        ),
+    )
+
+    cache_size_after_second = len(
+        baseline.affected_indexes_cache
+    )
+
+    assert cache_size_after_first == 1
+    assert cache_size_after_second == 1
+
+
+def test_prepared_position_indexed_delta_rejects_invalid_changed_index() -> None:
+    (
+        evaluator,
+        _statistics,
+        cost_matrix,
+        base_positions,
+        _prepared,
+        baseline,
+    ) = _prepare_prepared_delta_test_data()
+
+    with pytest.raises(
+        ValueError,
+        match="between 0 and 25",
+    ):
+        evaluator.evaluate_prepared_position_indexed_delta(
+            base_positions,
+            cost_matrix,
+            baseline,
+            (
+                26,
+            ),
+        )
+

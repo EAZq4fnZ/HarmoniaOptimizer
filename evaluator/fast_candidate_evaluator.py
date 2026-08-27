@@ -13,9 +13,12 @@ from evaluator.fast_finger_load_score_evaluator import (
 from evaluator.fast_layout_score_evaluator import (
     FastLayoutScoreEvaluator,
     PositionIndexedDeltaBaseline,
+    PreparedPositionIndexedDeltaBaseline,
+    PreparedPositionIndexedTransitions,
 )
 from evaluator.transition_statistics import TransitionStatistics
 from models.layout import Layout
+
 
 
 class FastCandidateEvaluator:
@@ -496,4 +499,139 @@ class FastCandidateEvaluator:
                 layout_score.evaluated_weight
             ),
             finger_load_penalty=finger_load_penalty,
+        )
+
+    def prepare_position_indexed_transitions(
+        self,
+        transition_statistics: TransitionStatistics,
+    ) -> PreparedPositionIndexedTransitions:
+        return (
+            self._layout_evaluator
+            .prepare_position_indexed_transitions(
+                transition_statistics
+            )
+        )
+
+    def prepare_prepared_position_indexed_delta(
+        self,
+        positions: Sequence[int],
+        cost_matrix: Sequence[
+            Sequence[float]
+        ],
+        prepared_transitions: (
+            PreparedPositionIndexedTransitions
+        ),
+    ) -> PreparedPositionIndexedDeltaBaseline:
+        """
+        Prepare the baseline used by prepared delta evaluation.
+
+        This is intended to be called once before exhaustive search.
+        """
+
+        return (
+            self
+            ._layout_evaluator
+            .prepare_prepared_position_indexed_delta(
+                positions,
+                cost_matrix,
+                prepared_transitions,
+            )
+        )
+
+    def evaluate_prepared_position_indexed(
+        self,
+        positions: list[int],
+        cost_matrix: tuple[
+            tuple[float, ...],
+            ...
+        ],
+        prepared_transitions: PreparedPositionIndexedTransitions,
+        position_finger_indexes: tuple[int, ...],
+        allowed_ratios: tuple[float, ...],
+        character_statistics: CharacterStatistics,
+    ) -> float:
+        layout_score = (
+            self._layout_evaluator
+            .evaluate_prepared_position_indexed(
+                positions,
+                cost_matrix,
+                prepared_transitions,
+            )
+        )
+
+        finger_load_penalty = (
+            self._finger_load_evaluator
+            .evaluate_position_indexed(
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                character_statistics,
+            )
+        )
+
+        return self._candidate_scorer.score(
+            transition_total_cost=layout_score.total_cost,
+            evaluated_transition_weight=(
+                layout_score.evaluated_weight
+            ),
+            finger_load_penalty=finger_load_penalty,
+        )
+
+    def evaluate_prepared_position_indexed_delta(
+        self,
+        positions: list[int],
+        cost_matrix: tuple[
+            tuple[float, ...],
+            ...,
+        ],
+        transition_baseline: (
+            PreparedPositionIndexedDeltaBaseline
+        ),
+        changed_letter_indexes: Sequence[int],
+        position_finger_indexes: tuple[int, ...],
+        allowed_ratios: tuple[float, ...],
+        character_statistics: CharacterStatistics,
+    ) -> float:
+        """
+        Return the final score using prepared delta transition evaluation.
+
+        Transition scoring recalculates only transitions involving
+        changed letters.
+
+        Finger-load scoring continues to use the normal fully
+        position-indexed path.
+        """
+
+        layout_score = (
+            self
+            ._layout_evaluator
+            .evaluate_prepared_position_indexed_delta(
+                positions,
+                cost_matrix,
+                transition_baseline,
+                changed_letter_indexes,
+            )
+        )
+
+        finger_load_penalty = (
+            self
+            ._finger_load_evaluator
+            .evaluate_position_indexed(
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                character_statistics,
+            )
+        )
+
+        return self._candidate_scorer.score(
+            transition_total_cost=(
+                layout_score.total_cost
+            ),
+            evaluated_transition_weight=(
+                layout_score.evaluated_weight
+            ),
+            finger_load_penalty=(
+                finger_load_penalty
+            ),
         )

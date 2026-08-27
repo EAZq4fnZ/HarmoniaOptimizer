@@ -684,3 +684,196 @@ def test_evaluate_position_indexed_flat_matches_mapping() -> None:
     assert flat_score == pytest.approx(
         mapping_score
     )
+
+
+def test_evaluate_prepared_position_indexed_matches_mapping() -> None:
+    layout = make_layout()
+    transitions = make_transition_statistics()
+    characters = make_character_statistics()
+
+    fast = make_fast_evaluator(
+        ConstraintSet([])
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= index < 26:
+            string_positions[index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+        position_finger_indexes,
+        allowed_ratios,
+    ) = fast.prepare_position_index(
+        logical_positions
+    )
+
+    integer_positions = [
+        (
+            -1
+            if position is None
+            else position_indexes[position]
+        )
+        for position in string_positions
+    ]
+
+    prepared_transitions = (
+        fast.prepare_position_indexed_transitions(
+            transitions
+        )
+    )
+
+    mapping_score = fast.evaluate_mapping(
+        layout.mapping,
+        transitions,
+        characters,
+    )
+
+    position_indexed_score = (
+        fast.evaluate_position_indexed(
+            integer_positions,
+            cost_matrix,
+            position_finger_indexes,
+            allowed_ratios,
+            transitions,
+            characters,
+        )
+    )
+
+    prepared_score = (
+        fast.evaluate_prepared_position_indexed(
+            integer_positions,
+            cost_matrix,
+            prepared_transitions,
+            position_finger_indexes,
+            allowed_ratios,
+            characters,
+        )
+    )
+
+    assert prepared_score == pytest.approx(
+        mapping_score
+    )
+
+    assert prepared_score == pytest.approx(
+        position_indexed_score
+    )
+
+def test_evaluate_prepared_position_indexed_delta_matches_prepared() -> None:
+    layout = make_layout()
+    transitions = make_transition_statistics()
+    characters = make_character_statistics()
+
+    fast = make_fast_evaluator(
+        ConstraintSet([])
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= index < 26:
+            string_positions[index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+        position_finger_indexes,
+        allowed_ratios,
+    ) = fast.prepare_position_index(
+        logical_positions
+    )
+
+    base_positions = list(
+        fast._layout_evaluator
+        .convert_to_position_indexes(
+            string_positions,
+            position_indexes,
+        )
+    )
+
+    prepared_transitions = (
+        fast.prepare_position_indexed_transitions(
+            transitions
+        )
+    )
+
+    transition_baseline = (
+        fast.prepare_prepared_position_indexed_delta(
+            base_positions,
+            cost_matrix,
+            prepared_transitions,
+        )
+    )
+
+    candidate_positions = list(
+        base_positions
+    )
+
+    a_index = ord("A") - ord("A")
+    e_index = ord("E") - ord("A")
+
+    (
+        candidate_positions[a_index],
+        candidate_positions[e_index],
+    ) = (
+        candidate_positions[e_index],
+        candidate_positions[a_index],
+    )
+
+    prepared_score = (
+        fast.evaluate_prepared_position_indexed(
+            candidate_positions,
+            cost_matrix,
+            prepared_transitions,
+            position_finger_indexes,
+            allowed_ratios,
+            characters,
+        )
+    )
+
+    delta_score = (
+        fast.evaluate_prepared_position_indexed_delta(
+            candidate_positions,
+            cost_matrix,
+            transition_baseline,
+            (
+                a_index,
+                e_index,
+            ),
+            position_finger_indexes,
+            allowed_ratios,
+            characters,
+        )
+    )
+
+    assert delta_score == pytest.approx(
+        prepared_score
+    )

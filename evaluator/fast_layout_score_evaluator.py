@@ -36,6 +36,29 @@ class FastLayoutScore:
     skipped_weight: float
 
 @dataclass(frozen=True, slots=True)
+class PreparedPositionIndexedTransitions:
+    """
+    Transition data prepared once for repeated position-indexed evaluation.
+
+    records
+        Only transitions whose source and target are valid A-Z indexes.
+        Each record contains:
+
+            (source_index, target_index, weighted_count)
+
+        The raw transition count is intentionally omitted because the fast
+        scoring path does not use it.
+
+    permanently_skipped_weight
+        Total weight of transitions that can never be evaluated by an A-Z
+        indexed layout because either endpoint is outside A-Z.
+    """
+
+    records: tuple[tuple[int, int, float], ...]
+    permanently_skipped_weight: float
+
+
+@dataclass(frozen=True, slots=True)
 class PositionIndexedDeltaBaseline:
     """
     Baseline data for position-indexed delta evaluation.
@@ -70,6 +93,38 @@ class PositionIndexedDeltaBaseline:
 
     weighted_costs: tuple[float, ...]
     evaluated_weights: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedPositionIndexedDeltaBaseline:
+    """
+    Baseline data for prepared position-indexed delta evaluation.
+
+    The transition records use the same compact index space as
+    PreparedPositionIndexedTransitions.records. Permanently invalid
+    non-A-Z transitions are therefore excluded from the hot path and
+    represented only by skipped_weight.
+
+    affected_transition_bitsets_by_letter stores one Python integer
+    bitset for each A-Z letter. Bit N is set when prepared record N
+    involves that letter.
+
+    affected_indexes_cache maps a 26-bit changed-letter mask to the
+    compact tuple of affected prepared-record indexes. The cache is
+    populated lazily and reused across exhaustive-search candidates.
+    """
+
+    total_cost: float
+    evaluated_weight: float
+    skipped_weight: float
+
+    records: tuple[tuple[int, int, float], ...]
+    weighted_costs: tuple[float, ...]
+    evaluated_weights: tuple[float, ...]
+
+    affected_transition_bitsets_by_letter: tuple[int, ...]
+    affected_indexes_cache: dict[int, tuple[int, ...]]
+
 
 class FastLayoutScoreEvaluator:
     """
@@ -677,6 +732,450 @@ class FastLayoutScoreEvaluator:
 
             evaluated_weight += (
                 weighted_count
+            )
+
+        return FastLayoutScore(
+            total_cost=total_cost,
+            evaluated_weight=evaluated_weight,
+            skipped_weight=skipped_weight,
+        )
+
+    def prepare_position_indexed_transitions(
+        self,
+        statistics: TransitionStatistics,
+    ) -> PreparedPositionIndexedTransitions:
+        """
+        Prepare transition records for repeated position-indexed evaluation.
+
+        This method is intended to be called once before exhaustive search.
+        It removes data and validity checks that do not depend on the
+        candidate layout from the per-candidate hot loop.
+        """
+
+        records: list[tuple[int, int, float]] = []
+        permanently_skipped_weight = 0.0
+
+        append_record = records.append
+
+        for (
+            source_index,
+            target_index,
+            _raw_count,
+            weighted_count,
+        ) in statistics.indexed_evaluation_records():
+            if (
+                source_index < 0
+                or target_index < 0
+            ):
+                permanently_skipped_weight += (
+                    weighted_count
+                )
+                continue
+
+            append_record(
+                (
+                    source_index,
+                    target_index,
+                    weighted_count,
+                )
+            )
+
+        return PreparedPositionIndexedTransitions(
+            records=tuple(records),
+            permanently_skipped_weight=(
+                permanently_skipped_weight
+            ),
+        )
+
+    def evaluate_prepared_position_indexed(
+        self,
+        position_indexes: Sequence[int],
+        cost_matrix: Sequence[
+            Sequence[float]
+        ],
+        prepared: PreparedPositionIndexedTransitions,
+    ) -> FastLayoutScore:
+        """
+        Evaluate using transition records prepared before exhaustive search.
+
+        Compared with evaluate_position_indexed(), this path avoids calling
+        TransitionStatistics and avoids processing raw counts or permanently
+        invalid transition endpoints for every candidate.
+        """
+
+        if len(position_indexes) != 26:
+            raise ValueError(
+                "position_indexes must contain exactly 26 entries"
+            )
+
+        total_cost = 0.0
+        evaluated_weight = 0.0
+        skipped_weight = (
+            prepared.permanently_skipped_weight
+        )
+
+        positions = position_indexes
+        matrix = cost_matrix
+
+        for (
+            source_index,
+            target_index,
+            weighted_count,
+        ) in prepared.records:
+            source_position_index = positions[
+                source_index
+            ]
+
+            target_position_index = positions[
+                target_index
+            ]
+
+            if (
+                source_position_index < 0
+                or target_position_index < 0
+            ):
+                skipped_weight += weighted_count
+                continue
+
+            total_cost += (
+                matrix[
+                    source_position_index
+                ][
+                    target_position_index
+                ]
+                * weighted_count
+            )
+
+            evaluated_weight += weighted_count
+
+        return FastLayoutScore(
+            total_cost=total_cost,
+            evaluated_weight=evaluated_weight,
+            skipped_weight=skipped_weight,
+        )
+
+    def prepare_prepared_position_indexed_delta(
+        self,
+        position_indexes: Sequence[int],
+        cost_matrix: Sequence[
+            Sequence[float]
+        ],
+        prepared: PreparedPositionIndexedTransitions,
+    ) -> PreparedPositionIndexedDeltaBaseline:
+        """
+        Build a delta baseline from already-prepared transition records.
+
+        Unlike prepare_position_indexed_delta(), this method operates in
+        the compact PreparedPositionIndexedTransitions record space.
+
+        It also prepares one integer transition bitset per A-Z letter.
+        Later candidate evaluations can combine the relevant bitsets with
+        fast integer OR operations instead of constructing and updating a
+        Python set for every candidate.
+        """
+
+        if len(position_indexes) != 26:
+            raise ValueError(
+                "position_indexes must contain exactly 26 entries"
+            )
+
+        positions = position_indexes
+        matrix = cost_matrix
+
+        total_cost = 0.0
+        evaluated_weight = 0.0
+        skipped_weight = (
+            prepared.permanently_skipped_weight
+        )
+
+        weighted_costs: list[float] = []
+        evaluated_weights: list[float] = []
+
+        affected_bitsets = [
+            0
+        ] * 26
+
+        for (
+            transition_index,
+            record,
+        ) in enumerate(
+            prepared.records
+        ):
+            (
+                source_index,
+                target_index,
+                weighted_count,
+            ) = record
+
+            transition_bit = (
+                1 << transition_index
+            )
+
+            affected_bitsets[
+                source_index
+            ] |= transition_bit
+
+            if target_index != source_index:
+                affected_bitsets[
+                    target_index
+                ] |= transition_bit
+
+            source_position_index = positions[
+                source_index
+            ]
+
+            target_position_index = positions[
+                target_index
+            ]
+
+            if (
+                source_position_index < 0
+                or target_position_index < 0
+            ):
+                skipped_weight += weighted_count
+
+                weighted_costs.append(
+                    0.0
+                )
+
+                evaluated_weights.append(
+                    0.0
+                )
+
+                continue
+
+            weighted_cost = (
+                matrix[
+                    source_position_index
+                ][
+                    target_position_index
+                ]
+                * weighted_count
+            )
+
+            total_cost += weighted_cost
+            evaluated_weight += weighted_count
+
+            weighted_costs.append(
+                weighted_cost
+            )
+
+            evaluated_weights.append(
+                weighted_count
+            )
+
+        return PreparedPositionIndexedDeltaBaseline(
+            total_cost=total_cost,
+            evaluated_weight=evaluated_weight,
+            skipped_weight=skipped_weight,
+            records=prepared.records,
+            weighted_costs=tuple(
+                weighted_costs
+            ),
+            evaluated_weights=tuple(
+                evaluated_weights
+            ),
+            affected_transition_bitsets_by_letter=tuple(
+                affected_bitsets
+            ),
+            affected_indexes_cache={},
+        )
+
+    def evaluate_prepared_position_indexed_delta(
+        self,
+        position_indexes: Sequence[int],
+        cost_matrix: Sequence[
+            Sequence[float]
+        ],
+        baseline: PreparedPositionIndexedDeltaBaseline,
+        changed_letter_indexes: Sequence[int],
+    ) -> FastLayoutScore:
+        """
+        Evaluate a candidate using the prepared delta baseline.
+
+        Only transitions involving changed letters are recalculated.
+
+        The affected transition indexes are obtained without per-candidate
+        set construction. A 26-bit changed-letter mask is used as a cache
+        key, while precomputed integer transition bitsets are ORed together
+        only on the first occurrence of a changed-letter combination.
+        """
+
+        if len(position_indexes) != 26:
+            raise ValueError(
+                "position_indexes must contain exactly 26 entries"
+            )
+
+        if not changed_letter_indexes:
+            return FastLayoutScore(
+                total_cost=baseline.total_cost,
+                evaluated_weight=(
+                    baseline.evaluated_weight
+                ),
+                skipped_weight=baseline.skipped_weight,
+            )
+
+        changed_mask = 0
+
+        for letter_index in changed_letter_indexes:
+            if not 0 <= letter_index < 26:
+                raise ValueError(
+                    "changed letter indexes must "
+                    "be between 0 and 25"
+                )
+
+            changed_mask |= (
+                1 << letter_index
+            )
+
+        affected_indexes = (
+            baseline
+            .affected_indexes_cache
+            .get(
+                changed_mask
+            )
+        )
+
+        if affected_indexes is None:
+            affected_bits = 0
+
+            bitsets_by_letter = (
+                baseline
+                .affected_transition_bitsets_by_letter
+            )
+
+            remaining_mask = changed_mask
+
+            while remaining_mask:
+                lowest_bit = (
+                    remaining_mask
+                    & -remaining_mask
+                )
+
+                letter_index = (
+                    lowest_bit.bit_length()
+                    - 1
+                )
+
+                affected_bits |= (
+                    bitsets_by_letter[
+                        letter_index
+                    ]
+                )
+
+                remaining_mask ^= (
+                    lowest_bit
+                )
+
+            mutable_indexes: list[int] = []
+            append_index = mutable_indexes.append
+
+            while affected_bits:
+                lowest_bit = (
+                    affected_bits
+                    & -affected_bits
+                )
+
+                append_index(
+                    lowest_bit.bit_length()
+                    - 1
+                )
+
+                affected_bits ^= (
+                    lowest_bit
+                )
+
+            affected_indexes = tuple(
+                mutable_indexes
+            )
+
+            baseline.affected_indexes_cache[
+                changed_mask
+            ] = affected_indexes
+
+        positions = position_indexes
+        matrix = cost_matrix
+        records = baseline.records
+
+        baseline_weighted_costs = (
+            baseline.weighted_costs
+        )
+
+        baseline_evaluated_weights = (
+            baseline.evaluated_weights
+        )
+
+        total_cost = baseline.total_cost
+        evaluated_weight = (
+            baseline.evaluated_weight
+        )
+        skipped_weight = (
+            baseline.skipped_weight
+        )
+
+        for transition_index in affected_indexes:
+            (
+                source_index,
+                target_index,
+                weighted_count,
+            ) = records[
+                transition_index
+            ]
+
+            old_weighted_cost = (
+                baseline_weighted_costs[
+                    transition_index
+                ]
+            )
+
+            old_evaluated_weight = (
+                baseline_evaluated_weights[
+                    transition_index
+                ]
+            )
+
+            source_position_index = positions[
+                source_index
+            ]
+
+            target_position_index = positions[
+                target_index
+            ]
+
+            if (
+                source_position_index < 0
+                or target_position_index < 0
+            ):
+                new_weighted_cost = 0.0
+                new_evaluated_weight = 0.0
+
+            else:
+                new_weighted_cost = (
+                    matrix[
+                        source_position_index
+                    ][
+                        target_position_index
+                    ]
+                    * weighted_count
+                )
+
+                new_evaluated_weight = (
+                    weighted_count
+                )
+
+            total_cost += (
+                new_weighted_cost
+                - old_weighted_cost
+            )
+
+            evaluated_weight += (
+                new_evaluated_weight
+                - old_evaluated_weight
+            )
+
+            skipped_weight += (
+                old_evaluated_weight
+                - new_evaluated_weight
             )
 
         return FastLayoutScore(
