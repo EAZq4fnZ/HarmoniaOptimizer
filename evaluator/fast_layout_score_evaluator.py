@@ -13,7 +13,6 @@ from models.transition_cost import TransitionCostWeights
 
 from .transition_statistics import TransitionStatistics
 
-
 _FINGER_ORDER = {
     "PINKY": 0,
     "RING": 1,
@@ -892,19 +891,13 @@ class FastLayoutScoreEvaluator:
             target_index,
             weighted_count,
         ) in prepared.records:
-            source_position_index = positions[
-                source_index
-            ]
-
-            target_position_index = positions[
-                target_index
+            source_row = matrix[
+                positions[source_index]
             ]
 
             total_cost += (
-                matrix[
-                    source_position_index
-                ][
-                    target_position_index
+                source_row[
+                    positions[target_index]
                 ]
                 * weighted_count
             )
