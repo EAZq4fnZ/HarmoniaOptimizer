@@ -54,6 +54,13 @@ class PreparedPositionIndexedTransitions:
     """
 
     records: tuple[tuple[int, int, float], ...]
+    grouped_records: tuple[
+        tuple[
+            int,
+            tuple[tuple[int, float], ...],
+        ],
+        ...,
+    ]
     permanently_skipped_weight: float
     evaluated_weight: float
 
@@ -782,12 +789,38 @@ class FastLayoutScoreEvaluator:
             )
             evaluated_weight += weighted_count
 
+        grouped: list[list[tuple[int, float]]] = [
+            [] for _ in range(26)
+        ]
+
+        for (
+            source_index,
+            target_index,
+            weighted_count,
+        ) in records:
+            grouped[source_index].append(
+                (
+                    target_index,
+                    weighted_count,
+                )
+            )
+
+        grouped_records = tuple(
+            (
+                source_index,
+                tuple(targets),
+            )
+            for source_index, targets in enumerate(grouped)
+            if targets
+        )
+
         return PreparedPositionIndexedTransitions(
             records=tuple(records),
+            grouped_records=grouped_records,
             permanently_skipped_weight=(
                 permanently_skipped_weight
             ),
-        evaluated_weight=evaluated_weight,
+            evaluated_weight=evaluated_weight,
         )
 
     def evaluate_prepared_position_indexed(
@@ -888,19 +921,22 @@ class FastLayoutScoreEvaluator:
 
         for (
             source_index,
-            target_index,
-            weighted_count,
-        ) in prepared.records:
+            targets,
+        ) in prepared.grouped_records:
             source_row = matrix[
                 positions[source_index]
             ]
 
-            total_cost += (
-                source_row[
-                    positions[target_index]
-                ]
-                * weighted_count
-            )
+            for (
+                target_index,
+                weighted_count,
+            ) in targets:
+                total_cost += (
+                    source_row[
+                        positions[target_index]
+                    ]
+                    * weighted_count
+                )
 
         return FastLayoutScore(
             total_cost=total_cost,
