@@ -5,6 +5,16 @@ from evaluator.candidate_scorer import CandidateScorer
 from evaluator.character_analyzer import CharacterAnalyzer
 from evaluator.constraint_factory import ConstraintFactory
 from evaluator.corpus_analyzer import CorpusAnalyzer
+from evaluator.fast_candidate_evaluator import (
+    FastCandidateEvaluator,
+)
+from evaluator.fast_candidate_scorer import FastCandidateScorer
+from evaluator.fast_finger_load_score_evaluator import (
+    FastFingerLoadScoreEvaluator,
+)
+from evaluator.fast_layout_score_evaluator import (
+    FastLayoutScoreEvaluator,
+)
 from evaluator.finger_load_pipeline import FingerLoadPipeline
 from evaluator.layout_evaluator import LayoutEvaluator
 from models.candidate_score import CandidateScoreWeights
@@ -157,6 +167,90 @@ def make_evaluator() -> CandidateEvaluator:
     )
 
 
+def make_fast_evaluator() -> FastCandidateEvaluator:
+    transition_cost_weights = TransitionCostWeights(
+        same_finger_penalty=10.0,
+        same_hand_penalty=2.0,
+        row_change_penalty=1.5,
+        alternation_reward=2.0,
+        inward_roll_reward=1.5,
+        outward_roll_reward=0.5,
+    )
+
+    finger_load_budgets = (
+        FingerLoadBudget(
+            hand=Hand.LEFT,
+            finger=Finger.INDEX,
+            target_ratio=0.25,
+            tolerance=0.05,
+        ),
+        FingerLoadBudget(
+            hand=Hand.LEFT,
+            finger=Finger.MIDDLE,
+            target_ratio=0.15,
+            tolerance=0.05,
+        ),
+        FingerLoadBudget(
+            hand=Hand.LEFT,
+            finger=Finger.RING,
+            target_ratio=0.07,
+            tolerance=0.03,
+        ),
+        FingerLoadBudget(
+            hand=Hand.LEFT,
+            finger=Finger.PINKY,
+            target_ratio=0.03,
+            tolerance=0.02,
+        ),
+        FingerLoadBudget(
+            hand=Hand.RIGHT,
+            finger=Finger.INDEX,
+            target_ratio=0.25,
+            tolerance=0.05,
+        ),
+        FingerLoadBudget(
+            hand=Hand.RIGHT,
+            finger=Finger.MIDDLE,
+            target_ratio=0.15,
+            tolerance=0.05,
+        ),
+        FingerLoadBudget(
+            hand=Hand.RIGHT,
+            finger=Finger.RING,
+            target_ratio=0.07,
+            tolerance=0.03,
+        ),
+        FingerLoadBudget(
+            hand=Hand.RIGHT,
+            finger=Finger.PINKY,
+            target_ratio=0.03,
+            tolerance=0.02,
+        ),
+    )
+
+    candidate_score_weights = CandidateScoreWeights(
+        transition_weight=1.0,
+        finger_load_weight=1.0,
+    )
+
+    return FastCandidateEvaluator(
+        constraint_set=ConstraintFactory.create(
+            make_constraint_config()
+        ),
+        layout_evaluator=FastLayoutScoreEvaluator(
+            transition_cost_weights
+        ),
+        finger_load_evaluator=(
+            FastFingerLoadScoreEvaluator(
+                finger_load_budgets
+            )
+        ),
+        candidate_scorer=FastCandidateScorer(
+            candidate_score_weights
+        ),
+    )
+
+
 def make_statistics():
     corpus = Corpus(
         entries=(
@@ -228,3 +322,53 @@ def test_build_moves_all_vowels_to_left_hand():
         assert result.layout.position(vowel).startswith(
             "L-"
         )
+
+
+def test_fast_build_matches_normal_build():
+    transition_statistics, character_statistics = (
+        make_statistics()
+    )
+
+    config = make_constraint_config()
+    layout = make_layout()
+
+    normal_builder = VowelSeedBuilder(
+        evaluator=make_evaluator(),
+        allowed_positions=(
+            config.vowel_position.allowed_positions
+        ),
+    )
+
+    fast_builder = VowelSeedBuilder(
+        evaluator=make_evaluator(),
+        fast_evaluator=make_fast_evaluator(),
+        allowed_positions=(
+            config.vowel_position.allowed_positions
+        ),
+    )
+
+    normal_result = normal_builder.build(
+        layout=layout,
+        transition_statistics=transition_statistics,
+        character_statistics=character_statistics,
+    )
+
+    fast_result = fast_builder.build(
+        layout=layout,
+        transition_statistics=transition_statistics,
+        character_statistics=character_statistics,
+    )
+
+    assert fast_result.is_valid is True
+    assert fast_result.score == normal_result.score
+
+    for vowel in "AEIOU":
+        assert (
+            fast_result.layout.position(vowel)
+            == normal_result.layout.position(vowel)
+        )
+
+    assert (
+        fast_builder.evaluated_candidate_count
+        == normal_builder.evaluated_candidate_count
+    )
