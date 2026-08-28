@@ -9,6 +9,7 @@ from evaluator.constraint_set import ConstraintSet
 from evaluator.fast_candidate_scorer import FastCandidateScorer
 from evaluator.fast_finger_load_score_evaluator import (
     FastFingerLoadScoreEvaluator,
+    PreparedPositionIndexedFingerLoadBaseline,
 )
 from evaluator.fast_layout_score_evaluator import (
     FastLayoutScoreEvaluator,
@@ -519,6 +520,30 @@ class FastCandidateEvaluator:
             )
         )
 
+    def prepare_position_indexed_finger_load_delta_baseline(
+        self,
+        positions: Sequence[int],
+        position_finger_indexes: Sequence[int],
+        allowed_ratios: Sequence[float],
+        weighted_statistics: Sequence[float],
+        total_weighted_load: float,
+    ) -> PreparedPositionIndexedFingerLoadBaseline:
+        """
+        Prepare baseline finger loads once for complete-layout delta
+        evaluation during exhaustive search.
+        """
+
+        return (
+            self._finger_load_evaluator
+            .prepare_position_indexed_complete_delta_baseline(
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                weighted_statistics,
+                total_weighted_load,
+            )
+        )
+
     def prepare_position_indexed_transitions(
         self,
         transition_statistics: TransitionStatistics,
@@ -679,6 +704,59 @@ class FastCandidateEvaluator:
                 allowed_ratios,
                 weighted_statistics,
                 total_weighted_load,
+            )
+        )
+
+        return self._candidate_scorer.score(
+            transition_total_cost=layout_score.total_cost,
+            evaluated_transition_weight=(
+                layout_score.evaluated_weight
+            ),
+            finger_load_penalty=finger_load_penalty,
+        )
+
+    def evaluate_fully_prepared_position_indexed_complete_finger_delta(
+        self,
+        baseline_positions: Sequence[int],
+        positions: list[int],
+        cost_matrix: tuple[
+            tuple[float, ...],
+            ...,
+        ],
+        prepared_transitions: PreparedPositionIndexedTransitions,
+        position_finger_indexes: tuple[int, ...],
+        allowed_ratios: tuple[float, ...],
+        weighted_statistics: tuple[float, ...],
+        finger_load_baseline: PreparedPositionIndexedFingerLoadBaseline,
+        changed_letter_indexes: Sequence[int],
+    ) -> float:
+        """
+        Return the final score for a complete A-Z position-indexed layout.
+
+        Transition scoring uses the normal prepared complete hot path.
+        Finger-load scoring applies only changed-letter deltas to a
+        precomputed baseline.
+        """
+
+        layout_score = (
+            self._layout_evaluator
+            .evaluate_prepared_position_indexed_complete(
+                positions,
+                cost_matrix,
+                prepared_transitions,
+            )
+        )
+
+        finger_load_penalty = (
+            self._finger_load_evaluator
+            .evaluate_prepared_position_indexed_complete_delta(
+                baseline_positions,
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                weighted_statistics,
+                finger_load_baseline,
+                changed_letter_indexes,
             )
         )
 

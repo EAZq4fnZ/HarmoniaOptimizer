@@ -725,7 +725,10 @@ def test_assign_vowels_position_indexed_fast_matches_checked() -> None:
         )
     )
 
-    fast = (
+    (
+        fast,
+        changed_letter_indexes,
+    ) = (
         builder
         ._assign_vowels_position_indexed_fast(
             base_positions=base_positions,
@@ -745,3 +748,18 @@ def test_assign_vowels_position_indexed_fast_matches_checked() -> None:
     )
 
     assert fast == checked
+
+    assert set(changed_letter_indexes) == {
+        index
+        for index, (
+            baseline_position,
+            candidate_position,
+        ) in enumerate(
+            zip(
+                base_positions,
+                fast,
+                strict=True,
+            )
+        )
+        if baseline_position != candidate_position
+    }

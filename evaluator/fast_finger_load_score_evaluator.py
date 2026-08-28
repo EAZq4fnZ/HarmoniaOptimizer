@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from models.enums import Finger, Hand
 from models.finger_load_budget import FingerLoadBudget
@@ -10,6 +11,16 @@ from models.layout import Layout
 from models.logical_position_parser import LogicalPositionParser
 
 from .character_statistics import CharacterStatistics
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedPositionIndexedFingerLoadBaseline:
+    """
+    Baseline finger-load data for complete position-indexed delta evaluation.
+    """
+
+    finger_loads: tuple[float, ...]
+    total_weighted_load: float
 
 
 class FastFingerLoadScoreEvaluator:
@@ -507,6 +518,173 @@ class FastFingerLoadScoreEvaluator:
 
             finger_loads[
                 finger_index
+            ] += weighted_count
+
+        inverse_total_weighted_load = (
+            1.0
+            / total_weighted_load
+        )
+
+        total_penalty = 0.0
+
+        for finger_index, allowed_ratio in enumerate(
+            allowed_ratios
+        ):
+            actual_ratio = (
+                finger_loads[
+                    finger_index
+                ]
+                * inverse_total_weighted_load
+            )
+
+            excess_ratio = (
+                actual_ratio
+                - allowed_ratio
+            )
+
+            if excess_ratio > 0.0:
+                total_penalty += (
+                    excess_ratio
+                )
+
+        return total_penalty
+
+    def prepare_position_indexed_complete_delta_baseline(
+        self,
+        positions: Sequence[int],
+        position_finger_indexes: Sequence[int],
+        allowed_ratios: Sequence[float],
+        weighted_statistics: Sequence[float],
+        total_weighted_load: float,
+    ) -> PreparedPositionIndexedFingerLoadBaseline:
+        """
+        Build baseline finger loads once for repeated complete-layout delta
+        evaluation.
+
+        This method assumes every A-Z entry in positions contains a valid
+        non-negative position index.
+        """
+
+        if len(positions) != self.LETTER_COUNT:
+            raise ValueError(
+                "positions must contain exactly 26 entries"
+            )
+
+        if len(weighted_statistics) != self.LETTER_COUNT:
+            raise ValueError(
+                "weighted_statistics must contain exactly 26 entries"
+            )
+
+        finger_loads = [
+            0.0
+        ] * len(allowed_ratios)
+
+        finger_indexes = position_finger_indexes
+
+        for index, weighted_count in enumerate(
+            weighted_statistics
+        ):
+            if weighted_count == 0.0:
+                continue
+
+            finger_index = finger_indexes[
+                positions[index]
+            ]
+
+            finger_loads[
+                finger_index
+            ] += weighted_count
+
+        return PreparedPositionIndexedFingerLoadBaseline(
+            finger_loads=tuple(finger_loads),
+            total_weighted_load=total_weighted_load,
+        )
+
+    def evaluate_prepared_position_indexed_complete_delta(
+        self,
+        baseline_positions: Sequence[int],
+        positions: Sequence[int],
+        position_finger_indexes: Sequence[int],
+        allowed_ratios: Sequence[float],
+        weighted_statistics: Sequence[float],
+        baseline: PreparedPositionIndexedFingerLoadBaseline,
+        changed_letter_indexes: Sequence[int],
+    ) -> float:
+        """
+        Evaluate finger-load penalty by applying only changed-letter movement
+        to a prepared baseline.
+
+        baseline_positions and positions use the same A-Z integer letter
+        index space. changed_letter_indexes contains only letters whose
+        logical positions may differ from baseline_positions.
+
+        The total weighted character load is invariant across complete
+        layouts, so only per-finger weighted loads need delta updates.
+        """
+
+        if len(baseline_positions) != self.LETTER_COUNT:
+            raise ValueError(
+                "baseline_positions must contain exactly 26 entries"
+            )
+
+        if len(positions) != self.LETTER_COUNT:
+            raise ValueError(
+                "positions must contain exactly 26 entries"
+            )
+
+        if len(weighted_statistics) != self.LETTER_COUNT:
+            raise ValueError(
+                "weighted_statistics must contain exactly 26 entries"
+            )
+
+        total_weighted_load = baseline.total_weighted_load
+
+        if total_weighted_load <= 0.0:
+            return 0.0
+
+        finger_loads = list(
+            baseline.finger_loads
+        )
+
+        finger_indexes = position_finger_indexes
+        base_positions = baseline_positions
+        candidate_positions = positions
+        weighted = weighted_statistics
+
+        for letter_index in changed_letter_indexes:
+            weighted_count = weighted[
+                letter_index
+            ]
+
+            if weighted_count == 0.0:
+                continue
+
+            old_position_index = base_positions[
+                letter_index
+            ]
+            new_position_index = candidate_positions[
+                letter_index
+            ]
+
+            if old_position_index == new_position_index:
+                continue
+
+            old_finger_index = finger_indexes[
+                old_position_index
+            ]
+            new_finger_index = finger_indexes[
+                new_position_index
+            ]
+
+            if old_finger_index == new_finger_index:
+                continue
+
+            finger_loads[
+                old_finger_index
+            ] -= weighted_count
+
+            finger_loads[
+                new_finger_index
             ] += weighted_count
 
         inverse_total_weighted_load = (

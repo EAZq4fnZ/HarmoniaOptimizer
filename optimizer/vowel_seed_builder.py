@@ -188,6 +188,8 @@ class VowelSeedBuilder:
             | None
         ) = None
 
+        prepared_finger_load_baseline = None
+
         prepared_transitions = None
 
         prepared_weighted_statistics: (
@@ -322,6 +324,18 @@ class VowelSeedBuilder:
                 )
             )
 
+            prepared_finger_load_baseline = (
+                self
+                ._fast_evaluator
+                .prepare_position_indexed_finger_load_delta_baseline(
+                    base_position_indexes,
+                    position_finger_indexes,
+                    allowed_ratios,
+                    prepared_weighted_statistics,
+                    prepared_total_weighted_load,
+                )
+            )
+
             candidate_position_indexes = tuple(
                 position_indexes[position]
                 for position in candidate_positions
@@ -417,6 +431,7 @@ class VowelSeedBuilder:
                     or original_vowel_position_indexes is None
                     or original_vowel_position_indexes_sorted is None
                     or letter_index_by_position_index is None
+                    or prepared_finger_load_baseline is None
                     or prepared_transitions is None
                     or prepared_weighted_statistics is None
                     or prepared_total_weighted_load is None
@@ -431,7 +446,10 @@ class VowelSeedBuilder:
                     for position in vowel_positions
                 )
 
-                candidate_position_indexes = (
+                (
+                    candidate_position_indexes,
+                    changed_letter_indexes,
+                ) = (
                     self
                     ._assign_vowels_position_indexed_fast(
                         base_positions=(
@@ -455,10 +473,13 @@ class VowelSeedBuilder:
                 score = (
                     self
                     ._fast_evaluator
-                    .evaluate_fully_prepared_position_indexed_complete(
+                    .evaluate_fully_prepared_position_indexed_complete_finger_delta(
+                        baseline_positions=(
+                            base_position_indexes
+                        ),
                         positions=(
                             candidate_position_indexes
-                        ),
+                        ),                        
                         cost_matrix=cost_matrix,
                         prepared_transitions=(
                             prepared_transitions
@@ -472,9 +493,12 @@ class VowelSeedBuilder:
                         weighted_statistics=(
                             prepared_weighted_statistics
                         ),
-                        total_weighted_load=(
-                            prepared_total_weighted_load
+                        finger_load_baseline=(
+                            prepared_finger_load_baseline
                         ),
+                        changed_letter_indexes=(
+                            changed_letter_indexes
+                        ),                    
                     )
                 )
 
@@ -1251,7 +1275,7 @@ class VowelSeedBuilder:
         original_vowel_positions: frozenset[int],
         original_vowel_positions_sorted: tuple[int, ...],
         letter_index_by_position: tuple[int, ...],
-    ) -> list[int]:
+    ) -> tuple[list[int], tuple[int, ...]]:
         """
         Assign vowels for the exhaustive-search hot path.
 
@@ -1339,7 +1363,19 @@ class VowelSeedBuilder:
                 letter_index
             ] = position_index
 
-        return positions
+        changed_letter_indexes = (
+            0,
+            4,
+            8,
+            14,
+            20,
+            *displaced_letter_indexes,
+        )
+
+        return (
+            positions,
+            changed_letter_indexes,
+        )
 
     def _position_indexed_to_mapping(
         self,
