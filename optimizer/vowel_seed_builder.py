@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping
 from itertools import combinations, permutations
 from math import comb, perm
+from typing import cast
 
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.character_statistics import CharacterStatistics
@@ -441,9 +442,9 @@ class VowelSeedBuilder:
                         "was not initialized"
                     )
 
-                integer_vowel_positions = tuple(
-                    int(position)
-                    for position in vowel_positions
+                integer_vowel_positions = cast(
+                    tuple[int, ...],
+                    vowel_positions,
                 )
 
                 (
@@ -742,9 +743,8 @@ class VowelSeedBuilder:
                         right_position_indexes,
                         right_count,
                     ):
-                        result: list[int | None] = (
-                            [None] * len(self.VOWELS)
-                        )
+                        
+                        result = [0, 0, 0, 0, 0]
 
                         for index, position in zip(
                             left_indexes,
@@ -760,18 +760,12 @@ class VowelSeedBuilder:
                         ):
                             result[index] = position
 
-                        if any(
-                            position is None
-                            for position in result
-                        ):
-                            raise RuntimeError(
-                                "incomplete vowel assignment"
-                            )
-
-                        yield tuple(
-                            position
-                            for position in result
-                            if position is not None
+                        yield (
+                            result[0],
+                            result[1],
+                            result[2],
+                            result[3],
+                            result[4],
                         )
 
     def _count_candidate_positions(
