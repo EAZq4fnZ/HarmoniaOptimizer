@@ -559,3 +559,146 @@ def test_evaluate_position_indexed_matches_evaluate() -> None:
     assert indexed_result == pytest.approx(
         normal_result
     )
+
+def test_evaluate_prepared_position_indexed_complete_matches_position_indexed(
+) -> None:
+    layout = make_layout()
+    budgets = make_budgets()
+
+    statistics = make_statistics(
+        {
+            "A": 10,
+            "B": 20,
+            "D": 30,
+            "N": 40,
+            "P": 25,
+        }
+    )
+
+    evaluator = FastFingerLoadScoreEvaluator(
+        budgets
+    )
+
+    string_positions = tuple(
+        layout.position(
+            chr(ord("A") + index)
+        )
+        for index in range(26)
+    )
+
+    unique_positions = tuple(
+        layout.mapping.values()
+    )
+
+    position_indexes = {
+        position: index
+        for index, position
+        in enumerate(unique_positions)
+    }
+
+    integer_positions = tuple(
+        position_indexes[position]
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_finger_indexes,
+        allowed_ratios,
+    ) = evaluator.build_position_finger_index(
+        unique_positions,
+        position_indexes,
+    )
+
+    normal_result = (
+        evaluator.evaluate_position_indexed(
+            integer_positions,
+            position_finger_indexes,
+            allowed_ratios,
+            statistics,
+        )
+    )
+
+    (
+        weighted_statistics,
+        total_weighted_load,
+    ) = evaluator.prepare_position_indexed_statistics(
+        statistics
+    )
+
+    prepared_result = (
+        evaluator
+        .evaluate_prepared_position_indexed_complete(
+            integer_positions,
+            position_finger_indexes,
+            allowed_ratios,
+            weighted_statistics,
+            total_weighted_load,
+        )
+    )
+
+    assert prepared_result == pytest.approx(
+        normal_result
+    )
+
+
+def test_evaluate_prepared_position_indexed_complete_handles_empty_statistics(
+) -> None:
+    layout = make_layout()
+
+    evaluator = FastFingerLoadScoreEvaluator(
+        make_budgets()
+    )
+
+    statistics = CharacterStatistics()
+
+    string_positions = tuple(
+        layout.position(
+            chr(ord("A") + index)
+        )
+        for index in range(26)
+    )
+
+    unique_positions = tuple(
+        layout.mapping.values()
+    )
+
+    position_indexes = {
+        position: index
+        for index, position
+        in enumerate(unique_positions)
+    }
+
+    integer_positions = tuple(
+        position_indexes[position]
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_finger_indexes,
+        allowed_ratios,
+    ) = evaluator.build_position_finger_index(
+        unique_positions,
+        position_indexes,
+    )
+
+    (
+        weighted_statistics,
+        total_weighted_load,
+    ) = evaluator.prepare_position_indexed_statistics(
+        statistics
+    )
+
+    result = (
+        evaluator
+        .evaluate_prepared_position_indexed_complete(
+            integer_positions,
+            position_finger_indexes,
+            allowed_ratios,
+            weighted_statistics,
+            total_weighted_load,
+        )
+    )
+
+    assert result == 0.0

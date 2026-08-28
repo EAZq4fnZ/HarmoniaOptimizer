@@ -20,7 +20,6 @@ from evaluator.transition_statistics import TransitionStatistics
 from models.layout import Layout
 
 
-
 class FastCandidateEvaluator:
     """
     Evaluate one candidate layout for exhaustive search.
@@ -501,6 +500,25 @@ class FastCandidateEvaluator:
             finger_load_penalty=finger_load_penalty,
         )
 
+    def prepare_position_indexed_character_statistics(
+        self,
+        character_statistics: CharacterStatistics,
+    ) -> tuple[
+        tuple[float, ...],
+        float,
+    ]:
+        """
+        Prepare A-Z weighted character statistics once for the
+        complete position-indexed exhaustive-search hot path.
+        """
+
+        return (
+            self._finger_load_evaluator
+            .prepare_position_indexed_statistics(
+                character_statistics
+            )
+        )
+
     def prepare_position_indexed_transitions(
         self,
         transition_statistics: TransitionStatistics,
@@ -612,6 +630,55 @@ class FastCandidateEvaluator:
                 position_finger_indexes,
                 allowed_ratios,
                 character_statistics,
+            )
+        )
+
+        return self._candidate_scorer.score(
+            transition_total_cost=layout_score.total_cost,
+            evaluated_transition_weight=(
+                layout_score.evaluated_weight
+            ),
+            finger_load_penalty=finger_load_penalty,
+        )
+
+    def evaluate_fully_prepared_position_indexed_complete(
+        self,
+        positions: list[int],
+        cost_matrix: tuple[
+            tuple[float, ...],
+            ...,
+        ],
+        prepared_transitions: PreparedPositionIndexedTransitions,
+        position_finger_indexes: tuple[int, ...],
+        allowed_ratios: tuple[float, ...],
+        weighted_statistics: tuple[float, ...],
+        total_weighted_load: float,
+    ) -> float:
+        """
+        Return the final score for a complete A-Z position-indexed layout
+        with both transition and finger-load statistics prepared once.
+
+        This is the exhaustive-search hot path. It assumes every A-Z
+        position index is valid.
+        """
+
+        layout_score = (
+            self._layout_evaluator
+            .evaluate_prepared_position_indexed_complete(
+                positions,
+                cost_matrix,
+                prepared_transitions,
+            )
+        )
+
+        finger_load_penalty = (
+            self._finger_load_evaluator
+            .evaluate_prepared_position_indexed_complete(
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                weighted_statistics,
+                total_weighted_load,
             )
         )
 

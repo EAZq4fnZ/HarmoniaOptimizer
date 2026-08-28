@@ -432,6 +432,112 @@ class FastFingerLoadScoreEvaluator:
 
         return total_penalty
 
+    def prepare_position_indexed_statistics(
+        self,
+        statistics: CharacterStatistics,
+    ) -> tuple[
+        tuple[float, ...],
+        float,
+    ]:
+        """
+        Prepare immutable A-Z weighted character statistics for
+        repeated complete position-indexed evaluation.
+
+        The total weighted load is calculated once outside the
+        exhaustive candidate loop.
+        """
+
+        weighted_statistics = (
+            self._indexed_weighted_statistics(
+                statistics
+            )
+        )
+
+        return (
+            weighted_statistics,
+            sum(weighted_statistics),
+        )
+
+    def evaluate_prepared_position_indexed_complete(
+        self,
+        positions: Sequence[int],
+        position_finger_indexes: Sequence[int],
+        allowed_ratios: Sequence[float],
+        weighted_statistics: Sequence[float],
+        total_weighted_load: float,
+    ) -> float:
+        """
+        Evaluate a complete A-Z position-indexed layout using
+        precomputed character statistics.
+
+        This specialized hot path assumes every A-Z entry in
+        positions contains a valid non-negative position index.
+        """
+
+        if len(positions) != self.LETTER_COUNT:
+            raise ValueError(
+                "positions must contain exactly 26 entries"
+            )
+
+        if len(weighted_statistics) != self.LETTER_COUNT:
+            raise ValueError(
+                "weighted_statistics must contain exactly 26 entries"
+            )
+
+        if total_weighted_load <= 0.0:
+            return 0.0
+
+        finger_loads = [
+            0.0
+        ] * len(allowed_ratios)
+
+        finger_indexes = (
+            position_finger_indexes
+        )
+
+        for index, weighted_count in enumerate(
+            weighted_statistics
+        ):
+            if weighted_count == 0.0:
+                continue
+
+            finger_index = finger_indexes[
+                positions[index]
+            ]
+
+            finger_loads[
+                finger_index
+            ] += weighted_count
+
+        inverse_total_weighted_load = (
+            1.0
+            / total_weighted_load
+        )
+
+        total_penalty = 0.0
+
+        for finger_index, allowed_ratio in enumerate(
+            allowed_ratios
+        ):
+            actual_ratio = (
+                finger_loads[
+                    finger_index
+                ]
+                * inverse_total_weighted_load
+            )
+
+            excess_ratio = (
+                actual_ratio
+                - allowed_ratio
+            )
+
+            if excess_ratio > 0.0:
+                total_penalty += (
+                    excess_ratio
+                )
+
+        return total_penalty
+
     def _indexed_weighted_statistics(
         self,
         statistics: CharacterStatistics,

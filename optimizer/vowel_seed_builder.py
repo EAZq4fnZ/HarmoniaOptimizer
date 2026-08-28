@@ -190,6 +190,16 @@ class VowelSeedBuilder:
 
         prepared_transitions = None
 
+        prepared_weighted_statistics: (
+            tuple[float, ...]
+            | None
+        ) = None
+
+        prepared_total_weighted_load: (
+            float
+            | None
+        ) = None
+
         candidate_position_indexes: tuple[int, ...] | None = None
         left_position_indexes: tuple[int, ...] | None = None
         right_position_indexes: tuple[int, ...] | None = None
@@ -301,6 +311,17 @@ class VowelSeedBuilder:
                 )
             )
 
+            (
+                prepared_weighted_statistics,
+                prepared_total_weighted_load,
+            ) = (
+                self
+                ._fast_evaluator
+                .prepare_position_indexed_character_statistics(
+                    character_statistics
+                )
+            )
+
             candidate_position_indexes = tuple(
                 position_indexes[position]
                 for position in candidate_positions
@@ -376,15 +397,15 @@ class VowelSeedBuilder:
                 if (
                     evaluation.is_valid
                     and evaluation.score is not None
+                    and (
+                        best is None
+                        or (
+                            best.score is not None
+                            and evaluation.score < best.score
+                        )
+                    )
                 ):
-                    if best is None:
-                        best = evaluation
-
-                    elif (
-                        best.score is not None
-                        and evaluation.score < best.score
-                    ):
-                        best = evaluation
+                    best = evaluation
 
             else:
                 if (
@@ -397,6 +418,8 @@ class VowelSeedBuilder:
                     or original_vowel_position_indexes_sorted is None
                     or letter_index_by_position_index is None
                     or prepared_transitions is None
+                    or prepared_weighted_statistics is None
+                    or prepared_total_weighted_load is None
                 ):
                     raise RuntimeError(
                         "position-indexed search data "
@@ -432,7 +455,7 @@ class VowelSeedBuilder:
                 score = (
                     self
                     ._fast_evaluator
-                    .evaluate_prepared_position_indexed_complete(
+                    .evaluate_fully_prepared_position_indexed_complete(
                         positions=(
                             candidate_position_indexes
                         ),
@@ -446,8 +469,11 @@ class VowelSeedBuilder:
                         allowed_ratios=(
                             allowed_ratios
                         ),
-                        character_statistics=(
-                            character_statistics
+                        weighted_statistics=(
+                            prepared_weighted_statistics
+                        ),
+                        total_weighted_load=(
+                            prepared_total_weighted_load
                         ),
                     )
                 )
@@ -1461,5 +1487,3 @@ class VowelSeedBuilder:
             description=layout.description,
             mapping=mapping,
         )
-
-
