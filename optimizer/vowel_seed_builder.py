@@ -351,22 +351,37 @@ class VowelSeedBuilder:
             )
 
         vowel_position_source: Iterator[
-            tuple[str, ...] | tuple[int, ...]
+            tuple[
+                tuple[str, ...] | tuple[int, ...],
+                tuple[int, ...] | None,
+                tuple[int, ...] | None,
+            ]
         ]
 
         if self._fast_evaluator is None:
-            vowel_position_source = self._generate_vowel_positions(
-                candidate_positions=candidate_positions,
-                left_positions=left_positions,
-                right_positions=right_positions,
-                min_left_vowels=min_left_vowels,
-                max_left_vowels=max_left_vowels,
+            vowel_position_source = (
+                (
+                    vowel_positions,
+                    None,
+                    None,
+                )
+                for vowel_positions
+                in self._generate_vowel_positions(
+                    candidate_positions=candidate_positions,
+                    left_positions=left_positions,
+                    right_positions=right_positions,
+                    min_left_vowels=min_left_vowels,
+                    max_left_vowels=max_left_vowels,
+                )
             )
         else:
             if (
                 candidate_position_indexes is None
                 or left_position_indexes is None
                 or right_position_indexes is None
+                or original_vowel_position_indexes is None
+                or original_vowel_position_indexes_sorted is None
+                or letter_index_by_position_index is None
             ):
                 raise RuntimeError(
                     "integer vowel-position data "
@@ -374,7 +389,7 @@ class VowelSeedBuilder:
                 )
 
             vowel_position_source = (
-                self._generate_vowel_position_indexes(
+                self._generate_grouped_vowel_position_indexes(
                     candidate_position_indexes=(
                         candidate_position_indexes
                     ),
@@ -386,10 +401,23 @@ class VowelSeedBuilder:
                     ),
                     min_left_vowels=min_left_vowels,
                     max_left_vowels=max_left_vowels,
+                    original_vowel_positions=(
+                        original_vowel_position_indexes
+                    ),
+                    original_vowel_positions_sorted=(
+                        original_vowel_position_indexes_sorted
+                    ),
+                    letter_index_by_position=(
+                        letter_index_by_position_index
+                    ),
                 )
             )
 
-        for vowel_positions in vowel_position_source:
+        for (
+            vowel_positions,
+            displaced_letter_indexes,
+            vacated_positions,
+        ) in vowel_position_source:
             self._evaluated_candidate_count += 1
 
             if self._fast_evaluator is None:
@@ -447,26 +475,32 @@ class VowelSeedBuilder:
                     vowel_positions,
                 )
 
+                if (
+                    displaced_letter_indexes is None
+                    or vacated_positions is None
+                ):
+                    raise RuntimeError(
+                        "grouped vowel displacement data "
+                        "was not initialized"
+                    )
+
                 (
                     candidate_position_indexes,
                     changed_letter_indexes,
                 ) = (
                     self
-                    ._assign_vowels_position_indexed_fast(
+                    ._assign_vowels_position_indexed_prepared_fast(
                         base_positions=(
                             base_position_indexes
                         ),
                         vowel_position_indexes=(
                             integer_vowel_positions
                         ),
-                        original_vowel_positions=(
-                            original_vowel_position_indexes
+                        displaced_letter_indexes=(
+                            displaced_letter_indexes
                         ),
-                        original_vowel_positions_sorted=(
-                            original_vowel_position_indexes_sorted
-                        ),
-                        letter_index_by_position=(
-                            letter_index_by_position_index
+                        vacated_positions=(
+                            vacated_positions
                         ),
                     )
                 )
@@ -480,7 +514,7 @@ class VowelSeedBuilder:
                         ),
                         positions=(
                             candidate_position_indexes
-                        ),                        
+                        ),
                         cost_matrix=cost_matrix,
                         prepared_transitions=(
                             prepared_transitions
@@ -499,7 +533,7 @@ class VowelSeedBuilder:
                         ),
                         changed_letter_indexes=(
                             changed_letter_indexes
-                        ),                    
+                        ),
                     )
                 )
 
@@ -743,7 +777,6 @@ class VowelSeedBuilder:
                         right_position_indexes,
                         right_count,
                     ):
-                        
                         result = [0, 0, 0, 0, 0]
 
                         for index, position in zip(
@@ -767,6 +800,172 @@ class VowelSeedBuilder:
                             result[3],
                             result[4],
                         )
+
+    def _generate_grouped_vowel_position_indexes(
+        self,
+        *,
+        candidate_position_indexes: tuple[int, ...],
+        left_position_indexes: tuple[int, ...],
+        right_position_indexes: tuple[int, ...],
+        min_left_vowels: int | None,
+        max_left_vowels: int | None,
+        original_vowel_positions: frozenset[int],
+        original_vowel_positions_sorted: tuple[int, ...],
+        letter_index_by_position: tuple[int, ...],
+    ) -> Iterator[
+        tuple[
+            tuple[int, ...],
+            tuple[int, ...],
+            tuple[int, ...],
+        ]
+    ]:
+        """
+        Generate fast-path vowel assignments grouped by target set.
+
+        Displaced letters and vacated original-vowel positions depend
+        only on the unordered set of five target positions. They are
+        prepared once per target set and reused for every vowel
+        permutation in that set.
+        """
+
+        vowel_count = len(self.VOWELS)
+
+        if (
+            min_left_vowels is None
+            or max_left_vowels is None
+        ):
+            for selected_positions in combinations(
+                candidate_position_indexes,
+                vowel_count,
+            ):
+                (
+                    displaced_letter_indexes,
+                    vacated_positions,
+                ) = self._prepare_vowel_displacement(
+                    selected_positions=selected_positions,
+                    original_vowel_positions=(
+                        original_vowel_positions
+                    ),
+                    original_vowel_positions_sorted=(
+                        original_vowel_positions_sorted
+                    ),
+                    letter_index_by_position=(
+                        letter_index_by_position
+                    ),
+                )
+
+                for vowel_positions in permutations(
+                    selected_positions,
+                    vowel_count,
+                ):
+                    yield (
+                        vowel_positions,
+                        displaced_letter_indexes,
+                        vacated_positions,
+                    )
+
+            return
+
+        for left_count in range(
+            min_left_vowels,
+            max_left_vowels + 1,
+        ):
+            right_count = (
+                vowel_count
+                - left_count
+            )
+
+            if left_count > len(left_position_indexes):
+                continue
+
+            if right_count > len(right_position_indexes):
+                continue
+
+            for selected_left_positions in combinations(
+                left_position_indexes,
+                left_count,
+            ):
+                for selected_right_positions in combinations(
+                    right_position_indexes,
+                    right_count,
+                ):
+                    selected_positions = (
+                        selected_left_positions
+                        + selected_right_positions
+                    )
+
+                    (
+                        displaced_letter_indexes,
+                        vacated_positions,
+                    ) = self._prepare_vowel_displacement(
+                        selected_positions=(
+                            selected_positions
+                        ),
+                        original_vowel_positions=(
+                            original_vowel_positions
+                        ),
+                        original_vowel_positions_sorted=(
+                            original_vowel_positions_sorted
+                        ),
+                        letter_index_by_position=(
+                            letter_index_by_position
+                        ),
+                    )
+
+                    for vowel_positions in permutations(
+                        selected_positions,
+                        vowel_count,
+                    ):
+                        yield (
+                            vowel_positions,
+                            displaced_letter_indexes,
+                            vacated_positions,
+                        )
+
+    def _prepare_vowel_displacement(
+        self,
+        *,
+        selected_positions: tuple[int, ...],
+        original_vowel_positions: frozenset[int],
+        original_vowel_positions_sorted: tuple[int, ...],
+        letter_index_by_position: tuple[int, ...],
+    ) -> tuple[
+        tuple[int, ...],
+        tuple[int, ...],
+    ]:
+        """
+        Prepare displacement metadata for one unordered target set.
+        """
+
+        selected_position_set = set(
+            selected_positions
+        )
+
+        displaced_letter_indexes = tuple(
+            sorted(
+                letter_index_by_position[
+                    position_index
+                ]
+                for position_index
+                in selected_positions
+                if (
+                    position_index
+                    not in original_vowel_positions
+                )
+            )
+        )
+
+        vacated_positions = tuple(
+            position_index
+            for position_index
+            in original_vowel_positions_sorted
+            if position_index not in selected_position_set
+        )
+
+        return (
+            displaced_letter_indexes,
+            vacated_positions,
+        )
 
     def _count_candidate_positions(
         self,
@@ -1336,6 +1535,60 @@ class VowelSeedBuilder:
         # Preserve the exact displacement semantics of the normal path:
         # displaced letters are assigned in alphabetical/index order.
         displaced_letter_indexes.sort()
+
+        positions = base_positions.copy()
+
+        positions[0] = target_0
+        positions[4] = target_1
+        positions[8] = target_2
+        positions[14] = target_3
+        positions[20] = target_4
+
+        for (
+            letter_index,
+            position_index,
+        ) in zip(
+            displaced_letter_indexes,
+            vacated_positions,
+            strict=True,
+        ):
+            positions[
+                letter_index
+            ] = position_index
+
+        changed_letter_indexes = (
+            0,
+            4,
+            8,
+            14,
+            20,
+            *displaced_letter_indexes,
+        )
+
+        return (
+            positions,
+            changed_letter_indexes,
+        )
+
+    def _assign_vowels_position_indexed_prepared_fast(
+        self,
+        *,
+        base_positions: list[int],
+        vowel_position_indexes: tuple[int, ...],
+        displaced_letter_indexes: tuple[int, ...],
+        vacated_positions: tuple[int, ...],
+    ) -> tuple[list[int], tuple[int, ...]]:
+        """
+        Assign vowels using displacement metadata prepared per target set.
+        """
+
+        (
+            target_0,
+            target_1,
+            target_2,
+            target_3,
+            target_4,
+        ) = vowel_position_indexes
 
         positions = base_positions.copy()
 
