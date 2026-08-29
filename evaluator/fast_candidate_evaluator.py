@@ -829,9 +829,17 @@ class FastCandidateEvaluator:
         weighted_statistics: tuple[float, ...],
         finger_load_baseline: PreparedPositionIndexedFingerLoadBaseline,
     ) -> float:
-        layout_score = (
+        """
+        Scalar-only vowel-seed hot path.
+
+        Complete A-Z candidates all share the same evaluated transition
+        weight, so avoid constructing FastLayoutScore and avoid the generic
+        scorer call for every vowel permutation.
+        """
+
+        transition_total_cost = (
             self._layout_evaluator
-            .evaluate_prepared_position_indexed_complete_with_vowel_group_costs(
+            .evaluate_prepared_position_indexed_complete_vowel_group_total_cost(
                 positions,
                 cost_matrix,
                 prepared_transitions,
@@ -850,10 +858,23 @@ class FastCandidateEvaluator:
             )
         )
 
-        return self._candidate_scorer.score(
-            transition_total_cost=layout_score.total_cost,
-            evaluated_transition_weight=layout_score.evaluated_weight,
-            finger_load_penalty=finger_load_penalty,
+        evaluated_transition_weight = (
+            prepared_transitions.evaluated_weight
+        )
+        if evaluated_transition_weight == 0.0:
+            transition_score = 0.0
+        else:
+            transition_score = (
+                transition_total_cost
+                / evaluated_transition_weight
+            )
+
+        weights = self._candidate_scorer.weights
+        return (
+            transition_score
+            * weights.transition_weight
+            + finger_load_penalty
+            * weights.finger_load_weight
         )
 
     def evaluate_fully_prepared_position_indexed_complete_finger_delta_with_consonant_cost(

@@ -1132,6 +1132,42 @@ class FastLayoutScoreEvaluator:
             skipped_weight=prepared.permanently_skipped_weight,
         )
 
+    def evaluate_prepared_position_indexed_complete_vowel_group_total_cost(
+        self,
+        position_indexes: Sequence[int],
+        cost_matrix: Sequence[Sequence[float]],
+        prepared: PreparedPositionIndexedTransitions,
+        group_costs: PreparedVowelGroupTransitionCosts,
+    ) -> float:
+        """
+        Return only the transition total cost for the vowel-seed hot path.
+
+        This is intentionally scalar-only: evaluated/skipped transition
+        weights are invariant across complete A-Z candidates and therefore
+        do not need a FastLayoutScore allocation for every permutation.
+        """
+
+        positions = position_indexes
+        matrix = cost_matrix
+        external = group_costs.external_costs_by_vowel
+
+        total_cost = group_costs.consonant_cost
+        total_cost += external[0][positions[0]]
+        total_cost += external[1][positions[4]]
+        total_cost += external[2][positions[8]]
+        total_cost += external[3][positions[14]]
+        total_cost += external[4][positions[20]]
+
+        for source_index, targets in prepared.vowel_vowel_grouped_records:
+            source_row = matrix[positions[source_index]]
+            for target_index, weighted_count in targets:
+                total_cost += (
+                    source_row[positions[target_index]]
+                    * weighted_count
+                )
+
+        return total_cost
+
     def evaluate_prepared_position_indexed_complete_consonant_cost(
         self,
         position_indexes: Sequence[int],
