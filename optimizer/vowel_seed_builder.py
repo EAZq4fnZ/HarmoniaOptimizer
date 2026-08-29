@@ -325,17 +325,10 @@ class VowelSeedBuilder:
                 )
             )
 
-            prepared_finger_load_baseline = (
-                self
-                ._fast_evaluator
-                .prepare_position_indexed_finger_load_delta_baseline(
-                    base_position_indexes,
-                    position_finger_indexes,
-                    allowed_ratios,
-                    prepared_weighted_statistics,
-                    prepared_total_weighted_load,
-                )
-            )
+            # Finger-load baseline is prepared per selected vowel
+            # position set inside the exhaustive loop. Consonant positions
+            # are fixed for all 5! permutations in that group.
+            prepared_finger_load_baseline = None
 
             candidate_position_indexes = tuple(
                 position_indexes[position]
@@ -465,7 +458,6 @@ class VowelSeedBuilder:
                     or original_vowel_position_indexes is None
                     or original_vowel_position_indexes_sorted is None
                     or letter_index_by_position_index is None
-                    or prepared_finger_load_baseline is None
                     or prepared_transitions is None
                     or prepared_weighted_statistics is None
                     or prepared_total_weighted_load is None
@@ -520,10 +512,25 @@ class VowelSeedBuilder:
                             prepared_transitions,
                         )
                     )
+                    prepared_finger_load_baseline = (
+                        self._fast_evaluator
+                        .prepare_position_indexed_complete_vowel_group_finger_load_baseline(
+                            candidate_position_indexes,
+                            position_finger_indexes,
+                            prepared_weighted_statistics,
+                            prepared_total_weighted_load,
+                        )
+                    )
 
                 if consonant_transition_cost is None:
                     raise RuntimeError(
                         "consonant transition cost was not initialized"
+                    )
+
+                if prepared_finger_load_baseline is None:
+                    raise RuntimeError(
+                        "vowel-group finger-load baseline "
+                        "was not initialized"
                     )
 
                 score = (

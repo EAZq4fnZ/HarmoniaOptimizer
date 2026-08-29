@@ -783,6 +783,23 @@ class FastCandidateEvaluator:
             )
         )
 
+    def prepare_position_indexed_complete_vowel_group_finger_load_baseline(
+        self,
+        positions: Sequence[int],
+        position_finger_indexes: Sequence[int],
+        weighted_statistics: Sequence[float],
+        total_weighted_load: float,
+    ) -> PreparedPositionIndexedFingerLoadBaseline:
+        return (
+            self._finger_load_evaluator
+            .prepare_position_indexed_complete_vowel_group_baseline(
+                positions,
+                position_finger_indexes,
+                weighted_statistics,
+                total_weighted_load,
+            )
+        )
+
     def evaluate_fully_prepared_position_indexed_complete_finger_delta_with_consonant_cost(
         self,
         baseline_positions: Sequence[int],
@@ -808,14 +825,12 @@ class FastCandidateEvaluator:
 
         finger_load_penalty = (
             self._finger_load_evaluator
-            .evaluate_prepared_position_indexed_complete_delta(
-                baseline_positions,
+            .evaluate_prepared_position_indexed_complete_vowel_group(
                 positions,
                 position_finger_indexes,
                 allowed_ratios,
                 weighted_statistics,
                 finger_load_baseline,
-                changed_letter_indexes,
             )
         )
 

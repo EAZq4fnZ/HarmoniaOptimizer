@@ -600,6 +600,118 @@ class FastFingerLoadScoreEvaluator:
             total_weighted_load=total_weighted_load,
         )
 
+    def prepare_position_indexed_complete_vowel_group_baseline(
+        self,
+        positions: Sequence[int],
+        position_finger_indexes: Sequence[int],
+        weighted_statistics: Sequence[float],
+        total_weighted_load: float,
+    ) -> PreparedPositionIndexedFingerLoadBaseline:
+        """
+        Build a position-set-local finger-load baseline containing consonants.
+
+        Within one selected five-position vowel set, consonant positions are
+        fixed across all 5! vowel permutations. Preparing their loads once
+        lets the per-permutation hot path add only A/E/I/O/U.
+        """
+
+        if len(positions) != self.LETTER_COUNT:
+            raise ValueError(
+                "positions must contain exactly 26 entries"
+            )
+
+        if len(weighted_statistics) != self.LETTER_COUNT:
+            raise ValueError(
+                "weighted_statistics must contain exactly 26 entries"
+            )
+
+        finger_count = (
+            max(position_finger_indexes) + 1
+            if position_finger_indexes
+            else 0
+        )
+        finger_loads = [0.0] * finger_count
+        finger_indexes = position_finger_indexes
+        vowel_indexes = (0, 4, 8, 14, 20)
+
+        for letter_index, weighted_count in enumerate(
+            weighted_statistics
+        ):
+            if (
+                letter_index in vowel_indexes
+                or weighted_count == 0.0
+            ):
+                continue
+
+            finger_loads[
+                finger_indexes[positions[letter_index]]
+            ] += weighted_count
+
+        return PreparedPositionIndexedFingerLoadBaseline(
+            finger_loads=tuple(finger_loads),
+            total_weighted_load=total_weighted_load,
+        )
+
+    def evaluate_prepared_position_indexed_complete_vowel_group(
+        self,
+        positions: Sequence[int],
+        position_finger_indexes: Sequence[int],
+        allowed_ratios: Sequence[float],
+        weighted_statistics: Sequence[float],
+        baseline: PreparedPositionIndexedFingerLoadBaseline,
+    ) -> float:
+        """
+        Evaluate one vowel permutation from a position-set-local baseline.
+
+        The baseline already contains every consonant load. Only the five
+        vowel loads vary across permutations in the same selected position
+        set.
+        """
+
+        total_weighted_load = baseline.total_weighted_load
+
+        if total_weighted_load <= 0.0:
+            return 0.0
+
+        finger_loads = list(baseline.finger_loads)
+        finger_indexes = position_finger_indexes
+        weighted = weighted_statistics
+
+        finger_loads[
+            finger_indexes[positions[0]]
+        ] += weighted[0]
+        finger_loads[
+            finger_indexes[positions[4]]
+        ] += weighted[4]
+        finger_loads[
+            finger_indexes[positions[8]]
+        ] += weighted[8]
+        finger_loads[
+            finger_indexes[positions[14]]
+        ] += weighted[14]
+        finger_loads[
+            finger_indexes[positions[20]]
+        ] += weighted[20]
+
+        inverse_total_weighted_load = (
+            1.0 / total_weighted_load
+        )
+        total_penalty = 0.0
+
+        for finger_index, allowed_ratio in enumerate(
+            allowed_ratios
+        ):
+            actual_ratio = (
+                finger_loads[finger_index]
+                * inverse_total_weighted_load
+            )
+            excess_ratio = actual_ratio - allowed_ratio
+
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+        return total_penalty
+
     def evaluate_prepared_position_indexed_complete_delta(
         self,
         baseline_positions: Sequence[int],
