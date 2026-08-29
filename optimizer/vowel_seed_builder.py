@@ -408,7 +408,7 @@ class VowelSeedBuilder:
                 )
             )
 
-        consonant_transition_cost: float | None = None
+        prepared_transition_group_costs = None
 
         for (
             vowel_positions,
@@ -484,7 +484,7 @@ class VowelSeedBuilder:
 
                 (
                     candidate_position_indexes,
-                    changed_letter_indexes,
+                    _changed_letter_indexes,
                 ) = (
                     self
                     ._assign_vowels_position_indexed_prepared_fast(
@@ -504,10 +504,11 @@ class VowelSeedBuilder:
                 )
 
                 if integer_vowel_positions == selected_positions:
-                    consonant_transition_cost = (
+                    prepared_transition_group_costs = (
                         self._fast_evaluator
-                        .prepare_position_indexed_complete_consonant_cost(
+                        .prepare_position_indexed_complete_vowel_group_transition_costs(
                             candidate_position_indexes,
+                            selected_positions,
                             cost_matrix,
                             prepared_transitions,
                         )
@@ -522,9 +523,9 @@ class VowelSeedBuilder:
                         )
                     )
 
-                if consonant_transition_cost is None:
+                if prepared_transition_group_costs is None:
                     raise RuntimeError(
-                        "consonant transition cost was not initialized"
+                        "vowel-group transition costs were not initialized"
                     )
 
                 if prepared_finger_load_baseline is None:
@@ -536,10 +537,7 @@ class VowelSeedBuilder:
                 score = (
                     self
                     ._fast_evaluator
-                    .evaluate_fully_prepared_position_indexed_complete_finger_delta_with_consonant_cost(
-                        baseline_positions=(
-                            base_position_indexes
-                        ),
+                    .evaluate_fully_prepared_position_indexed_complete_vowel_group(
                         positions=(
                             candidate_position_indexes
                         ),
@@ -547,8 +545,8 @@ class VowelSeedBuilder:
                         prepared_transitions=(
                             prepared_transitions
                         ),
-                        consonant_cost=(
-                            consonant_transition_cost
+                        transition_group_costs=(
+                            prepared_transition_group_costs
                         ),
                         position_finger_indexes=(
                             position_finger_indexes
@@ -561,9 +559,6 @@ class VowelSeedBuilder:
                         ),
                         finger_load_baseline=(
                             prepared_finger_load_baseline
-                        ),
-                        changed_letter_indexes=(
-                            changed_letter_indexes
                         ),
                     )
                 )

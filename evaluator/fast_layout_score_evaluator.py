@@ -67,8 +67,27 @@ class PreparedPositionIndexedTransitions:
     vowel_involving_grouped_records: tuple[
         tuple[int, tuple[tuple[int, float], ...]], ...
     ]
+    vowel_vowel_grouped_records: tuple[
+        tuple[int, tuple[tuple[int, float], ...]], ...
+    ]
     permanently_skipped_weight: float
     evaluated_weight: float
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedVowelGroupTransitionCosts:
+    """
+    Transition costs reusable across all 5! vowel permutations for one
+    selected five-position set.
+
+    external_costs_by_vowel stores the combined C->V and V->C weighted
+    transition cost for each vowel at each logical position index.
+    """
+
+    consonant_cost: float
+    external_costs_by_vowel: tuple[tuple[float, ...], ...]
+
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -860,12 +879,32 @@ class FastLayoutScoreEvaluator:
             )
         )
 
+        vowel_vowel_grouped_records = tuple(
+            (
+                source_index,
+                tuple(
+                    (target_index, weighted_count)
+                    for target_index, weighted_count in targets
+                    if target_index in vowel_indexes
+                ),
+            )
+            for source_index, targets in grouped_records
+            if source_index in vowel_indexes
+            and any(
+                target_index in vowel_indexes
+                for target_index, _ in targets
+            )
+        )
+
         return PreparedPositionIndexedTransitions(
             records=tuple(records),
             grouped_records=grouped_records,
             consonant_grouped_records=consonant_grouped_records,
             vowel_involving_grouped_records=(
                 vowel_involving_grouped_records
+            ),
+            vowel_vowel_grouped_records=(
+                vowel_vowel_grouped_records
             ),
             permanently_skipped_weight=(
                 permanently_skipped_weight
@@ -996,6 +1035,101 @@ class FastLayoutScoreEvaluator:
             skipped_weight=(
                 prepared.permanently_skipped_weight
             ),
+        )
+
+    def prepare_position_indexed_complete_vowel_group_transition_costs(
+        self,
+        position_indexes: Sequence[int],
+        selected_positions: Sequence[int],
+        cost_matrix: Sequence[Sequence[float]],
+        prepared: PreparedPositionIndexedTransitions,
+    ) -> PreparedVowelGroupTransitionCosts:
+        positions = position_indexes
+        matrix = cost_matrix
+        vowel_indexes = (0, 4, 8, 14, 20)
+        vowel_slot_by_index = {
+            vowel_index: slot
+            for slot, vowel_index in enumerate(vowel_indexes)
+        }
+
+        consonant_cost = (
+            self.evaluate_prepared_position_indexed_complete_consonant_cost(
+                positions,
+                matrix,
+                prepared,
+            )
+        )
+
+        position_count = len(matrix)
+        external_costs = [
+            [0.0] * position_count
+            for _ in vowel_indexes
+        ]
+
+        for source_index, targets in prepared.vowel_involving_grouped_records:
+            source_slot = vowel_slot_by_index.get(source_index)
+
+            if source_slot is None:
+                source_row = matrix[positions[source_index]]
+                for target_index, weighted_count in targets:
+                    target_slot = vowel_slot_by_index[target_index]
+                    target_costs = external_costs[target_slot]
+                    for target_position in selected_positions:
+                        target_costs[target_position] += (
+                            source_row[target_position]
+                            * weighted_count
+                        )
+                continue
+
+            source_costs = external_costs[source_slot]
+            for target_index, weighted_count in targets:
+                if target_index in vowel_slot_by_index:
+                    continue
+                target_position = positions[target_index]
+                for source_position in selected_positions:
+                    source_costs[source_position] += (
+                        matrix[source_position][target_position]
+                        * weighted_count
+                    )
+
+        return PreparedVowelGroupTransitionCosts(
+            consonant_cost=consonant_cost,
+            external_costs_by_vowel=tuple(
+                tuple(costs)
+                for costs in external_costs
+            ),
+        )
+
+    def evaluate_prepared_position_indexed_complete_with_vowel_group_costs(
+        self,
+        position_indexes: Sequence[int],
+        cost_matrix: Sequence[Sequence[float]],
+        prepared: PreparedPositionIndexedTransitions,
+        group_costs: PreparedVowelGroupTransitionCosts,
+    ) -> FastLayoutScore:
+        positions = position_indexes
+        matrix = cost_matrix
+        external = group_costs.external_costs_by_vowel
+
+        total_cost = group_costs.consonant_cost
+        total_cost += external[0][positions[0]]
+        total_cost += external[1][positions[4]]
+        total_cost += external[2][positions[8]]
+        total_cost += external[3][positions[14]]
+        total_cost += external[4][positions[20]]
+
+        for source_index, targets in prepared.vowel_vowel_grouped_records:
+            source_row = matrix[positions[source_index]]
+            for target_index, weighted_count in targets:
+                total_cost += (
+                    source_row[positions[target_index]]
+                    * weighted_count
+                )
+
+        return FastLayoutScore(
+            total_cost=total_cost,
+            evaluated_weight=prepared.evaluated_weight,
+            skipped_weight=prepared.permanently_skipped_weight,
         )
 
     def evaluate_prepared_position_indexed_complete_consonant_cost(

@@ -16,6 +16,7 @@ from evaluator.fast_layout_score_evaluator import (
     PositionIndexedDeltaBaseline,
     PreparedPositionIndexedDeltaBaseline,
     PreparedPositionIndexedTransitions,
+    PreparedVowelGroupTransitionCosts,
 )
 from evaluator.transition_statistics import TransitionStatistics
 from models.layout import Layout
@@ -768,6 +769,23 @@ class FastCandidateEvaluator:
             finger_load_penalty=finger_load_penalty,
         )
 
+    def prepare_position_indexed_complete_vowel_group_transition_costs(
+        self,
+        positions: Sequence[int],
+        selected_positions: Sequence[int],
+        cost_matrix: Sequence[Sequence[float]],
+        prepared_transitions: PreparedPositionIndexedTransitions,
+    ) -> PreparedVowelGroupTransitionCosts:
+        return (
+            self._layout_evaluator
+            .prepare_position_indexed_complete_vowel_group_transition_costs(
+                positions,
+                selected_positions,
+                cost_matrix,
+                prepared_transitions,
+            )
+        )
+
     def prepare_position_indexed_complete_consonant_cost(
         self,
         positions: Sequence[int],
@@ -798,6 +816,44 @@ class FastCandidateEvaluator:
                 weighted_statistics,
                 total_weighted_load,
             )
+        )
+
+    def evaluate_fully_prepared_position_indexed_complete_vowel_group(
+        self,
+        positions: list[int],
+        cost_matrix: tuple[tuple[float, ...], ...],
+        prepared_transitions: PreparedPositionIndexedTransitions,
+        transition_group_costs: PreparedVowelGroupTransitionCosts,
+        position_finger_indexes: tuple[int, ...],
+        allowed_ratios: tuple[float, ...],
+        weighted_statistics: tuple[float, ...],
+        finger_load_baseline: PreparedPositionIndexedFingerLoadBaseline,
+    ) -> float:
+        layout_score = (
+            self._layout_evaluator
+            .evaluate_prepared_position_indexed_complete_with_vowel_group_costs(
+                positions,
+                cost_matrix,
+                prepared_transitions,
+                transition_group_costs,
+            )
+        )
+
+        finger_load_penalty = (
+            self._finger_load_evaluator
+            .evaluate_prepared_position_indexed_complete_vowel_group(
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                weighted_statistics,
+                finger_load_baseline,
+            )
+        )
+
+        return self._candidate_scorer.score(
+            transition_total_cost=layout_score.total_cost,
+            evaluated_transition_weight=layout_score.evaluated_weight,
+            finger_load_penalty=finger_load_penalty,
         )
 
     def evaluate_fully_prepared_position_indexed_complete_finger_delta_with_consonant_cost(
