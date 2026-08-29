@@ -768,6 +768,63 @@ class FastCandidateEvaluator:
             finger_load_penalty=finger_load_penalty,
         )
 
+    def prepare_position_indexed_complete_consonant_cost(
+        self,
+        positions: Sequence[int],
+        cost_matrix: Sequence[Sequence[float]],
+        prepared_transitions: PreparedPositionIndexedTransitions,
+    ) -> float:
+        return (
+            self._layout_evaluator
+            .evaluate_prepared_position_indexed_complete_consonant_cost(
+                positions,
+                cost_matrix,
+                prepared_transitions,
+            )
+        )
+
+    def evaluate_fully_prepared_position_indexed_complete_finger_delta_with_consonant_cost(
+        self,
+        baseline_positions: Sequence[int],
+        positions: list[int],
+        cost_matrix: tuple[tuple[float, ...], ...],
+        prepared_transitions: PreparedPositionIndexedTransitions,
+        consonant_cost: float,
+        position_finger_indexes: tuple[int, ...],
+        allowed_ratios: tuple[float, ...],
+        weighted_statistics: tuple[float, ...],
+        finger_load_baseline: PreparedPositionIndexedFingerLoadBaseline,
+        changed_letter_indexes: Sequence[int],
+    ) -> float:
+        layout_score = (
+            self._layout_evaluator
+            .evaluate_prepared_position_indexed_complete_with_consonant_cost(
+                positions,
+                cost_matrix,
+                prepared_transitions,
+                consonant_cost,
+            )
+        )
+
+        finger_load_penalty = (
+            self._finger_load_evaluator
+            .evaluate_prepared_position_indexed_complete_delta(
+                baseline_positions,
+                positions,
+                position_finger_indexes,
+                allowed_ratios,
+                weighted_statistics,
+                finger_load_baseline,
+                changed_letter_indexes,
+            )
+        )
+
+        return self._candidate_scorer.score(
+            transition_total_cost=layout_score.total_cost,
+            evaluated_transition_weight=layout_score.evaluated_weight,
+            finger_load_penalty=finger_load_penalty,
+        )
+
     def evaluate_prepared_position_indexed_complete_flat(
         self,
         positions: list[int],

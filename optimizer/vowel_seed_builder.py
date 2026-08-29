@@ -355,6 +355,7 @@ class VowelSeedBuilder:
                 tuple[str, ...] | tuple[int, ...],
                 tuple[int, ...] | None,
                 tuple[int, ...] | None,
+                tuple[int, ...] | None,
             ]
         ]
 
@@ -362,6 +363,7 @@ class VowelSeedBuilder:
             vowel_position_source = (
                 (
                     vowel_positions,
+                    None,
                     None,
                     None,
                 )
@@ -413,10 +415,13 @@ class VowelSeedBuilder:
                 )
             )
 
+        consonant_transition_cost: float | None = None
+
         for (
             vowel_positions,
             displaced_letter_indexes,
             vacated_positions,
+            selected_positions,
         ) in vowel_position_source:
             self._evaluated_candidate_count += 1
 
@@ -478,6 +483,7 @@ class VowelSeedBuilder:
                 if (
                     displaced_letter_indexes is None
                     or vacated_positions is None
+                    or selected_positions is None
                 ):
                     raise RuntimeError(
                         "grouped vowel displacement data "
@@ -505,10 +511,25 @@ class VowelSeedBuilder:
                     )
                 )
 
+                if integer_vowel_positions == selected_positions:
+                    consonant_transition_cost = (
+                        self._fast_evaluator
+                        .prepare_position_indexed_complete_consonant_cost(
+                            candidate_position_indexes,
+                            cost_matrix,
+                            prepared_transitions,
+                        )
+                    )
+
+                if consonant_transition_cost is None:
+                    raise RuntimeError(
+                        "consonant transition cost was not initialized"
+                    )
+
                 score = (
                     self
                     ._fast_evaluator
-                    .evaluate_fully_prepared_position_indexed_complete_finger_delta(
+                    .evaluate_fully_prepared_position_indexed_complete_finger_delta_with_consonant_cost(
                         baseline_positions=(
                             base_position_indexes
                         ),
@@ -518,6 +539,9 @@ class VowelSeedBuilder:
                         cost_matrix=cost_matrix,
                         prepared_transitions=(
                             prepared_transitions
+                        ),
+                        consonant_cost=(
+                            consonant_transition_cost
                         ),
                         position_finger_indexes=(
                             position_finger_indexes
@@ -817,6 +841,7 @@ class VowelSeedBuilder:
             tuple[int, ...],
             tuple[int, ...],
             tuple[int, ...],
+            tuple[int, ...],
         ]
     ]:
         """
@@ -862,6 +887,7 @@ class VowelSeedBuilder:
                         vowel_positions,
                         displaced_letter_indexes,
                         vacated_positions,
+                        selected_positions,
                     )
 
             return
@@ -920,6 +946,7 @@ class VowelSeedBuilder:
                             vowel_positions,
                             displaced_letter_indexes,
                             vacated_positions,
+                            selected_positions,
                         )
 
     def _prepare_vowel_displacement(

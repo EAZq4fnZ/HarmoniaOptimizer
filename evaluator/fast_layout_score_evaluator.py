@@ -61,6 +61,12 @@ class PreparedPositionIndexedTransitions:
         ],
         ...,
     ]
+    consonant_grouped_records: tuple[
+        tuple[int, tuple[tuple[int, float], ...]], ...
+    ]
+    vowel_involving_grouped_records: tuple[
+        tuple[int, tuple[tuple[int, float], ...]], ...
+    ]
     permanently_skipped_weight: float
     evaluated_weight: float
 
@@ -814,9 +820,53 @@ class FastLayoutScoreEvaluator:
             if targets
         )
 
+        vowel_indexes = frozenset((0, 4, 8, 14, 20))
+
+        consonant_grouped_records = tuple(
+            (
+                source_index,
+                tuple(
+                    (target_index, weighted_count)
+                    for target_index, weighted_count in targets
+                    if target_index not in vowel_indexes
+                ),
+            )
+            for source_index, targets in grouped_records
+            if source_index not in vowel_indexes
+            and any(
+                target_index not in vowel_indexes
+                for target_index, _ in targets
+            )
+        )
+
+        vowel_involving_grouped_records = tuple(
+            (
+                source_index,
+                (
+                    targets
+                    if source_index in vowel_indexes
+                    else tuple(
+                        (target_index, weighted_count)
+                        for target_index, weighted_count in targets
+                        if target_index in vowel_indexes
+                    )
+                ),
+            )
+            for source_index, targets in grouped_records
+            if source_index in vowel_indexes
+            or any(
+                target_index in vowel_indexes
+                for target_index, _ in targets
+            )
+        )
+
         return PreparedPositionIndexedTransitions(
             records=tuple(records),
             grouped_records=grouped_records,
+            consonant_grouped_records=consonant_grouped_records,
+            vowel_involving_grouped_records=(
+                vowel_involving_grouped_records
+            ),
             permanently_skipped_weight=(
                 permanently_skipped_weight
             ),
@@ -946,6 +996,54 @@ class FastLayoutScoreEvaluator:
             skipped_weight=(
                 prepared.permanently_skipped_weight
             ),
+        )
+
+    def evaluate_prepared_position_indexed_complete_consonant_cost(
+        self,
+        position_indexes: Sequence[int],
+        cost_matrix: Sequence[Sequence[float]],
+        prepared: PreparedPositionIndexedTransitions,
+    ) -> float:
+        positions = position_indexes
+        matrix = cost_matrix
+        total_cost = 0.0
+
+        for source_index, targets in prepared.consonant_grouped_records:
+            source_row = matrix[positions[source_index]]
+            for target_index, weighted_count in targets:
+                total_cost += (
+                    source_row[positions[target_index]]
+                    * weighted_count
+                )
+
+        return total_cost
+
+    def evaluate_prepared_position_indexed_complete_with_consonant_cost(
+        self,
+        position_indexes: Sequence[int],
+        cost_matrix: Sequence[Sequence[float]],
+        prepared: PreparedPositionIndexedTransitions,
+        consonant_cost: float,
+    ) -> FastLayoutScore:
+        positions = position_indexes
+        matrix = cost_matrix
+        total_cost = consonant_cost
+
+        for (
+            source_index,
+            targets,
+        ) in prepared.vowel_involving_grouped_records:
+            source_row = matrix[positions[source_index]]
+            for target_index, weighted_count in targets:
+                total_cost += (
+                    source_row[positions[target_index]]
+                    * weighted_count
+                )
+
+        return FastLayoutScore(
+            total_cost=total_cost,
+            evaluated_weight=prepared.evaluated_weight,
+            skipped_weight=prepared.permanently_skipped_weight,
         )
 
     def evaluate_prepared_position_indexed_complete_flat(
