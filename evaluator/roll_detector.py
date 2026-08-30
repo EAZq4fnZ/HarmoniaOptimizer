@@ -3,7 +3,6 @@
 from models.enums import Finger, Hand, RollDirection
 from models.transition import Transition
 
-
 _FINGER_ORDER = {
     Finger.PINKY: 0,
     Finger.RING: 1,

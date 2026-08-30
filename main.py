@@ -15,7 +15,6 @@ from config_loader.optimization_config_loader import (
 )
 from models.layout import Layout
 
-
 DEFAULT_CONFIG_PATH = Path(
     "config/optimization/default.json"
 )

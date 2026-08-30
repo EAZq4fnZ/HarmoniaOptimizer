@@ -8,8 +8,8 @@ Convert corpus text into a sequence of logical key presses.
 
 from __future__ import annotations
 
-from models.layout import Layout
 from models.keypress import KeyPress
+from models.layout import Layout
 
 
 class CorpusParser:

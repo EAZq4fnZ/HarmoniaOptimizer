@@ -1,7 +1,7 @@
 # tests/test_finger_load_evaluator.py
 
-from evaluator.finger_load_evaluator import FingerLoadEvaluator
 from evaluator.character_statistics import CharacterStatistics
+from evaluator.finger_load_evaluator import FingerLoadEvaluator
 from models.enums import Finger, Hand
 from models.layout import Layout
 

@@ -8,7 +8,6 @@ from evaluator.vowel_hand_distribution_constraint import (
 from models.constraint_evaluation import ConstraintEvaluation
 from models.layout import Layout
 
-
 LEFT_POSITIONS = (
     "L-P-T-0",
     "L-R-T-1",

@@ -1,5 +1,6 @@
-# models/logical_position_parser.py
+from typing import ClassVar
 
+# models/logical_position_parser.py
 from .enums import Finger, Hand, Layer, Row
 from .logical_position import LogicalPosition
 
@@ -19,19 +20,19 @@ class LogicalPositionParser:
     L-R-B-1
     """
 
-    _HAND_MAP = {
+    _HAND_MAP: ClassVar[dict[str, Hand]] = {
         "L": Hand.LEFT,
         "R": Hand.RIGHT,
     }
 
-    _FINGER_MAP = {
+    _FINGER_MAP: ClassVar[dict[str, Finger]] = {
         "P": Finger.PINKY,
         "R": Finger.RING,
         "M": Finger.MIDDLE,
         "I": Finger.INDEX,
     }
 
-    _ROW_MAP = {
+    _ROW_MAP: ClassVar[dict[str, Row]] = {
         "T": Row.TOP,
         "H": Row.HOME,
         "B": Row.BOTTOM,
@@ -112,3 +113,4 @@ class LogicalPositionParser:
             row=row,
             column=column,
         )
+

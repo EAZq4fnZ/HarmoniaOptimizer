@@ -5,16 +5,11 @@ from evaluator.constraint_set import ConstraintSet
 from evaluator.forbidden_position_constraint import (
     ForbiddenPositionConstraint,
 )
-from evaluator.vowel_position_constraint import (
-    VowelPositionConstraint,
-)
-from models.constraint_config import (
-    ConstraintConfig,
-    ForbiddenPositionConstraintConfig,
-    VowelPositionConstraintConfig,
-)
 from evaluator.vowel_hand_distribution_constraint import (
     VowelHandDistributionConstraint,
+)
+from evaluator.vowel_position_constraint import (
+    VowelPositionConstraint,
 )
 from models.constraint_config import (
     ConstraintConfig,
@@ -22,6 +17,7 @@ from models.constraint_config import (
     VowelHandDistributionConstraintConfig,
     VowelPositionConstraintConfig,
 )
+
 
 def make_config(
     *,

@@ -353,32 +353,14 @@ def assert_same_score(
     first: object,
     second: object,
 ) -> None:
-    first_total = getattr(
-        first,
-        "total_cost",
-    )
-    second_total = getattr(
-        second,
-        "total_cost",
-    )
+    first_total = first.total_cost
+    second_total = second.total_cost
 
-    first_evaluated = getattr(
-        first,
-        "evaluated_weight",
-    )
-    second_evaluated = getattr(
-        second,
-        "evaluated_weight",
-    )
+    first_evaluated = first.evaluated_weight
+    second_evaluated = second.evaluated_weight
 
-    first_skipped = getattr(
-        first,
-        "skipped_weight",
-    )
-    second_skipped = getattr(
-        second,
-        "skipped_weight",
-    )
+    first_skipped = first.skipped_weight
+    second_skipped = second.skipped_weight
 
     total_difference = abs(
         first_total

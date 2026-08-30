@@ -1,5 +1,6 @@
 # transition_recorder.py
 from collections import Counter
+from itertools import pairwise
 
 from models.corpus_entry import CorpusEntry
 
@@ -12,7 +13,7 @@ class TransitionRecorder:
 
     def record(self, text: str) -> None:
         """Record adjacent character transitions from text."""
-        for first, second in zip(text, text[1:]):
+        for first, second in pairwise(text):
             self._transitions[(first, second)] += 1
 
     def record_entry(self, entry: CorpusEntry) -> None:

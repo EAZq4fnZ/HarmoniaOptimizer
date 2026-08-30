@@ -1,6 +1,5 @@
 # tests/test_layout.py
 
-from pathlib import Path
 
 import pytest
 
