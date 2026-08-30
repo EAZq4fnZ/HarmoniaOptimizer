@@ -1,5 +1,3 @@
-# models/candidate_score.py
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,6 +12,7 @@ class CandidateScoreWeights:
     transition_weight: float = 1.0
     trigram_weight: float = 0.0
     finger_load_weight: float = 1.0
+    position_weight: float = 0.0
 
     def __post_init__(self) -> None:
         if self.transition_weight < 0:
@@ -31,6 +30,11 @@ class CandidateScoreWeights:
                 "finger_load_weight must be non-negative"
             )
 
+        if self.position_weight < 0:
+            raise ValueError(
+                "position_weight must be non-negative"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class CandidateScore:
@@ -44,6 +48,7 @@ class CandidateScore:
     finger_load_score: float
     weights: CandidateScoreWeights
     trigram_score: float = 0.0
+    position_score: float = 0.0
 
     @property
     def weighted_transition_score(self) -> float:
@@ -67,9 +72,17 @@ class CandidateScore:
         )
 
     @property
+    def weighted_position_score(self) -> float:
+        return (
+            self.position_score
+            * self.weights.position_weight
+        )
+
+    @property
     def total(self) -> float:
         return (
             self.weighted_transition_score
             + self.weighted_trigram_score
             + self.weighted_finger_load_score
+            + self.weighted_position_score
         )

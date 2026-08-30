@@ -320,3 +320,109 @@ def test_negative_trigram_weight_is_rejected():
         CandidateScoreWeights(
             trigram_weight=-1.0
         )
+
+def test_position_score_is_applied():
+    from models.key_position_evaluation import (
+        KeyPositionEvaluation,
+    )
+
+    scorer = CandidateScorer(
+        CandidateScoreWeights(
+            transition_weight=0.0,
+            trigram_weight=0.0,
+            finger_load_weight=0.0,
+            position_weight=3.0,
+        )
+    )
+
+    result = scorer.score(
+        make_layout_evaluation(),
+        (),
+        key_position_evaluation=(
+            KeyPositionEvaluation(
+                total_cost=25.0,
+                evaluated_weight=100.0,
+                skipped_weight=0.0,
+            )
+        ),
+    )
+
+    assert result.position_score == pytest.approx(
+        0.25
+    )
+    assert result.weighted_position_score == pytest.approx(
+        0.75
+    )
+    assert result.total == pytest.approx(
+        0.75
+    )
+
+
+def test_zero_position_weight_preserves_total():
+    from models.key_position_evaluation import (
+        KeyPositionEvaluation,
+    )
+
+    scorer = CandidateScorer(
+        CandidateScoreWeights(
+            transition_weight=2.0,
+            trigram_weight=0.0,
+            finger_load_weight=4.0,
+            position_weight=0.0,
+        )
+    )
+
+    result = scorer.score(
+        make_layout_evaluation(
+            total_cost=30.0,
+            evaluated_weight=100.0,
+        ),
+        (
+            make_finger_evaluation(
+                penalty=0.1
+            ),
+        ),
+        key_position_evaluation=(
+            KeyPositionEvaluation(
+                total_cost=999.0,
+                evaluated_weight=1.0,
+                skipped_weight=0.0,
+            )
+        ),
+    )
+
+    assert result.position_score == pytest.approx(
+        999.0
+    )
+    assert result.weighted_position_score == pytest.approx(
+        0.0
+    )
+    assert result.total == pytest.approx(
+        1.0
+    )
+
+
+def test_missing_position_evaluation_has_zero_score():
+    scorer = CandidateScorer(
+        CandidateScoreWeights(
+            position_weight=5.0,
+        )
+    )
+
+    result = scorer.score(
+        make_layout_evaluation(),
+        (),
+    )
+
+    assert result.position_score == 0.0
+    assert result.weighted_position_score == 0.0
+
+
+def test_negative_position_weight_is_rejected():
+    with pytest.raises(
+        ValueError,
+        match="position_weight must be non-negative",
+    ):
+        CandidateScoreWeights(
+            position_weight=-1.0
+        )

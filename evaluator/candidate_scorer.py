@@ -1,5 +1,3 @@
-# evaluator/candidate_scorer.py
-
 from __future__ import annotations
 
 from evaluator.transition_score_normalizer import (
@@ -10,6 +8,7 @@ from models.candidate_score import (
     CandidateScoreWeights,
 )
 from models.finger_load_evaluation import FingerLoadEvaluation
+from models.key_position_evaluation import KeyPositionEvaluation
 from models.layout_evaluation import LayoutEvaluation
 from models.trigram_layout_evaluation import (
     TrigramLayoutEvaluation,
@@ -18,8 +17,8 @@ from models.trigram_layout_evaluation import (
 
 class CandidateScorer:
     """
-    Combine transition, trigram, and finger-load evaluations
-    into one candidate score.
+    Combine transition, trigram, finger-load, and key-position
+    evaluations into one candidate score.
 
     Lower is better.
     """
@@ -44,6 +43,9 @@ class CandidateScorer:
         trigram_layout_evaluation: (
             TrigramLayoutEvaluation | None
         ) = None,
+        key_position_evaluation: (
+            KeyPositionEvaluation | None
+        ) = None,
     ) -> CandidateScore:
         """
         Build the combined score for one valid candidate.
@@ -58,6 +60,11 @@ class CandidateScorer:
 
         Finger-load score:
             sum of all finger-load penalties
+
+        Key-position score:
+            normalized unigram key-position cost
+
+            Zero when no key-position evaluation is supplied.
         """
 
         normalized_transition = normalize_transition_score(
@@ -77,9 +84,17 @@ class CandidateScorer:
             for evaluation in finger_load_evaluations
         )
 
+        if key_position_evaluation is None:
+            position_score = 0.0
+        else:
+            position_score = (
+                key_position_evaluation.score
+            )
+
         return CandidateScore(
             transition_score=normalized_transition.score,
             finger_load_score=finger_load_score,
             weights=self._weights,
             trigram_score=trigram_score,
+            position_score=position_score,
         )

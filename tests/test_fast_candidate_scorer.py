@@ -227,3 +227,111 @@ def test_fast_score_matches_three_component_formula():
     assert actual == pytest.approx(
         expected
     )
+
+
+def test_fast_score_combines_position_component():
+    scorer = FastCandidateScorer(
+        CandidateScoreWeights(
+            transition_weight=2.0,
+            trigram_weight=3.0,
+            finger_load_weight=4.0,
+            position_weight=5.0,
+        )
+    )
+
+    score = scorer.score(
+        transition_total_cost=30.0,
+        evaluated_transition_weight=100.0,
+        finger_load_penalty=0.1,
+        trigram_total_cost=20.0,
+        evaluated_trigram_weight=100.0,
+        position_score=0.25,
+    )
+
+    # transition:
+    # 30 / 100 = 0.3
+    # 0.3 * 2 = 0.6
+    #
+    # trigram:
+    # 20 / 100 = 0.2
+    # 0.2 * 3 = 0.6
+    #
+    # finger:
+    # 0.1 * 4 = 0.4
+    #
+    # position:
+    # 0.25 * 5 = 1.25
+    #
+    # total = 2.85
+    assert score == pytest.approx(
+        2.85
+    )
+
+
+def test_fast_score_preserves_call_without_position():
+    scorer = FastCandidateScorer(
+        CandidateScoreWeights(
+            transition_weight=2.0,
+            trigram_weight=3.0,
+            finger_load_weight=4.0,
+            position_weight=99.0,
+        )
+    )
+
+    score = scorer.score(
+        transition_total_cost=30.0,
+        evaluated_transition_weight=100.0,
+        finger_load_penalty=0.1,
+        trigram_total_cost=20.0,
+        evaluated_trigram_weight=100.0,
+    )
+
+    assert score == pytest.approx(
+        1.6
+    )
+
+
+def test_fast_score_matches_four_component_formula():
+    weights = CandidateScoreWeights(
+        transition_weight=1.7,
+        trigram_weight=2.3,
+        finger_load_weight=0.8,
+        position_weight=1.4,
+    )
+
+    scorer = FastCandidateScorer(
+        weights
+    )
+
+    transition_total = 18.0
+    transition_weight = 12.0
+
+    trigram_total = -7.5
+    trigram_weight = 5.0
+
+    finger_penalty = 0.35
+    position_score = 0.625
+
+    expected = (
+        (transition_total / transition_weight)
+        * weights.transition_weight
+        + (trigram_total / trigram_weight)
+        * weights.trigram_weight
+        + finger_penalty
+        * weights.finger_load_weight
+        + position_score
+        * weights.position_weight
+    )
+
+    actual = scorer.score(
+        transition_total_cost=transition_total,
+        evaluated_transition_weight=transition_weight,
+        finger_load_penalty=finger_penalty,
+        trigram_total_cost=trigram_total,
+        evaluated_trigram_weight=trigram_weight,
+        position_score=position_score,
+    )
+
+    assert actual == pytest.approx(
+        expected
+    )

@@ -1,5 +1,3 @@
-# evaluator/fast_candidate_scorer.py
-
 from __future__ import annotations
 
 from models.candidate_score import CandidateScoreWeights
@@ -7,8 +5,8 @@ from models.candidate_score import CandidateScoreWeights
 
 class FastCandidateScorer:
     """
-    Combine precomputed transition, trigram, and finger-load scores
-    without building detailed evaluation objects.
+    Combine precomputed transition, trigram, finger-load, and
+    key-position scores without building detailed evaluation objects.
 
     Lower is better.
     """
@@ -33,6 +31,7 @@ class FastCandidateScorer:
         finger_load_penalty: float,
         trigram_total_cost: float = 0.0,
         evaluated_trigram_weight: float = 0.0,
+        position_score: float = 0.0,
     ) -> float:
         """
         Return the same final numeric score as CandidateScorer.
@@ -46,8 +45,11 @@ class FastCandidateScorer:
         Finger-load score:
             sum of finger-load penalties
 
+        Key-position score:
+            normalized unigram key-position cost
+
         Zero evaluated weight produces a zero normalized score for
-        the corresponding component.
+        the corresponding transition or trigram component.
         """
 
         if evaluated_transition_weight < 0.0:
@@ -85,4 +87,6 @@ class FastCandidateScorer:
             * self._weights.trigram_weight
             + finger_load_penalty
             * self._weights.finger_load_weight
+            + position_score
+            * self._weights.position_weight
         )
