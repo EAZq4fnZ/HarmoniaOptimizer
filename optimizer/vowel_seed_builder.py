@@ -12,6 +12,7 @@ from evaluator.fast_candidate_evaluator import (
     FastCandidateEvaluator,
 )
 from evaluator.transition_statistics import TransitionStatistics
+from evaluator.trigram_statistics import TrigramStatistics
 from models.candidate_evaluation import CandidateEvaluation
 from models.layout import Layout
 
@@ -88,6 +89,7 @@ class VowelSeedBuilder:
         progress_interval: int = 1000,
         min_left_vowels: int | None = None,
         max_left_vowels: int | None = None,
+        trigram_statistics: TrigramStatistics | None = None,
     ) -> CandidateEvaluation:
         """
         Search vowel assignments and return the best valid one.
@@ -191,6 +193,8 @@ class VowelSeedBuilder:
         prepared_finger_load_baseline = None
 
         prepared_transitions = None
+        prepared_trigrams = None
+        trigram_cost_cube = None
 
         prepared_weighted_statistics: (
             tuple[float, ...]
@@ -313,6 +317,22 @@ class VowelSeedBuilder:
                 )
             )
 
+            if trigram_statistics is not None:
+                prepared_trigrams = (
+                    self
+                    ._fast_evaluator
+                    .prepare_position_indexed_trigrams(
+                        trigram_statistics
+                    )
+                )
+                trigram_cost_cube = (
+                    self
+                    ._fast_evaluator
+                    .build_trigram_cost_cube(
+                        position_ids_by_index
+                    )
+                )
+
             (
                 prepared_weighted_statistics,
                 prepared_total_weighted_load,
@@ -361,6 +381,7 @@ class VowelSeedBuilder:
                     layout=candidate_layout,
                     transition_statistics=transition_statistics,
                     character_statistics=character_statistics,
+                    trigram_statistics=trigram_statistics,
                 )
 
                 if (
@@ -414,12 +435,15 @@ class VowelSeedBuilder:
             (
                 layout_score_evaluator,
                 finger_load_score_evaluator,
+                trigram_score_evaluator,
                 transition_factor,
+                trigram_factor,
                 finger_load_weight,
             ) = (
                 self._fast_evaluator
                 .prepare_complete_vowel_group_scalar_hot_path(
-                    prepared_transitions
+                    prepared_transitions,
+                    prepared_trigrams,
                 )
             )
 
@@ -485,6 +509,26 @@ class VowelSeedBuilder:
                         prepared_total_weighted_load,
                     )
                 )
+
+                prepared_trigram_group_costs = None
+
+                if prepared_trigrams is not None:
+                    if (
+                        trigram_cost_cube is None
+                        or trigram_score_evaluator is None
+                    ):
+                        raise RuntimeError(
+                            "trigram search data was not initialized"
+                        )
+
+                    prepared_trigram_group_costs = (
+                        self._fast_evaluator
+                        .prepare_position_indexed_complete_vowel_group_trigram_costs(
+                            first_candidate_position_indexes,
+                            trigram_cost_cube,
+                            prepared_trigrams,
+                        )
+                    )
 
                 for integer_vowel_positions in permutations(
                     selected_positions,
@@ -580,8 +624,29 @@ class VowelSeedBuilder:
                             prepared_finger_load_baseline,
                         )
                     )
+                    trigram_total_cost = 0.0
+
+                    if prepared_trigram_group_costs is not None:
+                        if (
+                            trigram_cost_cube is None
+                            or trigram_score_evaluator is None
+                        ):
+                            raise RuntimeError(
+                                "trigram search data was not initialized"
+                            )
+
+                        trigram_total_cost = (
+                            trigram_score_evaluator
+                            .evaluate_prepared_position_indexed_complete_vowel_group_total_cost(
+                                candidate_positions_list,
+                                trigram_cost_cube,
+                                prepared_trigram_group_costs,
+                            )
+                        )
+
                     score = (
                         transition_total_cost * transition_factor
+                        + trigram_total_cost * trigram_factor
                         + finger_load_penalty * finger_load_weight
                     )
 
@@ -638,6 +703,7 @@ class VowelSeedBuilder:
                 layout=best_layout,
                 transition_statistics=transition_statistics,
                 character_statistics=character_statistics,
+                trigram_statistics=trigram_statistics,
             )
 
             if (

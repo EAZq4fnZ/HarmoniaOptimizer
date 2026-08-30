@@ -11,6 +11,7 @@ from models.enums import Finger, Hand
 from models.finger_load_budget import FingerLoadBudget
 from models.optimization_config import OptimizationConfig
 from models.transition_cost import TransitionCostWeights
+from models.trigram_cost import TrigramCostWeights
 
 
 class OptimizationConfigLoader:
@@ -83,11 +84,52 @@ class OptimizationConfigLoader:
             ),
         )
 
+        trigram_data = data.get(
+            "trigram_cost_weights"
+        )
+
+        if trigram_data is None:
+            trigram_weights = TrigramCostWeights()
+        else:
+            trigram_weights = TrigramCostWeights(
+                same_finger_skip_penalty=float(
+                    trigram_data[
+                        "same_finger_skip_penalty"
+                    ]
+                ),
+                redirect_penalty=float(
+                    trigram_data[
+                        "redirect_penalty"
+                    ]
+                ),
+                alternation_reward=float(
+                    trigram_data[
+                        "alternation_reward"
+                    ]
+                ),
+                inward_roll_reward=float(
+                    trigram_data[
+                        "inward_roll_reward"
+                    ]
+                ),
+                outward_roll_reward=float(
+                    trigram_data[
+                        "outward_roll_reward"
+                    ]
+                ),
+            )
+
         candidate_weights = CandidateScoreWeights(
             transition_weight=float(
                 candidate_data[
                     "transition_weight"
                 ]
+            ),
+            trigram_weight=float(
+                candidate_data.get(
+                    "trigram_weight",
+                    0.0,
+                )
             ),
             finger_load_weight=float(
                 candidate_data[
@@ -106,6 +148,7 @@ class OptimizationConfigLoader:
             transition_cost_weights=transition_weights,
             candidate_score_weights=candidate_weights,
             finger_load_budgets=budgets,
+            trigram_cost_weights=trigram_weights,
         )
 
     @staticmethod

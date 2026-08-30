@@ -30,8 +30,12 @@ from evaluator.fast_finger_load_score_evaluator import (
 from evaluator.fast_layout_score_evaluator import (
     FastLayoutScoreEvaluator,
 )
+from evaluator.fast_trigram_layout_score_evaluator import (
+    FastTrigramLayoutScoreEvaluator,
+)
 from evaluator.finger_load_pipeline import FingerLoadPipeline
 from evaluator.layout_evaluator import LayoutEvaluator
+from evaluator.trigram_layout_evaluator import TrigramLayoutEvaluator
 from models.corpus import Corpus
 from models.corpus_entry import CorpusEntry
 from models.layout import Layout
@@ -64,6 +68,9 @@ def build_evaluator(
         finger_load_budgets=(
             optimization_config.finger_load_budgets
         ),
+        trigram_layout_evaluator=TrigramLayoutEvaluator(
+            optimization_config.trigram_cost_weights
+        ),
     )
 
 
@@ -93,6 +100,11 @@ def build_fast_evaluator(
         ),
         candidate_scorer=FastCandidateScorer(
             optimization_config.candidate_score_weights
+        ),
+        trigram_layout_evaluator=(
+            FastTrigramLayoutScoreEvaluator(
+                optimization_config.trigram_cost_weights
+            )
         ),
     )
 
@@ -172,7 +184,13 @@ def main() -> int:
         ),
     )
 
-    transition_statistics = CorpusAnalyzer().analyze(
+    corpus_analyzer = CorpusAnalyzer()
+
+    transition_statistics = corpus_analyzer.analyze(
+        corpus
+    )
+
+    trigram_statistics = corpus_analyzer.analyze_trigrams(
         corpus
     )
 
@@ -265,6 +283,7 @@ def main() -> int:
         layout=layout,
         transition_statistics=transition_statistics,
         character_statistics=character_statistics,
+        trigram_statistics=trigram_statistics,
         progress_callback=show_progress,
         progress_interval=1000,
         min_left_vowels=(

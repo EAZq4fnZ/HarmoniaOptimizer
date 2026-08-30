@@ -21,6 +21,7 @@ from evaluator.fast_layout_score_evaluator import (
 from evaluator.fast_trigram_layout_score_evaluator import (
     FastTrigramLayoutScoreEvaluator,
     PreparedPositionIndexedTrigrams,
+    PreparedVowelGroupTrigramCosts,
     TrigramCostCube,
 )
 from evaluator.transition_statistics import TransitionStatistics
@@ -858,6 +859,26 @@ class FastCandidateEvaluator:
             finger_load_penalty=finger_load_penalty,
         )
 
+    def prepare_position_indexed_complete_vowel_group_trigram_costs(
+        self,
+        positions: Sequence[int],
+        trigram_cost_cube: TrigramCostCube,
+        prepared_trigrams: PreparedPositionIndexedTrigrams,
+    ) -> PreparedVowelGroupTrigramCosts:
+        if self._trigram_layout_evaluator is None:
+            raise RuntimeError(
+                "trigram_layout_evaluator is not configured"
+            )
+
+        return (
+            self._trigram_layout_evaluator
+            .prepare_position_indexed_complete_vowel_group_costs(
+                positions,
+                trigram_cost_cube,
+                prepared_trigrams,
+            )
+        )
+
     def prepare_position_indexed_complete_vowel_group_transition_costs(
         self,
         positions: Sequence[int],
@@ -910,32 +931,20 @@ class FastCandidateEvaluator:
     def prepare_complete_vowel_group_scalar_hot_path(
         self,
         prepared_transitions: PreparedPositionIndexedTransitions,
+        prepared_trigrams: PreparedPositionIndexedTrigrams | None = None,
     ) -> tuple[
         FastLayoutScoreEvaluator,
         FastFingerLoadScoreEvaluator,
+        FastTrigramLayoutScoreEvaluator | None,
+        float,
         float,
         float,
     ]:
         """
         Prepare stable dependencies for the scalar vowel-seed hot path.
 
-        This is called once before exhaustive candidate evaluation so the
-        caller can avoid private attribute access and per-candidate scorer
-        wrapper overhead.
-
-        Returns:
-            layout_evaluator
-                Publicly exposed evaluator dependency for transition cost.
-
-            finger_load_evaluator
-                Publicly exposed evaluator dependency for finger-load cost.
-
-            transition_factor
-                transition_weight / evaluated_transition_weight, or 0.0
-                when the evaluated transition weight is zero.
-
-            finger_load_weight
-                Final candidate-score weight for finger-load penalty.
+        Returns the evaluator dependencies and precomputed normalization
+        factors needed by the per-permutation scalar loop.
         """
 
         evaluated_transition_weight = (
@@ -958,10 +967,35 @@ class FastCandidateEvaluator:
             )
         )
 
+        trigram_factor = 0.0
+
+        if prepared_trigrams is not None:
+            if self._trigram_layout_evaluator is None:
+                raise RuntimeError(
+                    "trigram_layout_evaluator is not configured"
+                )
+
+            evaluated_trigram_weight = (
+                prepared_trigrams.evaluated_weight
+            )
+
+            if evaluated_trigram_weight < 0.0:
+                raise ValueError(
+                    "evaluated_trigram_weight must be non-negative"
+                )
+
+            if evaluated_trigram_weight != 0.0:
+                trigram_factor = (
+                    weights.trigram_weight
+                    / evaluated_trigram_weight
+                )
+
         return (
             self._layout_evaluator,
             self._finger_load_evaluator,
+            self._trigram_layout_evaluator,
             transition_factor,
+            trigram_factor,
             weights.finger_load_weight,
         )
 
@@ -975,13 +1009,18 @@ class FastCandidateEvaluator:
         allowed_ratios: tuple[float, ...],
         weighted_statistics: tuple[float, ...],
         finger_load_baseline: PreparedPositionIndexedFingerLoadBaseline,
+        trigram_cost_cube: TrigramCostCube | None = None,
+        trigram_group_costs: PreparedVowelGroupTrigramCosts | None = None,
+        trigram_factor: float = 0.0,
     ) -> float:
         """
         Scalar-only vowel-seed hot path.
 
-        Complete A-Z candidates all share the same evaluated transition
-        weight, so avoid constructing FastLayoutScore and avoid the generic
-        scorer call for every vowel permutation.
+        Transition and optional trigram normalization factors can be
+        prepared outside the per-permutation loop.
+
+        When trigram_cost_cube and trigram_group_costs are supplied,
+        use the vowel-group trigram preaggregation path.
         """
 
         transition_total_cost = (
@@ -1008,6 +1047,7 @@ class FastCandidateEvaluator:
         evaluated_transition_weight = (
             prepared_transitions.evaluated_weight
         )
+
         if evaluated_transition_weight == 0.0:
             transition_score = 0.0
         else:
@@ -1017,13 +1057,47 @@ class FastCandidateEvaluator:
             )
 
         weights = self._candidate_scorer.weights
-        return (
+
+        score = (
             transition_score
             * weights.transition_weight
             + finger_load_penalty
             * weights.finger_load_weight
         )
 
+        if (
+            trigram_cost_cube is not None
+            or trigram_group_costs is not None
+        ):
+            if (
+                trigram_cost_cube is None
+                or trigram_group_costs is None
+            ):
+                raise ValueError(
+                    "trigram_cost_cube and trigram_group_costs "
+                    "must be provided together"
+                )
+
+            if self._trigram_layout_evaluator is None:
+                raise RuntimeError(
+                    "trigram_layout_evaluator is not configured"
+                )
+
+            trigram_total_cost = (
+                self._trigram_layout_evaluator
+                .evaluate_prepared_position_indexed_complete_vowel_group_total_cost(
+                    positions,
+                    trigram_cost_cube,
+                    trigram_group_costs,
+                )
+            )
+
+            score += (
+                trigram_total_cost
+                * trigram_factor
+            )
+
+        return score
     def evaluate_fully_prepared_position_indexed_complete_finger_delta_with_consonant_cost(
         self,
         baseline_positions: Sequence[int],

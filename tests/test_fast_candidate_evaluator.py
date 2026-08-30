@@ -1055,3 +1055,173 @@ def test_fully_prepared_fast_candidate_matches_normal_with_trigrams() -> None:
     assert fast_score == pytest.approx(
         normal_result.score
     )
+
+
+def test_vowel_group_fast_candidate_matches_generic_fast_with_trigrams() -> None:
+    layout = make_layout()
+    transitions = make_transition_statistics()
+    trigrams = make_trigram_statistics()
+    characters = make_character_statistics()
+
+    candidate_weights = CandidateScoreWeights(
+        transition_weight=1.7,
+        trigram_weight=2.3,
+        finger_load_weight=0.8,
+    )
+
+    fast = FastCandidateEvaluator(
+        constraint_set=ConstraintSet([]),
+        layout_evaluator=FastLayoutScoreEvaluator(
+            make_transition_weights()
+        ),
+        finger_load_evaluator=FastFingerLoadScoreEvaluator(
+            make_finger_load_budgets()
+        ),
+        candidate_scorer=FastCandidateScorer(
+            candidate_weights
+        ),
+        trigram_layout_evaluator=(
+            FastTrigramLayoutScoreEvaluator(
+                make_trigram_weights()
+            )
+        ),
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        letter_index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= letter_index < 26:
+            string_positions[letter_index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+        position_finger_indexes,
+        allowed_ratios,
+    ) = fast.prepare_position_index(
+        logical_positions
+    )
+
+    base_positions = [
+        (
+            -1
+            if position is None
+            else position_indexes[position]
+        )
+        for position in string_positions
+    ]
+
+    prepared_transitions = (
+        fast.prepare_position_indexed_transitions(
+            transitions
+        )
+    )
+
+    weighted_statistics, total_weighted_load = (
+        fast.prepare_position_indexed_character_statistics(
+            characters
+        )
+    )
+
+    trigram_cost_cube = fast.build_trigram_cost_cube(
+        logical_positions
+    )
+
+    prepared_trigrams = (
+        fast.prepare_position_indexed_trigrams(
+            trigrams
+        )
+    )
+
+    generic_score = (
+        fast.evaluate_fully_prepared_position_indexed_complete(
+            base_positions,
+            cost_matrix,
+            prepared_transitions,
+            position_finger_indexes,
+            allowed_ratios,
+            weighted_statistics,
+            total_weighted_load,
+            trigram_cost_cube=trigram_cost_cube,
+            prepared_trigrams=prepared_trigrams,
+        )
+    )
+
+    selected_positions = (
+        base_positions[0],
+        base_positions[4],
+        base_positions[8],
+        base_positions[14],
+        base_positions[20],
+    )
+
+    transition_group_costs = (
+        fast.prepare_position_indexed_complete_vowel_group_transition_costs(
+            base_positions,
+            selected_positions,
+            cost_matrix,
+            prepared_transitions,
+        )
+    )
+
+    finger_load_baseline = (
+        fast.prepare_position_indexed_complete_vowel_group_finger_load_baseline(
+            base_positions,
+            position_finger_indexes,
+            weighted_statistics,
+            total_weighted_load,
+        )
+    )
+
+    trigram_group_costs = (
+        fast.prepare_position_indexed_complete_vowel_group_trigram_costs(
+            base_positions,
+            trigram_cost_cube,
+            prepared_trigrams,
+        )
+    )
+
+    (
+        _layout_evaluator,
+        _finger_load_evaluator,
+        _trigram_evaluator,
+        _transition_factor,
+        trigram_factor,
+        _finger_load_weight,
+    ) = fast.prepare_complete_vowel_group_scalar_hot_path(
+        prepared_transitions,
+        prepared_trigrams,
+    )
+
+    group_score = (
+        fast.evaluate_fully_prepared_position_indexed_complete_vowel_group(
+            base_positions,
+            cost_matrix,
+            prepared_transitions,
+            transition_group_costs,
+            position_finger_indexes,
+            allowed_ratios,
+            weighted_statistics,
+            finger_load_baseline,
+            trigram_cost_cube=trigram_cost_cube,
+            trigram_group_costs=trigram_group_costs,
+            trigram_factor=trigram_factor,
+        )
+    )
+
+    assert group_score == pytest.approx(
+        generic_score
+    )
