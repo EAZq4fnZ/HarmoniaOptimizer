@@ -324,3 +324,63 @@ def test_lowercase_statistics_are_supported() -> None:
     )
 
     assert result.total_cost == pytest.approx(-1.5)
+
+
+def test_record_contains_trigram_features() -> None:
+    statistics = TrigramStatistics()
+
+    statistics.record(
+        "A",
+        "B",
+        "C",
+    )
+
+    evaluator = TrigramLayoutEvaluator(
+        make_weights()
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        statistics,
+    )
+
+    record = result.trigrams[0]
+
+    assert record.features.same_hand is True
+    assert record.features.same_finger_skip is False
+    assert record.features.alternating_hands is False
+    assert (
+        record.features.roll_direction.value
+        == "inward"
+    )
+    assert record.features.redirect is False
+
+
+def test_record_preserves_overlapping_structural_features() -> None:
+    statistics = TrigramStatistics()
+
+    statistics.record(
+        "D",
+        "E",
+        "F",
+    )
+
+    evaluator = TrigramLayoutEvaluator(
+        make_weights()
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        statistics,
+    )
+
+    record = result.trigrams[0]
+
+    # ring -> middle -> ring is structurally both
+    # a same-finger skip and a redirect.
+    assert record.features.same_finger_skip is True
+    assert record.features.redirect is True
+
+    # Cost policy still suppresses the redirect penalty.
+    assert record.cost.same_finger_skip == pytest.approx(8.0)
+    assert record.cost.redirect == pytest.approx(0.0)

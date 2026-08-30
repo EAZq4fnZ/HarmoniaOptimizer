@@ -5,12 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .trigram_cost import TrigramCost
+from .trigram_features import TrigramFeatures
 
 
 @dataclass(slots=True, frozen=True)
 class TrigramLayoutRecord:
     """
-    Cost contribution of one trigram.
+    Structural and cost contribution of one trigram.
     """
 
     first: str
@@ -20,6 +21,7 @@ class TrigramLayoutRecord:
     raw_count: int
     weighted_count: float
 
+    features: TrigramFeatures
     cost: TrigramCost
     weighted_cost: float
 

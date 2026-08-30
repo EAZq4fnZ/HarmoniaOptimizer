@@ -5,6 +5,7 @@ from __future__ import annotations
 from models.layout import Layout
 from models.layout_key_mapper import LayoutKeyMapper
 from models.trigram_cost import TrigramCost, TrigramCostWeights
+from models.trigram_features import TrigramFeatures
 from models.trigram_layout_evaluation import (
     TrigramLayoutEvaluation,
     TrigramLayoutRecord,
@@ -21,9 +22,9 @@ class TrigramLayoutEvaluator:
 
     Lower score is better.
 
-    Trigram costs are cached by canonical logical-position IDs.
-    Structural trigram cost depends on the three positions, not on
-    the letters assigned to those positions.
+    Trigram features and costs are cached by canonical logical-position
+    IDs. Structural trigram properties depend on the three positions,
+    not on the letters assigned to those positions.
     """
 
     def __init__(
@@ -36,9 +37,9 @@ class TrigramLayoutEvaluator:
             weights
         )
 
-        self._trigram_cost_cache: dict[
+        self._trigram_cache: dict[
             tuple[str, str, str],
-            TrigramCost,
+            tuple[TrigramFeatures, TrigramCost],
         ] = {}
 
     def evaluate(
@@ -98,11 +99,11 @@ class TrigramLayoutEvaluator:
                 third_position_id,
             )
 
-            cost = self._trigram_cost_cache.get(
+            cached = self._trigram_cache.get(
                 cache_key
             )
 
-            if cost is None:
+            if cached is None:
                 first_key = mapper.key(
                     first_id
                 )
@@ -123,9 +124,14 @@ class TrigramLayoutEvaluator:
                     features
                 )
 
-                self._trigram_cost_cache[
+                self._trigram_cache[
                     cache_key
-                ] = cost
+                ] = (
+                    features,
+                    cost,
+                )
+            else:
+                features, cost = cached
 
             weighted_cost = (
                 cost.total
@@ -139,6 +145,7 @@ class TrigramLayoutEvaluator:
                     third=third_id,
                     raw_count=raw_count,
                     weighted_count=weighted_count,
+                    features=features,
                     cost=cost,
                     weighted_cost=weighted_cost,
                 )
