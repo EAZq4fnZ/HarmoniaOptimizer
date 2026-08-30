@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping
 from itertools import combinations, permutations
 from math import comb, perm
-from typing import cast
 
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.character_statistics import CharacterStatistics
@@ -343,90 +342,19 @@ class VowelSeedBuilder:
                 for position in right_positions
             )
 
-        vowel_position_source: Iterator[
-            tuple[
-                tuple[str, ...] | tuple[int, ...],
-                tuple[int, ...] | None,
-                tuple[int, ...] | None,
-                tuple[int, ...] | None,
-            ]
-        ]
-
         if self._fast_evaluator is None:
-            vowel_position_source = (
-                (
-                    vowel_positions,
-                    None,
-                    None,
-                    None,
-                )
-                for vowel_positions
-                in self._generate_vowel_positions(
-                    candidate_positions=candidate_positions,
-                    left_positions=left_positions,
-                    right_positions=right_positions,
-                    min_left_vowels=min_left_vowels,
-                    max_left_vowels=max_left_vowels,
-                )
-            )
-        else:
-            if (
-                candidate_position_indexes is None
-                or left_position_indexes is None
-                or right_position_indexes is None
-                or original_vowel_position_indexes is None
-                or original_vowel_position_indexes_sorted is None
-                or letter_index_by_position_index is None
+            for vowel_positions in self._generate_vowel_positions(
+                candidate_positions=candidate_positions,
+                left_positions=left_positions,
+                right_positions=right_positions,
+                min_left_vowels=min_left_vowels,
+                max_left_vowels=max_left_vowels,
             ):
-                raise RuntimeError(
-                    "integer vowel-position data "
-                    "was not initialized"
-                )
-
-            vowel_position_source = (
-                self._generate_grouped_vowel_position_indexes(
-                    candidate_position_indexes=(
-                        candidate_position_indexes
-                    ),
-                    left_position_indexes=(
-                        left_position_indexes
-                    ),
-                    right_position_indexes=(
-                        right_position_indexes
-                    ),
-                    min_left_vowels=min_left_vowels,
-                    max_left_vowels=max_left_vowels,
-                    original_vowel_positions=(
-                        original_vowel_position_indexes
-                    ),
-                    original_vowel_positions_sorted=(
-                        original_vowel_position_indexes_sorted
-                    ),
-                    letter_index_by_position=(
-                        letter_index_by_position_index
-                    ),
-                )
-            )
-
-        prepared_transition_group_costs = None
-
-        for (
-            vowel_positions,
-            displaced_letter_indexes,
-            vacated_positions,
-            selected_positions,
-        ) in vowel_position_source:
-            self._evaluated_candidate_count += 1
-
-            if self._fast_evaluator is None:
-                string_vowel_positions = tuple(
-                    str(position)
-                    for position in vowel_positions
-                )
+                self._evaluated_candidate_count += 1
 
                 candidate_layout = self._assign_vowels(
                     layout=layout,
-                    vowel_positions=string_vowel_positions,
+                    vowel_positions=vowel_positions,
                 )
 
                 evaluation = self._evaluator.evaluate(
@@ -448,144 +376,226 @@ class VowelSeedBuilder:
                 ):
                     best = evaluation
 
-            else:
                 if (
-                    position_indexes is None
-                    or cost_matrix is None
-                    or position_finger_indexes is None
-                    or allowed_ratios is None
-                    or base_position_indexes is None
-                    or original_vowel_position_indexes is None
-                    or original_vowel_position_indexes_sorted is None
-                    or letter_index_by_position_index is None
-                    or prepared_transitions is None
-                    or prepared_weighted_statistics is None
-                    or prepared_total_weighted_load is None
-                ):
-                    raise RuntimeError(
-                        "position-indexed search data "
-                        "was not initialized"
+                    progress_callback is not None
+                    and (
+                        self._evaluated_candidate_count
+                        % progress_interval
+                        == 0
+                        or self._evaluated_candidate_count
+                        == total_candidates
                     )
-
-                integer_vowel_positions = cast(
-                    tuple[int, ...],
-                    vowel_positions,
+                ):
+                    progress_callback(
+                        self._evaluated_candidate_count,
+                        total_candidates,
+                    )
+        else:
+            if (
+                position_indexes is None
+                or cost_matrix is None
+                or position_finger_indexes is None
+                or allowed_ratios is None
+                or base_position_indexes is None
+                or original_vowel_position_indexes is None
+                or original_vowel_position_indexes_sorted is None
+                or letter_index_by_position_index is None
+                or prepared_transitions is None
+                or prepared_weighted_statistics is None
+                or prepared_total_weighted_load is None
+                or candidate_position_indexes is None
+                or left_position_indexes is None
+                or right_position_indexes is None
+            ):
+                raise RuntimeError(
+                    "position-indexed search data was not initialized"
                 )
 
-                if (
-                    displaced_letter_indexes is None
-                    or vacated_positions is None
-                    or selected_positions is None
-                ):
-                    raise RuntimeError(
-                        "grouped vowel displacement data "
-                        "was not initialized"
-                    )
+            for (
+                selected_positions,
+                displaced_letter_indexes,
+                vacated_positions,
+            ) in self._generate_vowel_position_index_groups(
+                candidate_position_indexes=candidate_position_indexes,
+                left_position_indexes=left_position_indexes,
+                right_position_indexes=right_position_indexes,
+                min_left_vowels=min_left_vowels,
+                max_left_vowels=max_left_vowels,
+                original_vowel_positions=(
+                    original_vowel_position_indexes
+                ),
+                original_vowel_positions_sorted=(
+                    original_vowel_position_indexes_sorted
+                ),
+                letter_index_by_position=(
+                    letter_index_by_position_index
+                ),
+            ):
+                displaced_count = len(
+                    displaced_letter_indexes
+                )
+
+                first_vowel_positions = selected_positions
 
                 (
-                    candidate_position_indexes,
+                    first_candidate_position_indexes,
                     _changed_letter_indexes,
                 ) = (
                     self
                     ._assign_vowels_position_indexed_prepared_fast(
-                        base_positions=(
-                            base_position_indexes
-                        ),
+                        base_positions=base_position_indexes,
                         vowel_position_indexes=(
-                            integer_vowel_positions
+                            first_vowel_positions
                         ),
                         displaced_letter_indexes=(
                             displaced_letter_indexes
                         ),
-                        vacated_positions=(
-                            vacated_positions
-                        ),
+                        vacated_positions=vacated_positions,
                     )
                 )
 
-                if integer_vowel_positions == selected_positions:
-                    prepared_transition_group_costs = (
-                        self._fast_evaluator
-                        .prepare_position_indexed_complete_vowel_group_transition_costs(
-                            candidate_position_indexes,
-                            selected_positions,
-                            cost_matrix,
-                            prepared_transitions,
-                        )
-                    )
-                    prepared_finger_load_baseline = (
-                        self._fast_evaluator
-                        .prepare_position_indexed_complete_vowel_group_finger_load_baseline(
-                            candidate_position_indexes,
-                            position_finger_indexes,
-                            prepared_weighted_statistics,
-                            prepared_total_weighted_load,
-                        )
-                    )
-
-                if prepared_transition_group_costs is None:
-                    raise RuntimeError(
-                        "vowel-group transition costs were not initialized"
-                    )
-
-                if prepared_finger_load_baseline is None:
-                    raise RuntimeError(
-                        "vowel-group finger-load baseline "
-                        "was not initialized"
-                    )
-
-                score = (
-                    self
-                    ._fast_evaluator
-                    .evaluate_fully_prepared_position_indexed_complete_vowel_group(
-                        positions=(
-                            candidate_position_indexes
-                        ),
-                        cost_matrix=cost_matrix,
-                        prepared_transitions=(
-                            prepared_transitions
-                        ),
-                        transition_group_costs=(
-                            prepared_transition_group_costs
-                        ),
-                        position_finger_indexes=(
-                            position_finger_indexes
-                        ),
-                        allowed_ratios=(
-                            allowed_ratios
-                        ),
-                        weighted_statistics=(
-                            prepared_weighted_statistics
-                        ),
-                        finger_load_baseline=(
-                            prepared_finger_load_baseline
-                        ),
+                prepared_transition_group_costs = (
+                    self._fast_evaluator
+                    .prepare_position_indexed_complete_vowel_group_transition_costs(
+                        first_candidate_position_indexes,
+                        selected_positions,
+                        cost_matrix,
+                        prepared_transitions,
                     )
                 )
 
-                if (
-                    best_score is None
-                    or score < best_score
+                prepared_finger_load_baseline = (
+                    self._fast_evaluator
+                    .prepare_position_indexed_complete_vowel_group_finger_load_baseline(
+                        first_candidate_position_indexes,
+                        position_finger_indexes,
+                        prepared_weighted_statistics,
+                        prepared_total_weighted_load,
+                    )
+                )
+
+                for integer_vowel_positions in permutations(
+                    selected_positions,
+                    len(self.VOWELS),
                 ):
-                    best_score = score
-                    best_position_indexes = (
-                        candidate_position_indexes
+                    self._evaluated_candidate_count += 1
+
+                    (
+                        target_0,
+                        target_1,
+                        target_2,
+                        target_3,
+                        target_4,
+                    ) = integer_vowel_positions
+
+                    candidate_positions_list = (
+                        base_position_indexes.copy()
                     )
 
-            if (
-                progress_callback is not None
-                and (
-                    self._evaluated_candidate_count
-                    % progress_interval
-                    == 0
-                    or self._evaluated_candidate_count
-                    == total_candidates
-                )
-            ):
-                progress_callback(
-                    self._evaluated_candidate_count,
-                    total_candidates,
-                )
+                    candidate_positions_list[0] = target_0
+                    candidate_positions_list[4] = target_1
+                    candidate_positions_list[8] = target_2
+                    candidate_positions_list[14] = target_3
+                    candidate_positions_list[20] = target_4
+
+                    if displaced_count == 5:
+                        candidate_positions_list[
+                            displaced_letter_indexes[0]
+                        ] = vacated_positions[0]
+                        candidate_positions_list[
+                            displaced_letter_indexes[1]
+                        ] = vacated_positions[1]
+                        candidate_positions_list[
+                            displaced_letter_indexes[2]
+                        ] = vacated_positions[2]
+                        candidate_positions_list[
+                            displaced_letter_indexes[3]
+                        ] = vacated_positions[3]
+                        candidate_positions_list[
+                            displaced_letter_indexes[4]
+                        ] = vacated_positions[4]
+                    elif displaced_count == 4:
+                        candidate_positions_list[
+                            displaced_letter_indexes[0]
+                        ] = vacated_positions[0]
+                        candidate_positions_list[
+                            displaced_letter_indexes[1]
+                        ] = vacated_positions[1]
+                        candidate_positions_list[
+                            displaced_letter_indexes[2]
+                        ] = vacated_positions[2]
+                        candidate_positions_list[
+                            displaced_letter_indexes[3]
+                        ] = vacated_positions[3]
+                    elif displaced_count == 3:
+                        candidate_positions_list[
+                            displaced_letter_indexes[0]
+                        ] = vacated_positions[0]
+                        candidate_positions_list[
+                            displaced_letter_indexes[1]
+                        ] = vacated_positions[1]
+                        candidate_positions_list[
+                            displaced_letter_indexes[2]
+                        ] = vacated_positions[2]
+                    elif displaced_count == 2:
+                        candidate_positions_list[
+                            displaced_letter_indexes[0]
+                        ] = vacated_positions[0]
+                        candidate_positions_list[
+                            displaced_letter_indexes[1]
+                        ] = vacated_positions[1]
+                    elif displaced_count == 1:
+                        candidate_positions_list[
+                            displaced_letter_indexes[0]
+                        ] = vacated_positions[0]
+
+                    score = (
+                        self._fast_evaluator
+                        .evaluate_fully_prepared_position_indexed_complete_vowel_group(
+                            positions=candidate_positions_list,
+                            cost_matrix=cost_matrix,
+                            prepared_transitions=(
+                                prepared_transitions
+                            ),
+                            transition_group_costs=(
+                                prepared_transition_group_costs
+                            ),
+                            position_finger_indexes=(
+                                position_finger_indexes
+                            ),
+                            allowed_ratios=allowed_ratios,
+                            weighted_statistics=(
+                                prepared_weighted_statistics
+                            ),
+                            finger_load_baseline=(
+                                prepared_finger_load_baseline
+                            ),
+                        )
+                    )
+
+                    if (
+                        best_score is None
+                        or score < best_score
+                    ):
+                        best_score = score
+                        best_position_indexes = (
+                            candidate_positions_list
+                        )
+
+                    if (
+                        progress_callback is not None
+                        and (
+                            self._evaluated_candidate_count
+                            % progress_interval
+                            == 0
+                            or self._evaluated_candidate_count
+                            == total_candidates
+                        )
+                    ):
+                        progress_callback(
+                            self._evaluated_candidate_count,
+                            total_candidates,
+                        )
 
         if self._fast_evaluator is not None:
             if (
@@ -826,6 +836,118 @@ class VowelSeedBuilder:
                             result[3],
                             result[4],
                         )
+
+    def _generate_vowel_position_index_groups(
+        self,
+        *,
+        candidate_position_indexes: tuple[int, ...],
+        left_position_indexes: tuple[int, ...],
+        right_position_indexes: tuple[int, ...],
+        min_left_vowels: int | None,
+        max_left_vowels: int | None,
+        original_vowel_positions: frozenset[int],
+        original_vowel_positions_sorted: tuple[int, ...],
+        letter_index_by_position: tuple[int, ...],
+    ) -> Iterator[
+        tuple[
+            tuple[int, ...],
+            tuple[int, ...],
+            tuple[int, ...],
+        ]
+    ]:
+        """
+        Generate unordered vowel target groups for the fast path.
+
+        Displacement metadata is prepared exactly once per selected
+        five-position set. Candidate permutations are evaluated by build().
+        """
+
+        vowel_count = len(self.VOWELS)
+
+        if (
+            min_left_vowels is None
+            or max_left_vowels is None
+        ):
+            for selected_positions in combinations(
+                candidate_position_indexes,
+                vowel_count,
+            ):
+                (
+                    displaced_letter_indexes,
+                    vacated_positions,
+                ) = self._prepare_vowel_displacement(
+                    selected_positions=selected_positions,
+                    original_vowel_positions=(
+                        original_vowel_positions
+                    ),
+                    original_vowel_positions_sorted=(
+                        original_vowel_positions_sorted
+                    ),
+                    letter_index_by_position=(
+                        letter_index_by_position
+                    ),
+                )
+
+                yield (
+                    selected_positions,
+                    displaced_letter_indexes,
+                    vacated_positions,
+                )
+
+            return
+
+        for left_count in range(
+            min_left_vowels,
+            max_left_vowels + 1,
+        ):
+            right_count = (
+                vowel_count
+                - left_count
+            )
+
+            if left_count > len(left_position_indexes):
+                continue
+
+            if right_count > len(right_position_indexes):
+                continue
+
+            for selected_left_positions in combinations(
+                left_position_indexes,
+                left_count,
+            ):
+                for selected_right_positions in combinations(
+                    right_position_indexes,
+                    right_count,
+                ):
+                    selected_positions = (
+                        selected_left_positions
+                        + selected_right_positions
+                    )
+
+                    (
+                        displaced_letter_indexes,
+                        vacated_positions,
+                    ) = self._prepare_vowel_displacement(
+                        selected_positions=(
+                            selected_positions
+                        ),
+                        original_vowel_positions=(
+                            original_vowel_positions
+                        ),
+                        original_vowel_positions_sorted=(
+                            original_vowel_positions_sorted
+                        ),
+                        letter_index_by_position=(
+                            letter_index_by_position
+                        ),
+                    )
+
+                    yield (
+                        selected_positions,
+                        displaced_letter_indexes,
+                        vacated_positions,
+                    )
+
 
     def _generate_grouped_vowel_position_indexes(
         self,
