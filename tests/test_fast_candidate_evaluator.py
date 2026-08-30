@@ -18,17 +18,23 @@ from evaluator.fast_finger_load_score_evaluator import (
 from evaluator.fast_layout_score_evaluator import (
     FastLayoutScoreEvaluator,
 )
+from evaluator.fast_trigram_layout_score_evaluator import (
+    FastTrigramLayoutScoreEvaluator,
+)
 from evaluator.finger_load_pipeline import FingerLoadPipeline
 from evaluator.forbidden_position_constraint import (
     ForbiddenPositionConstraint,
 )
 from evaluator.layout_evaluator import LayoutEvaluator
 from evaluator.transition_statistics import TransitionStatistics
+from evaluator.trigram_layout_evaluator import TrigramLayoutEvaluator
+from evaluator.trigram_statistics import TrigramStatistics
 from models.candidate_score import CandidateScoreWeights
 from models.enums import Finger, Hand
 from models.finger_load_budget import FingerLoadBudget
 from models.layout import Layout
 from models.transition_cost import TransitionCostWeights
+from models.trigram_cost import TrigramCostWeights
 
 
 def make_layout() -> Layout:
@@ -84,6 +90,47 @@ def make_candidate_weights() -> CandidateScoreWeights:
         transition_weight=1.0,
         finger_load_weight=1.0,
     )
+
+
+def make_trigram_weights() -> TrigramCostWeights:
+    return TrigramCostWeights(
+        same_finger_skip_penalty=8.0,
+        redirect_penalty=4.0,
+        alternation_reward=2.0,
+        inward_roll_reward=1.5,
+        outward_roll_reward=0.5,
+    )
+
+
+def make_trigram_statistics() -> TrigramStatistics:
+    statistics = TrigramStatistics()
+
+    statistics.record(
+        "A",
+        "B",
+        "A",
+        weight=10.0,
+    )
+    statistics.record(
+        "A",
+        "E",
+        "I",
+        weight=7.0,
+    )
+    statistics.record(
+        "E",
+        "A",
+        "U",
+        weight=5.0,
+    )
+    statistics.record(
+        "I",
+        "J",
+        "I",
+        weight=3.0,
+    )
+
+    return statistics
 
 
 def make_transition_statistics() -> TransitionStatistics:
@@ -876,4 +923,135 @@ def test_evaluate_prepared_position_indexed_delta_matches_prepared() -> None:
 
     assert delta_score == pytest.approx(
         prepared_score
+    )
+
+def test_fully_prepared_fast_candidate_matches_normal_with_trigrams() -> None:
+    layout = make_layout()
+    transitions = make_transition_statistics()
+    trigrams = make_trigram_statistics()
+    characters = make_character_statistics()
+
+    candidate_weights = CandidateScoreWeights(
+        transition_weight=1.7,
+        trigram_weight=2.3,
+        finger_load_weight=0.8,
+    )
+
+    normal = CandidateEvaluator(
+        constraint_set=ConstraintSet([]),
+        layout_evaluator=LayoutEvaluator(
+            make_transition_weights()
+        ),
+        finger_load_pipeline=FingerLoadPipeline(),
+        candidate_scorer=CandidateScorer(
+            candidate_weights
+        ),
+        finger_load_budgets=make_finger_load_budgets(),
+        trigram_layout_evaluator=TrigramLayoutEvaluator(
+            make_trigram_weights()
+        ),
+    )
+
+    fast = FastCandidateEvaluator(
+        constraint_set=ConstraintSet([]),
+        layout_evaluator=FastLayoutScoreEvaluator(
+            make_transition_weights()
+        ),
+        finger_load_evaluator=FastFingerLoadScoreEvaluator(
+            make_finger_load_budgets()
+        ),
+        candidate_scorer=FastCandidateScorer(
+            candidate_weights
+        ),
+        trigram_layout_evaluator=(
+            FastTrigramLayoutScoreEvaluator(
+                make_trigram_weights()
+            )
+        ),
+    )
+
+    normal_result = normal.evaluate(
+        layout,
+        transitions,
+        characters,
+        trigram_statistics=trigrams,
+    )
+
+    string_positions: list[str | None] = [
+        None
+    ] * 26
+
+    for letter, position in layout.mapping.items():
+        letter_index = (
+            ord(letter.upper())
+            - ord("A")
+        )
+
+        if 0 <= letter_index < 26:
+            string_positions[letter_index] = position
+
+    logical_positions = tuple(
+        position
+        for position in string_positions
+        if position is not None
+    )
+
+    (
+        position_indexes,
+        cost_matrix,
+        position_finger_indexes,
+        allowed_ratios,
+    ) = fast.prepare_position_index(
+        logical_positions
+    )
+
+    integer_positions = [
+        (
+            -1
+            if position is None
+            else position_indexes[position]
+        )
+        for position in string_positions
+    ]
+
+    prepared_transitions = (
+        fast.prepare_position_indexed_transitions(
+            transitions
+        )
+    )
+
+    weighted_statistics, total_weighted_load = (
+        fast.prepare_position_indexed_character_statistics(
+            characters
+        )
+    )
+
+    trigram_cost_cube = fast.build_trigram_cost_cube(
+        logical_positions
+    )
+
+    prepared_trigrams = (
+        fast.prepare_position_indexed_trigrams(
+            trigrams
+        )
+    )
+
+    fast_score = (
+        fast.evaluate_fully_prepared_position_indexed_complete(
+            integer_positions,
+            cost_matrix,
+            prepared_transitions,
+            position_finger_indexes,
+            allowed_ratios,
+            weighted_statistics,
+            total_weighted_load,
+            trigram_cost_cube=trigram_cost_cube,
+            prepared_trigrams=prepared_trigrams,
+        )
+    )
+
+    assert normal_result.score is not None
+
+    assert fast_score == pytest.approx(
+        normal_result.score
     )

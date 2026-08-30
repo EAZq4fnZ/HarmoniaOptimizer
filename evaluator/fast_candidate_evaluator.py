@@ -18,7 +18,13 @@ from evaluator.fast_layout_score_evaluator import (
     PreparedPositionIndexedTransitions,
     PreparedVowelGroupTransitionCosts,
 )
+from evaluator.fast_trigram_layout_score_evaluator import (
+    FastTrigramLayoutScoreEvaluator,
+    PreparedPositionIndexedTrigrams,
+    TrigramCostCube,
+)
 from evaluator.transition_statistics import TransitionStatistics
+from evaluator.trigram_statistics import TrigramStatistics
 from models.layout import Layout
 
 
@@ -59,11 +65,17 @@ class FastCandidateEvaluator:
         layout_evaluator: FastLayoutScoreEvaluator,
         finger_load_evaluator: FastFingerLoadScoreEvaluator,
         candidate_scorer: FastCandidateScorer,
+        trigram_layout_evaluator: (
+            FastTrigramLayoutScoreEvaluator | None
+        ) = None,
     ) -> None:
         self._constraint_set = constraint_set
         self._layout_evaluator = layout_evaluator
         self._finger_load_evaluator = finger_load_evaluator
         self._candidate_scorer = candidate_scorer
+        self._trigram_layout_evaluator = (
+            trigram_layout_evaluator
+        )
 
     def evaluate(
         self,
@@ -545,6 +557,38 @@ class FastCandidateEvaluator:
             )
         )
 
+    def prepare_position_indexed_trigrams(
+        self,
+        trigram_statistics: TrigramStatistics,
+    ) -> PreparedPositionIndexedTrigrams:
+        if self._trigram_layout_evaluator is None:
+            raise RuntimeError(
+                "trigram_layout_evaluator is not configured"
+            )
+
+        return (
+            self._trigram_layout_evaluator
+            .prepare_position_indexed_trigrams(
+                trigram_statistics
+            )
+        )
+
+    def build_trigram_cost_cube(
+        self,
+        positions: Sequence[str],
+    ) -> TrigramCostCube:
+        if self._trigram_layout_evaluator is None:
+            raise RuntimeError(
+                "trigram_layout_evaluator is not configured"
+            )
+
+        return (
+            self._trigram_layout_evaluator
+            .build_cost_cube(
+                positions
+            )
+        )
+
     def prepare_position_indexed_transitions(
         self,
         transition_statistics: TransitionStatistics,
@@ -679,12 +723,19 @@ class FastCandidateEvaluator:
         allowed_ratios: tuple[float, ...],
         weighted_statistics: tuple[float, ...],
         total_weighted_load: float,
+        trigram_cost_cube: TrigramCostCube | None = None,
+        prepared_trigrams: PreparedPositionIndexedTrigrams | None = None,
     ) -> float:
         """
         Return the final score for a complete A-Z position-indexed layout
-        with both transition and finger-load statistics prepared once.
+        with transition, finger-load, and optional trigram scoring.
 
-        This is the exhaustive-search hot path. It assumes every A-Z
+        Transition and finger-load statistics are prepared once.
+
+        When trigram_cost_cube and prepared_trigrams are supplied,
+        trigram scoring uses the prepared scalar fast path.
+
+        This is an exhaustive-search hot path and assumes every A-Z
         position index is valid.
         """
 
@@ -708,12 +759,50 @@ class FastCandidateEvaluator:
             )
         )
 
+        trigram_total_cost = 0.0
+        evaluated_trigram_weight = 0.0
+
+        if (
+            trigram_cost_cube is not None
+            or prepared_trigrams is not None
+        ):
+            if (
+                trigram_cost_cube is None
+                or prepared_trigrams is None
+            ):
+                raise ValueError(
+                    "trigram_cost_cube and prepared_trigrams "
+                    "must be provided together"
+                )
+
+            if self._trigram_layout_evaluator is None:
+                raise RuntimeError(
+                    "trigram_layout_evaluator is not configured"
+                )
+
+            trigram_total_cost = (
+                self._trigram_layout_evaluator
+                .evaluate_prepared_position_indexed_complete_total_cost(
+                    positions,
+                    trigram_cost_cube,
+                    prepared_trigrams,
+                )
+            )
+
+            evaluated_trigram_weight = (
+                prepared_trigrams.evaluated_weight
+            )
+
         return self._candidate_scorer.score(
             transition_total_cost=layout_score.total_cost,
             evaluated_transition_weight=(
                 layout_score.evaluated_weight
             ),
             finger_load_penalty=finger_load_penalty,
+            trigram_total_cost=trigram_total_cost,
+            evaluated_trigram_weight=(
+                evaluated_trigram_weight
+            ),
         )
 
     def evaluate_fully_prepared_position_indexed_complete_finger_delta(
