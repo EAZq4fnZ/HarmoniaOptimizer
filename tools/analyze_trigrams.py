@@ -11,9 +11,16 @@ from evaluator.corpus_analyzer import CorpusAnalyzer
 from evaluator.trigram_evaluator import TrigramEvaluator
 from models.corpus import Corpus
 from models.corpus_entry import CorpusEntry
-from models.enums import RollDirection
+from models.enums import Finger, RollDirection
 from models.layout import Layout
 from models.layout_key_mapper import LayoutKeyMapper
+
+_FINGER_ORDER = {
+    Finger.PINKY: 0,
+    Finger.RING: 1,
+    Finger.MIDDLE: 2,
+    Finger.INDEX: 3,
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -30,6 +37,10 @@ class TrigramDistribution:
     same_finger_skip: float = 0.0
     same_hand_same_finger_skip: float = 0.0
     alternating_same_finger_skip: float = 0.0
+
+    same_hand_sfs_span_1: float = 0.0
+    same_hand_sfs_span_2: float = 0.0
+    same_hand_sfs_span_3: float = 0.0
 
     redirect: float = 0.0
     same_finger_skip_redirect: float = 0.0
@@ -166,6 +177,25 @@ def analyze(
             distribution.same_hand_same_finger_skip_examples.append(
                 example
             )
+
+            first_finger_index = _FINGER_ORDER[
+                first_key.position.finger
+            ]
+            second_finger_index = _FINGER_ORDER[
+                second_key.position.finger
+            ]
+
+            finger_span = abs(
+                first_finger_index
+                - second_finger_index
+            )
+
+            if finger_span == 1:
+                distribution.same_hand_sfs_span_1 += weighted_count
+            elif finger_span == 2:
+                distribution.same_hand_sfs_span_2 += weighted_count
+            elif finger_span == 3:
+                distribution.same_hand_sfs_span_3 += weighted_count
 
         if features.alternating_same_finger_skip:
             distribution.alternating_same_finger_skip += weighted_count
@@ -321,6 +351,21 @@ def format_report(
         format_row(
             "  Same-hand SFS",
             distribution.same_hand_same_finger_skip,
+            total,
+        ),
+        format_row(
+            "    Finger span 1",
+            distribution.same_hand_sfs_span_1,
+            total,
+        ),
+        format_row(
+            "    Finger span 2",
+            distribution.same_hand_sfs_span_2,
+            total,
+        ),
+        format_row(
+            "    Finger span 3",
+            distribution.same_hand_sfs_span_3,
             total,
         ),
         format_row(
