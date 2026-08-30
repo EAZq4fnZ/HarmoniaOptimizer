@@ -12,12 +12,53 @@ from evaluator.forbidden_position_constraint import (
 )
 from evaluator.layout_evaluator import LayoutEvaluator
 from evaluator.transition_statistics import TransitionStatistics
+from evaluator.trigram_layout_evaluator import (
+    TrigramLayoutEvaluator,
+)
+from evaluator.trigram_statistics import TrigramStatistics
 from models.candidate_score import CandidateScoreWeights
 from models.enums import Finger, Hand
 from models.finger_load_budget import FingerLoadBudget
 from models.layout import Layout
 from models.transition_cost import TransitionCostWeights
+from models.trigram_cost import TrigramCostWeights
 
+
+def make_trigram_candidate_evaluator(
+    constraint_set: ConstraintSet,
+    *,
+    trigram_weight: float = 1.0,
+) -> CandidateEvaluator:
+    layout_evaluator = LayoutEvaluator(
+        make_transition_weights()
+    )
+
+    trigram_layout_evaluator = (
+        TrigramLayoutEvaluator(
+            make_trigram_weights()
+        )
+    )
+
+    finger_load_pipeline = FingerLoadPipeline()
+
+    candidate_scorer = CandidateScorer(
+        CandidateScoreWeights(
+            transition_weight=1.0,
+            trigram_weight=trigram_weight,
+            finger_load_weight=1.0,
+        )
+    )
+
+    return CandidateEvaluator(
+        constraint_set=constraint_set,
+        layout_evaluator=layout_evaluator,
+        finger_load_pipeline=finger_load_pipeline,
+        candidate_scorer=candidate_scorer,
+        finger_load_budgets=make_finger_load_budgets(),
+        trigram_layout_evaluator=(
+            trigram_layout_evaluator
+        ),
+    )
 
 def make_layout() -> Layout:
     return Layout(
@@ -78,6 +119,27 @@ def make_transition_statistics() -> TransitionStatistics:
 
     return statistics
 
+def make_trigram_weights() -> TrigramCostWeights:
+    return TrigramCostWeights(
+        same_finger_skip_penalty=8.0,
+        redirect_penalty=4.0,
+        alternation_reward=2.0,
+        inward_roll_reward=1.5,
+        outward_roll_reward=0.5,
+    )
+
+
+def make_trigram_statistics() -> TrigramStatistics:
+    statistics = TrigramStatistics()
+
+    statistics.record(
+        "A",
+        "B",
+        "A",
+        weight=10.0,
+    )
+
+    return statistics
 
 def make_character_statistics() -> CharacterStatistics:
     statistics = CharacterStatistics()
@@ -283,3 +345,97 @@ def test_invalid_candidate_has_no_score():
 
     assert result.candidate_score is None
     assert result.score is None
+
+def test_candidate_evaluator_includes_trigram_score():
+    evaluator = make_trigram_candidate_evaluator(
+        ConstraintSet([]),
+        trigram_weight=1.0,
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        make_transition_statistics(),
+        make_character_statistics(),
+        trigram_statistics=(
+            make_trigram_statistics()
+        ),
+    )
+
+    assert result.candidate_score is not None
+
+    # A -> B -> A:
+    #
+    # A = left index
+    # B = right index
+    # A = left index
+    #
+    # Alternating hands:
+    # alternation reward = -2.0
+    #
+    # Same finger skip is alternating-hand,
+    # so no same-hand SFS penalty applies.
+    assert (
+        result.candidate_score.trigram_score
+        == pytest.approx(-2.0)
+    )
+
+
+def test_candidate_evaluator_applies_trigram_weight():
+    evaluator = make_trigram_candidate_evaluator(
+        ConstraintSet([]),
+        trigram_weight=2.0,
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        make_transition_statistics(),
+        make_character_statistics(),
+        trigram_statistics=(
+            make_trigram_statistics()
+        ),
+    )
+
+    assert result.candidate_score is not None
+
+    # Existing:
+    # transition = -2.0
+    # finger load = +0.2
+    #
+    # Trigram:
+    # normalized score = -2.0
+    # weight = 2.0
+    # contribution = -4.0
+    #
+    # total = -2.0 + 0.2 - 4.0 = -5.8
+    assert result.score == pytest.approx(
+        -5.8
+    )
+
+
+def test_zero_trigram_weight_preserves_candidate_score():
+    evaluator = make_trigram_candidate_evaluator(
+        ConstraintSet([]),
+        trigram_weight=0.0,
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        make_transition_statistics(),
+        make_character_statistics(),
+        trigram_statistics=(
+            make_trigram_statistics()
+        ),
+    )
+
+    assert result.candidate_score is not None
+
+    assert (
+        result.candidate_score.trigram_score
+        == pytest.approx(-2.0)
+    )
+
+    # Same result as the original transition +
+    # finger-load scoring path.
+    assert result.score == pytest.approx(
+        -1.8
+    )
