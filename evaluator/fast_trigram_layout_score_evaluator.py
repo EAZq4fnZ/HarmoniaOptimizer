@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import ClassVar
 
 from models.enums import Hand, RollDirection
 from models.logical_position import LogicalPosition
@@ -93,6 +94,51 @@ class PreparedPositionIndexedTrigrams:
     evaluated_weight: float
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedVowelGroupTrigramCosts:
+    """
+    Trigram costs prepared for one selected five-position vowel group.
+
+    constant_cost
+        Total weighted cost of all CCC trigrams.
+
+        Consonant positions are invariant across the 120 vowel
+        permutations within one selected position set, so this
+        contribution can be evaluated once per group.
+
+    one_vowel_costs
+        Preaggregated weighted costs for all trigrams containing
+        exactly one vowel.
+
+        Indexed as:
+
+            one_vowel_costs[vowel_slot][position_index]
+
+        vowel_slot order is A, E, I, O, U.
+
+        For one candidate, exactly five lookups are therefore needed
+        to account for every CCV, CVC, and VCC trigram.
+
+    remaining_records
+        Trigrams containing two or three vowels.
+
+        These remain in the per-candidate loop for this first
+        group-local optimization.
+    """
+
+    constant_cost: float
+
+    one_vowel_costs: tuple[
+        tuple[float, ...],
+        ...,
+    ]
+
+    remaining_records: tuple[
+        tuple[int, int, int, float],
+        ...,
+    ]
+
+
 class FastTrigramLayoutScoreEvaluator:
     """
     Fast trigram-cost evaluator for exhaustive layout search.
@@ -106,9 +152,29 @@ class FastTrigramLayoutScoreEvaluator:
     positions involved. A position-indexed three-dimensional cost
     cube can therefore be built once and reused for all candidates.
 
-    This first implementation intentionally favors correctness and
-    a simple hot path over vowel-group-specific optimizations.
+    The normal prepared scalar path is retained as a reference path.
+
+    The vowel-group scalar path additionally reuses CCC costs and
+    preaggregates CCV, CVC, and VCC costs across the 120 vowel
+    permutations of one selected five-position group.
     """
+
+    _VOWEL_LETTER_INDEXES = (
+        ord("A") - ord("A"),
+        ord("E") - ord("A"),
+        ord("I") - ord("A"),
+        ord("O") - ord("A"),
+        ord("U") - ord("A"),
+    )
+
+    _VOWEL_SLOT_BY_LETTER_INDEX: ClassVar[
+        dict[int, int]
+    ] = {
+        letter_index: vowel_slot
+        for vowel_slot, letter_index in enumerate(
+            _VOWEL_LETTER_INDEXES
+        )
+    }
 
     def __init__(
         self,
@@ -216,6 +282,7 @@ class FastTrigramLayoutScoreEvaluator:
                 permanently_skipped_weight += (
                     weighted_count
                 )
+
                 continue
 
             records.append(
@@ -235,6 +302,228 @@ class FastTrigramLayoutScoreEvaluator:
                 permanently_skipped_weight
             ),
             evaluated_weight=evaluated_weight,
+        )
+
+    def prepare_position_indexed_complete_vowel_group_costs(
+        self,
+        position_indexes: Sequence[int],
+        cost_cube: TrigramCostCube,
+        prepared: PreparedPositionIndexedTrigrams,
+    ) -> PreparedVowelGroupTrigramCosts:
+        """
+        Prepare reusable trigram costs for one vowel-position group.
+
+        position_indexes must describe one complete representative
+        A-Z candidate for the selected five-position set.
+
+        The consonant positions are invariant across all 120 vowel
+        permutations in that group.
+
+        CCC costs can therefore be evaluated once.
+
+        For CCV, CVC, and VCC records, consonant positions are fixed
+        and only the logical position assigned to the single vowel
+        changes. Their contributions are preaggregated by vowel
+        identity and logical-position index.
+
+        Trigrams containing two or three vowels remain as records
+        for per-candidate evaluation.
+        """
+
+        if len(position_indexes) != 26:
+            raise ValueError(
+                "position_indexes must contain exactly 26 entries"
+            )
+
+        positions = position_indexes
+        cube = cost_cube
+
+        vowel_slot_by_letter = (
+            self._VOWEL_SLOT_BY_LETTER_INDEX
+        )
+
+        position_count = len(cube)
+
+        one_vowel_cost_lists = [
+            [0.0] * position_count
+            for _ in range(5)
+        ]
+
+        constant_cost = 0.0
+
+        remaining_records: list[
+            tuple[int, int, int, float]
+        ] = []
+
+        for (
+            first_index,
+            second_index,
+            third_index,
+            weighted_count,
+        ) in prepared.records:
+            first_vowel_slot = (
+                vowel_slot_by_letter.get(
+                    first_index
+                )
+            )
+
+            second_vowel_slot = (
+                vowel_slot_by_letter.get(
+                    second_index
+                )
+            )
+
+            third_vowel_slot = (
+                vowel_slot_by_letter.get(
+                    third_index
+                )
+            )
+
+            vowel_count = (
+                (first_vowel_slot is not None)
+                + (second_vowel_slot is not None)
+                + (third_vowel_slot is not None)
+            )
+
+            if vowel_count == 0:
+                first_plane = cube[
+                    positions[first_index]
+                ]
+
+                second_row = first_plane[
+                    positions[second_index]
+                ]
+
+                constant_cost += (
+                    second_row[
+                        positions[third_index]
+                    ]
+                    * weighted_count
+                )
+
+                continue
+
+            if vowel_count != 1:
+                remaining_records.append(
+                    (
+                        first_index,
+                        second_index,
+                        third_index,
+                        weighted_count,
+                    )
+                )
+
+                continue
+
+            if first_vowel_slot is not None:
+                vowel_slot = first_vowel_slot
+
+                second_position = positions[
+                    second_index
+                ]
+
+                third_position = positions[
+                    third_index
+                ]
+
+                costs = one_vowel_cost_lists[
+                    vowel_slot
+                ]
+
+                for vowel_position in range(
+                    position_count
+                ):
+                    costs[vowel_position] += (
+                        cube[
+                            vowel_position
+                        ][
+                            second_position
+                        ][
+                            third_position
+                        ]
+                        * weighted_count
+                    )
+
+                continue
+
+            if second_vowel_slot is not None:
+                vowel_slot = second_vowel_slot
+
+                first_position = positions[
+                    first_index
+                ]
+
+                third_position = positions[
+                    third_index
+                ]
+
+                first_plane = cube[
+                    first_position
+                ]
+
+                costs = one_vowel_cost_lists[
+                    vowel_slot
+                ]
+
+                for vowel_position in range(
+                    position_count
+                ):
+                    costs[vowel_position] += (
+                        first_plane[
+                            vowel_position
+                        ][
+                            third_position
+                        ]
+                        * weighted_count
+                    )
+
+                continue
+
+            if third_vowel_slot is None:
+                raise RuntimeError(
+                    "exactly-one-vowel trigram "
+                    "has no vowel position"
+                )
+
+            vowel_slot = third_vowel_slot
+
+            first_position = positions[
+                first_index
+            ]
+
+            second_position = positions[
+                second_index
+            ]
+
+            second_row = cube[
+                first_position
+            ][
+                second_position
+            ]
+
+            costs = one_vowel_cost_lists[
+                vowel_slot
+            ]
+
+            for vowel_position in range(
+                position_count
+            ):
+                costs[vowel_position] += (
+                    second_row[
+                        vowel_position
+                    ]
+                    * weighted_count
+                )
+
+        return PreparedVowelGroupTrigramCosts(
+            constant_cost=constant_cost,
+            one_vowel_costs=tuple(
+                tuple(costs)
+                for costs in one_vowel_cost_lists
+            ),
+            remaining_records=tuple(
+                remaining_records
+            ),
         )
 
     def evaluate_prepared_position_indexed_complete(
@@ -302,6 +591,8 @@ class FastTrigramLayoutScoreEvaluator:
         """
         Return only trigram total cost for scalar hot paths.
 
+        This is the reference scalar path.
+
         evaluated_weight and skipped_weight are invariant across
         complete A-Z candidates and therefore do not need to be
         returned or allocated for every candidate.
@@ -323,6 +614,82 @@ class FastTrigramLayoutScoreEvaluator:
             third_index,
             weighted_count,
         ) in prepared.records:
+            first_plane = cube[
+                positions[first_index]
+            ]
+
+            second_row = first_plane[
+                positions[second_index]
+            ]
+
+            total_cost += (
+                second_row[
+                    positions[third_index]
+                ]
+                * weighted_count
+            )
+
+        return total_cost
+
+    def evaluate_prepared_position_indexed_complete_vowel_group_total_cost(
+        self,
+        position_indexes: Sequence[int],
+        cost_cube: TrigramCostCube,
+        prepared_group: PreparedVowelGroupTrigramCosts,
+    ) -> float:
+        """
+        Return trigram total cost using vowel-group preparation.
+
+        CCC cost is already included in constant_cost.
+
+        Every exactly-one-vowel trigram is represented by five
+        preaggregated lookups, one for each of A, E, I, O, U.
+
+        Only trigrams containing two or three vowels remain in the
+        per-candidate record loop.
+        """
+
+        if len(position_indexes) != 26:
+            raise ValueError(
+                "position_indexes must contain exactly 26 entries"
+            )
+
+        positions = position_indexes
+        cube = cost_cube
+
+        one_vowel_costs = (
+            prepared_group.one_vowel_costs
+        )
+
+        vowel_indexes = (
+            self._VOWEL_LETTER_INDEXES
+        )
+
+        total_cost = (
+            prepared_group.constant_cost
+            + one_vowel_costs[0][
+                positions[vowel_indexes[0]]
+            ]
+            + one_vowel_costs[1][
+                positions[vowel_indexes[1]]
+            ]
+            + one_vowel_costs[2][
+                positions[vowel_indexes[2]]
+            ]
+            + one_vowel_costs[3][
+                positions[vowel_indexes[3]]
+            ]
+            + one_vowel_costs[4][
+                positions[vowel_indexes[4]]
+            ]
+        )
+
+        for (
+            first_index,
+            second_index,
+            third_index,
+            weighted_count,
+        ) in prepared_group.remaining_records:
             first_plane = cube[
                 positions[first_index]
             ]

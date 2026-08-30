@@ -625,3 +625,270 @@ def test_scalar_evaluation_rejects_wrong_position_count() -> None:
             (),
             prepared,
         )
+
+def test_vowel_group_preaggregation_matches_naive_for_all_permutations() -> None:
+    from itertools import permutations
+
+    layout = _layout()
+
+    statistics = TrigramStatistics()
+
+    # CCC
+    statistics.record(
+        "B",
+        "C",
+        "D",
+        weight=2.0,
+    )
+
+    # Exactly one vowel:
+    # VCC / CVC / CCV
+    statistics.record(
+        "A",
+        "B",
+        "C",
+        weight=3.0,
+    )
+    statistics.record(
+        "B",
+        "E",
+        "C",
+        weight=4.0,
+    )
+    statistics.record(
+        "B",
+        "C",
+        "I",
+        weight=5.0,
+    )
+
+    # Exactly two vowels:
+    # VVC / VCV / CVV
+    statistics.record(
+        "A",
+        "E",
+        "B",
+        weight=6.0,
+    )
+    statistics.record(
+        "A",
+        "B",
+        "I",
+        weight=7.0,
+    )
+    statistics.record(
+        "B",
+        "O",
+        "U",
+        weight=8.0,
+    )
+
+    # VVV
+    statistics.record(
+        "A",
+        "E",
+        "I",
+        weight=9.0,
+    )
+
+    evaluator = FastTrigramLayoutScoreEvaluator(
+        TEST_WEIGHTS
+    )
+
+    position_ids = tuple(
+        layout[
+            chr(ord("A") + index)
+        ]
+        for index in range(26)
+    )
+
+    cost_cube = evaluator.build_cost_cube(
+        position_ids
+    )
+
+    prepared = (
+        evaluator
+        .prepare_position_indexed_trigrams(
+            statistics
+        )
+    )
+
+    base_positions = list(
+        range(26)
+    )
+
+    vowel_letter_indexes = (
+        ord("A") - ord("A"),
+        ord("E") - ord("A"),
+        ord("I") - ord("A"),
+        ord("O") - ord("A"),
+        ord("U") - ord("A"),
+    )
+
+    selected_positions = tuple(
+        base_positions[letter_index]
+        for letter_index in vowel_letter_indexes
+    )
+
+    prepared_group = (
+        evaluator
+        .prepare_position_indexed_complete_vowel_group_costs(
+            base_positions,
+            cost_cube,
+            prepared,
+        )
+    )
+
+    assert len(
+        prepared_group.remaining_records
+    ) == 4
+
+    for vowel_positions in permutations(
+        selected_positions
+    ):
+        candidate_positions = (
+            base_positions.copy()
+        )
+
+        for (
+            vowel_letter_index,
+            vowel_position,
+        ) in zip(
+            vowel_letter_indexes,
+            vowel_positions,
+            strict=True,
+        ):
+            candidate_positions[
+                vowel_letter_index
+            ] = vowel_position
+
+        naive_total = (
+            evaluator
+            .evaluate_prepared_position_indexed_complete_total_cost(
+                candidate_positions,
+                cost_cube,
+                prepared,
+            )
+        )
+
+        group_total = (
+            evaluator
+            .evaluate_prepared_position_indexed_complete_vowel_group_total_cost(
+                candidate_positions,
+                cost_cube,
+                prepared_group,
+            )
+        )
+
+        assert group_total == pytest.approx(
+            naive_total
+        )
+
+
+def test_vowel_group_preaggregation_classifies_records_correctly() -> None:
+    layout = _layout()
+
+    statistics = TrigramStatistics()
+
+    # CCC
+    statistics.record(
+        "B",
+        "C",
+        "D",
+        weight=1.0,
+    )
+
+    # One vowel
+    statistics.record(
+        "A",
+        "B",
+        "C",
+        weight=1.0,
+    )
+    statistics.record(
+        "B",
+        "E",
+        "C",
+        weight=1.0,
+    )
+    statistics.record(
+        "B",
+        "C",
+        "I",
+        weight=1.0,
+    )
+
+    # Two vowels
+    statistics.record(
+        "A",
+        "E",
+        "B",
+        weight=1.0,
+    )
+    statistics.record(
+        "A",
+        "B",
+        "I",
+        weight=1.0,
+    )
+    statistics.record(
+        "B",
+        "O",
+        "U",
+        weight=1.0,
+    )
+
+    # Three vowels
+    statistics.record(
+        "A",
+        "E",
+        "I",
+        weight=1.0,
+    )
+
+    evaluator = FastTrigramLayoutScoreEvaluator(
+        TEST_WEIGHTS
+    )
+
+    position_ids = tuple(
+        layout[
+            chr(ord("A") + index)
+        ]
+        for index in range(26)
+    )
+
+    cost_cube = evaluator.build_cost_cube(
+        position_ids
+    )
+
+    prepared = (
+        evaluator
+        .prepare_position_indexed_trigrams(
+            statistics
+        )
+    )
+
+    prepared_group = (
+        evaluator
+        .prepare_position_indexed_complete_vowel_group_costs(
+            tuple(range(26)),
+            cost_cube,
+            prepared,
+        )
+    )
+
+    # Only the 3 two-vowel records and 1 VVV record remain.
+    assert len(
+        prepared_group.remaining_records
+    ) == 4
+
+    assert len(
+        prepared_group.one_vowel_costs
+    ) == 5
+
+    assert all(
+        len(costs) == 26
+        for costs in (
+            prepared_group.one_vowel_costs
+        )
+    )
