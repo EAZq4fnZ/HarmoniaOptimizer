@@ -1627,17 +1627,60 @@ class VowelSeedBuilder:
         positions[14] = target_3
         positions[20] = target_4
 
-        for (
-            letter_index,
-            position_index,
-        ) in zip(
-            displaced_letter_indexes,
-            vacated_positions,
-            strict=True,
-        ):
+        displaced_count = len(
+            displaced_letter_indexes
+        )
+
+        if displaced_count == 5:
             positions[
-                letter_index
-            ] = position_index
+                displaced_letter_indexes[0]
+            ] = vacated_positions[0]
+            positions[
+                displaced_letter_indexes[1]
+            ] = vacated_positions[1]
+            positions[
+                displaced_letter_indexes[2]
+            ] = vacated_positions[2]
+            positions[
+                displaced_letter_indexes[3]
+            ] = vacated_positions[3]
+            positions[
+                displaced_letter_indexes[4]
+            ] = vacated_positions[4]
+        elif displaced_count == 4:
+            positions[
+                displaced_letter_indexes[0]
+            ] = vacated_positions[0]
+            positions[
+                displaced_letter_indexes[1]
+            ] = vacated_positions[1]
+            positions[
+                displaced_letter_indexes[2]
+            ] = vacated_positions[2]
+            positions[
+                displaced_letter_indexes[3]
+            ] = vacated_positions[3]
+        elif displaced_count == 3:
+            positions[
+                displaced_letter_indexes[0]
+            ] = vacated_positions[0]
+            positions[
+                displaced_letter_indexes[1]
+            ] = vacated_positions[1]
+            positions[
+                displaced_letter_indexes[2]
+            ] = vacated_positions[2]
+        elif displaced_count == 2:
+            positions[
+                displaced_letter_indexes[0]
+            ] = vacated_positions[0]
+            positions[
+                displaced_letter_indexes[1]
+            ] = vacated_positions[1]
+        elif displaced_count == 1:
+            positions[
+                displaced_letter_indexes[0]
+            ] = vacated_positions[0]
 
         changed_letter_indexes = (
             0,
