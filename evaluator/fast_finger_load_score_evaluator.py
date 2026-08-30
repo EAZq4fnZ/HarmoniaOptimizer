@@ -698,6 +698,73 @@ class FastFingerLoadScoreEvaluator:
         )
         total_penalty = 0.0
 
+        if len(allowed_ratios) == 8:
+            excess_ratio = (
+                finger_loads[0]
+                * inverse_total_weighted_load
+                - allowed_ratios[0]
+            )
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+            excess_ratio = (
+                finger_loads[1]
+                * inverse_total_weighted_load
+                - allowed_ratios[1]
+            )
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+            excess_ratio = (
+                finger_loads[2]
+                * inverse_total_weighted_load
+                - allowed_ratios[2]
+            )
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+            excess_ratio = (
+                finger_loads[3]
+                * inverse_total_weighted_load
+                - allowed_ratios[3]
+            )
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+            excess_ratio = (
+                finger_loads[4]
+                * inverse_total_weighted_load
+                - allowed_ratios[4]
+            )
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+            excess_ratio = (
+                finger_loads[5]
+                * inverse_total_weighted_load
+                - allowed_ratios[5]
+            )
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+            excess_ratio = (
+                finger_loads[6]
+                * inverse_total_weighted_load
+                - allowed_ratios[6]
+            )
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+            excess_ratio = (
+                finger_loads[7]
+                * inverse_total_weighted_load
+                - allowed_ratios[7]
+            )
+            if excess_ratio > 0.0:
+                total_penalty += excess_ratio
+
+            return total_penalty
+
         for finger_index, allowed_ratio in enumerate(
             allowed_ratios
         ):
