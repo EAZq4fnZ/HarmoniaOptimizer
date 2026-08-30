@@ -91,6 +91,72 @@ def test_from_dict_loads_candidate_weights():
     assert weights.finger_load_weight == 1.0
 
 
+def test_from_dict_defaults_trigram_candidate_weight_to_zero():
+    config = OptimizationConfigLoader.from_dict(
+        make_config_dict()
+    )
+
+    assert (
+        config.candidate_score_weights.trigram_weight
+        == 0.0
+    )
+
+
+def test_from_dict_defaults_trigram_cost_weights_to_zero():
+    config = OptimizationConfigLoader.from_dict(
+        make_config_dict()
+    )
+
+    weights = config.trigram_cost_weights
+
+    assert weights.same_finger_skip_penalty == 0.0
+    assert weights.redirect_penalty == 0.0
+    assert weights.alternation_reward == 0.0
+    assert weights.inward_roll_reward == 0.0
+    assert weights.outward_roll_reward == 0.0
+
+
+def test_from_dict_loads_trigram_candidate_weight():
+    data = make_config_dict()
+
+    data["candidate_score_weights"][
+        "trigram_weight"
+    ] = 2.5
+
+    config = OptimizationConfigLoader.from_dict(
+        data
+    )
+
+    assert (
+        config.candidate_score_weights.trigram_weight
+        == 2.5
+    )
+
+
+def test_from_dict_loads_trigram_cost_weights():
+    data = make_config_dict()
+
+    data["trigram_cost_weights"] = {
+        "same_finger_skip_penalty": 8.0,
+        "redirect_penalty": 4.0,
+        "alternation_reward": 2.0,
+        "inward_roll_reward": 1.5,
+        "outward_roll_reward": 0.5,
+    }
+
+    config = OptimizationConfigLoader.from_dict(
+        data
+    )
+
+    weights = config.trigram_cost_weights
+
+    assert weights.same_finger_skip_penalty == 8.0
+    assert weights.redirect_penalty == 4.0
+    assert weights.alternation_reward == 2.0
+    assert weights.inward_roll_reward == 1.5
+    assert weights.outward_roll_reward == 0.5
+
+
 def test_from_dict_loads_finger_load_budgets():
     config = OptimizationConfigLoader.from_dict(
         make_config_dict()
