@@ -55,6 +55,16 @@ class TrigramEvaluator:
             and not second_third_same_finger
         )
 
+        same_hand_same_finger_skip = (
+            same_finger_skip
+            and same_hand
+        )
+
+        alternating_same_finger_skip = (
+            same_finger_skip
+            and alternating_hands
+        )
+
         first_transition = Transition(
             source=first,
             target=second,
@@ -91,6 +101,12 @@ class TrigramEvaluator:
             second=second,
             third=third,
             same_finger_skip=same_finger_skip,
+            same_hand_same_finger_skip=(
+                same_hand_same_finger_skip
+            ),
+            alternating_same_finger_skip=(
+                alternating_same_finger_skip
+            ),
             alternating_hands=alternating_hands,
             same_hand=same_hand,
             roll_direction=roll_direction,

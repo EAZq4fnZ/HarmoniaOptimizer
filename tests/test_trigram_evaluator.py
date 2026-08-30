@@ -266,3 +266,34 @@ def test_non_alternating_mixed_hands() -> None:
 
     assert features.alternating_hands is False
     assert features.same_hand is False
+
+
+def test_same_hand_same_finger_skip_classification() -> None:
+    features = evaluate(
+        Hand.LEFT,
+        Finger.INDEX,
+        Hand.LEFT,
+        Finger.MIDDLE,
+        Hand.LEFT,
+        Finger.INDEX,
+    )
+
+    assert features.same_finger_skip is True
+    assert features.same_hand_same_finger_skip is True
+    assert features.alternating_same_finger_skip is False
+
+
+def test_alternating_same_finger_skip_classification() -> None:
+    features = evaluate(
+        Hand.LEFT,
+        Finger.INDEX,
+        Hand.RIGHT,
+        Finger.MIDDLE,
+        Hand.LEFT,
+        Finger.INDEX,
+    )
+
+    assert features.same_finger_skip is True
+    assert features.same_hand_same_finger_skip is False
+    assert features.alternating_same_finger_skip is True
+    assert features.alternating_hands is True

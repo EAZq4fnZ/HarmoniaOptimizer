@@ -15,9 +15,14 @@ class TrigramCostEvaluator:
 
     Cost precedence
     ---------------
-    A same-finger skip may also structurally be a redirect.
-    In that case the same-finger-skip penalty takes precedence
-    and the redirect penalty is not applied.
+    Only same-hand same-finger skips receive the SFS penalty.
+
+    An alternating-hand SFS remains available as structural
+    information but does not receive the SFS penalty.
+
+    A same-hand SFS may also structurally be a redirect.
+    In that case the SFS penalty takes precedence and the
+    redirect penalty is not applied.
 
     Feature classification itself remains unchanged.
     """
@@ -42,7 +47,7 @@ class TrigramCostEvaluator:
         inward_roll = 0.0
         outward_roll = 0.0
 
-        if features.same_finger_skip:
+        if features.same_hand_same_finger_skip:
             same_finger_skip = (
                 self._weights.same_finger_skip_penalty
             )

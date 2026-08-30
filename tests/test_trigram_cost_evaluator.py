@@ -51,6 +51,12 @@ def make_features(
             column=3,
         ),
         same_finger_skip=same_finger_skip,
+        same_hand_same_finger_skip=(
+            same_finger_skip and same_hand
+        ),
+        alternating_same_finger_skip=(
+            same_finger_skip and alternating_hands
+        ),
         alternating_hands=alternating_hands,
         same_hand=same_hand,
         roll_direction=roll_direction,
@@ -95,7 +101,7 @@ def test_no_features_have_zero_cost() -> None:
     assert cost.total == pytest.approx(0.0)
 
 
-def test_same_finger_skip_penalty() -> None:
+def test_same_hand_same_finger_skip_penalty() -> None:
     evaluator = TrigramCostEvaluator(
         make_weights()
     )
@@ -103,6 +109,7 @@ def test_same_finger_skip_penalty() -> None:
     cost = evaluator.evaluate(
         make_features(
             same_finger_skip=True,
+            same_hand=True,
         )
     )
 
@@ -231,3 +238,22 @@ def test_weights_are_preserved() -> None:
     )
 
     assert evaluator.weights is weights
+
+
+
+def test_alternating_same_finger_skip_has_no_sfs_penalty() -> None:
+    evaluator = TrigramCostEvaluator(
+        make_weights()
+    )
+
+    cost = evaluator.evaluate(
+        make_features(
+            same_finger_skip=True,
+            alternating_hands=True,
+            same_hand=False,
+        )
+    )
+
+    assert cost.same_finger_skip == pytest.approx(0.0)
+    assert cost.alternation == pytest.approx(-2.0)
+    assert cost.total == pytest.approx(-2.0)

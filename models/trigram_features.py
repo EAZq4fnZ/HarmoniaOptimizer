@@ -17,6 +17,17 @@ class TrigramFeatures:
         The first and third keys use the same hand and finger,
         while neither adjacent pair is a same-finger bigram.
 
+        This is the broad structural SFS category.
+
+    same_hand_same_finger_skip
+        A same-finger skip where all three keys are on the
+        same hand.
+
+    alternating_same_finger_skip
+        A same-finger skip where the middle key is on the
+        opposite hand. This is therefore also an alternating
+        L-R-L or R-L-R trigram.
+
     alternating_hands
         The hand sequence is L-R-L or R-L-R.
 
@@ -37,6 +48,9 @@ class TrigramFeatures:
     third: LogicalKey
 
     same_finger_skip: bool
+    same_hand_same_finger_skip: bool
+    alternating_same_finger_skip: bool
+
     alternating_hands: bool
     same_hand: bool
 
