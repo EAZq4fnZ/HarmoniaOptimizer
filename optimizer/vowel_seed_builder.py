@@ -411,6 +411,18 @@ class VowelSeedBuilder:
                     "position-indexed search data was not initialized"
                 )
 
+            (
+                layout_score_evaluator,
+                finger_load_score_evaluator,
+                transition_factor,
+                finger_load_weight,
+            ) = (
+                self._fast_evaluator
+                .prepare_complete_vowel_group_scalar_hot_path(
+                    prepared_transitions
+                )
+            )
+
             for (
                 selected_positions,
                 displaced_letter_indexes,
@@ -549,28 +561,28 @@ class VowelSeedBuilder:
                             displaced_letter_indexes[0]
                         ] = vacated_positions[0]
 
-                    score = (
-                        self._fast_evaluator
-                        .evaluate_fully_prepared_position_indexed_complete_vowel_group(
-                            positions=candidate_positions_list,
-                            cost_matrix=cost_matrix,
-                            prepared_transitions=(
-                                prepared_transitions
-                            ),
-                            transition_group_costs=(
-                                prepared_transition_group_costs
-                            ),
-                            position_finger_indexes=(
-                                position_finger_indexes
-                            ),
-                            allowed_ratios=allowed_ratios,
-                            weighted_statistics=(
-                                prepared_weighted_statistics
-                            ),
-                            finger_load_baseline=(
-                                prepared_finger_load_baseline
-                            ),
+                    transition_total_cost = (
+                        layout_score_evaluator
+                        .evaluate_prepared_position_indexed_complete_vowel_group_total_cost(
+                            candidate_positions_list,
+                            cost_matrix,
+                            prepared_transitions,
+                            prepared_transition_group_costs,
                         )
+                    )
+                    finger_load_penalty = (
+                        finger_load_score_evaluator
+                        .evaluate_prepared_position_indexed_complete_vowel_group(
+                            candidate_positions_list,
+                            position_finger_indexes,
+                            allowed_ratios,
+                            prepared_weighted_statistics,
+                            prepared_finger_load_baseline,
+                        )
+                    )
+                    score = (
+                        transition_total_cost * transition_factor
+                        + finger_load_penalty * finger_load_weight
                     )
 
                     if (
@@ -1964,3 +1976,5 @@ class VowelSeedBuilder:
             description=layout.description,
             mapping=mapping,
         )
+
+

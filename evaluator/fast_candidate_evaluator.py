@@ -818,6 +818,64 @@ class FastCandidateEvaluator:
             )
         )
 
+    def prepare_complete_vowel_group_scalar_hot_path(
+        self,
+        prepared_transitions: PreparedPositionIndexedTransitions,
+    ) -> tuple[
+        FastLayoutScoreEvaluator,
+        FastFingerLoadScoreEvaluator,
+        float,
+        float,
+    ]:
+        """
+        Prepare stable dependencies for the scalar vowel-seed hot path.
+
+        This is called once before exhaustive candidate evaluation so the
+        caller can avoid private attribute access and per-candidate scorer
+        wrapper overhead.
+
+        Returns:
+            layout_evaluator
+                Publicly exposed evaluator dependency for transition cost.
+
+            finger_load_evaluator
+                Publicly exposed evaluator dependency for finger-load cost.
+
+            transition_factor
+                transition_weight / evaluated_transition_weight, or 0.0
+                when the evaluated transition weight is zero.
+
+            finger_load_weight
+                Final candidate-score weight for finger-load penalty.
+        """
+
+        evaluated_transition_weight = (
+            prepared_transitions.evaluated_weight
+        )
+
+        if evaluated_transition_weight < 0.0:
+            raise ValueError(
+                "evaluated_transition_weight must be non-negative"
+            )
+
+        weights = self._candidate_scorer.weights
+
+        transition_factor = (
+            0.0
+            if evaluated_transition_weight == 0.0
+            else (
+                weights.transition_weight
+                / evaluated_transition_weight
+            )
+        )
+
+        return (
+            self._layout_evaluator,
+            self._finger_load_evaluator,
+            transition_factor,
+            weights.finger_load_weight,
+        )
+
     def evaluate_fully_prepared_position_indexed_complete_vowel_group(
         self,
         positions: list[int],
