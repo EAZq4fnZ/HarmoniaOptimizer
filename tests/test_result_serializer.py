@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from models.candidate_evaluation import CandidateEvaluation
 from models.candidate_score import (
     CandidateScore,
@@ -202,6 +204,45 @@ def test_serialize_best_result_includes_weights() -> None:
         "finger_load": 2.0,
         "position": 5.0,
     }
+
+
+def test_serialize_best_result_rejects_unscored_result() -> None:
+    layout = make_layout()
+
+    evaluation = CandidateEvaluation(
+        layout=layout,
+        constraint_evaluation=ConstraintEvaluation(
+            violations=(),
+        ),
+        layout_evaluation=None,
+        candidate_score=None,
+    )
+
+    optimization_result = OptimizationResult(
+        initial_evaluation=evaluation,
+        final_evaluation=evaluation,
+        steps=(),
+    )
+
+    result = MultiStartOptimizationResult(
+        results=(optimization_result,)
+    )
+
+    assert result.best_result is None
+
+    with pytest.raises(
+        ValueError,
+        match="result has no scored optimization result",
+    ):
+        serialize_best_result(
+            result=result,
+            source_layout=layout,
+            mode=SearchMode.FAST,
+            seed=12345,
+            max_iterations=20,
+            corpus_path="corpus.txt",
+            corpus_sha256="abc123",
+        )
 
 
 def test_write_result_json(
