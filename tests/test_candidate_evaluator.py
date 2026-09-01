@@ -439,3 +439,173 @@ def test_zero_trigram_weight_preserves_candidate_score():
     assert result.score == pytest.approx(
         -1.8
     )
+
+def make_key_position_candidate_evaluator(
+    constraint_set: ConstraintSet,
+    *,
+    position_weight: float = 1.0,
+) -> CandidateEvaluator:
+    from evaluator.key_position_evaluator import (
+        KeyPositionEvaluator,
+    )
+    from models.key_position_cost import (
+        KeyPositionCostProfile,
+    )
+
+    profile = KeyPositionCostProfile(
+        costs={
+            # A: 70%
+            "L-I-H-3": 0.5,
+            # B: 30%
+            "R-I-H-3": 1.5,
+        }
+    )
+
+    return CandidateEvaluator(
+        constraint_set=constraint_set,
+        layout_evaluator=LayoutEvaluator(
+            make_transition_weights()
+        ),
+        finger_load_pipeline=FingerLoadPipeline(),
+        candidate_scorer=CandidateScorer(
+            CandidateScoreWeights(
+                transition_weight=1.0,
+                trigram_weight=0.0,
+                finger_load_weight=1.0,
+                position_weight=position_weight,
+            )
+        ),
+        finger_load_budgets=make_finger_load_budgets(),
+        key_position_evaluator=(
+            KeyPositionEvaluator(
+                profile
+            )
+        ),
+    )
+
+
+def test_candidate_evaluator_includes_position_score():
+    evaluator = make_key_position_candidate_evaluator(
+        ConstraintSet([]),
+        position_weight=1.0,
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        make_transition_statistics(),
+        make_character_statistics(),
+    )
+
+    assert result.candidate_score is not None
+
+    # A:
+    # weight = 70
+    # position cost = 0.5
+    # weighted cost = 35
+    #
+    # B:
+    # weight = 30
+    # position cost = 1.5
+    # weighted cost = 45
+    #
+    # total cost = 80
+    # evaluated weight = 100
+    # normalized position score = 0.8
+    assert (
+        result.candidate_score.position_score
+        == pytest.approx(0.8)
+    )
+
+
+def test_candidate_evaluator_applies_position_weight():
+    evaluator = make_key_position_candidate_evaluator(
+        ConstraintSet([]),
+        position_weight=2.0,
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        make_transition_statistics(),
+        make_character_statistics(),
+    )
+
+    assert result.candidate_score is not None
+
+    # Existing:
+    # transition = -2.0
+    # finger load = +0.2
+    #
+    # Position:
+    # normalized score = 0.8
+    # weight = 2.0
+    # contribution = +1.6
+    #
+    # total = -2.0 + 0.2 + 1.6 = -0.2
+    assert result.score == pytest.approx(
+        -0.2
+    )
+
+
+def test_zero_position_weight_preserves_candidate_score():
+    evaluator = make_key_position_candidate_evaluator(
+        ConstraintSet([]),
+        position_weight=0.0,
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        make_transition_statistics(),
+        make_character_statistics(),
+    )
+
+    assert result.candidate_score is not None
+
+    assert (
+        result.candidate_score.position_score
+        == pytest.approx(0.8)
+    )
+
+    assert (
+        result.candidate_score.weighted_position_score
+        == pytest.approx(0.0)
+    )
+
+    # Same result as the original transition +
+    # finger-load scoring path.
+    assert result.score == pytest.approx(
+        -1.8
+    )
+
+
+def test_missing_position_evaluator_preserves_candidate_score():
+    result = evaluate_valid_candidate()
+
+    assert result.candidate_score is not None
+    assert result.candidate_score.position_score == 0.0
+    assert result.candidate_score.weighted_position_score == 0.0
+    assert result.score == pytest.approx(
+        -1.8
+    )
+
+
+def test_invalid_candidate_skips_position_evaluation():
+    constraint = ForbiddenPositionConstraint(
+        frozenset({
+            "L-I-H-3",
+        })
+    )
+
+    evaluator = make_key_position_candidate_evaluator(
+        ConstraintSet([constraint]),
+        position_weight=1.0,
+    )
+
+    result = evaluator.evaluate(
+        make_layout(),
+        make_transition_statistics(),
+        make_character_statistics(),
+    )
+
+    assert result.is_valid is False
+    assert result.candidate_score is None
+    assert result.score is None

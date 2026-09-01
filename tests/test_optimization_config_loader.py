@@ -313,3 +313,30 @@ def test_load_invalid_json_is_rejected(
         OptimizationConfigLoader.load(
             path
         )
+
+def test_from_dict_defaults_position_candidate_weight_to_zero():
+    config = OptimizationConfigLoader.from_dict(
+        make_config_dict()
+    )
+
+    assert (
+        config.candidate_score_weights.position_weight
+        == 0.0
+    )
+
+
+def test_from_dict_loads_position_candidate_weight():
+    data = make_config_dict()
+
+    data["candidate_score_weights"][
+        "position_weight"
+    ] = 0.25
+
+    config = OptimizationConfigLoader.from_dict(
+        data
+    )
+
+    assert (
+        config.candidate_score_weights.position_weight
+        == 0.25
+    )

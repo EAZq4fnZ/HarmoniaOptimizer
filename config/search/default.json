@@ -1,0 +1,14 @@
+{
+  "fast": {
+    "runs": 2,
+    "max_iterations": 20
+  },
+  "standard": {
+    "runs": 8,
+    "max_iterations": 30
+  },
+  "deep": {
+    "runs": 16,
+    "max_iterations": 30
+  }
+}

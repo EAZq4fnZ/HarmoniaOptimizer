@@ -10,7 +10,9 @@
   },
   "candidate_score_weights": {
     "transition_weight": 1.0,
-    "finger_load_weight": 1.0
+    "finger_load_weight": 1.0,
+    "position_weight": 5.0,
+    "trigram_weight": 1.0
   },
   "finger_load_budgets": [
     {
@@ -61,5 +63,12 @@
       "target_ratio": 0.03,
       "tolerance": 0.02
     }
-  ]
+  ],
+  "trigram_cost_weights": {
+    "same_finger_skip_penalty": 8.0,
+    "redirect_penalty": 4.0,
+    "alternation_reward": 2.0,
+    "inward_roll_reward": 1.5,
+    "outward_roll_reward": 0.5
+  }
 }

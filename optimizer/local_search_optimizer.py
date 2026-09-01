@@ -5,6 +5,7 @@ from __future__ import annotations
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.character_statistics import CharacterStatistics
 from evaluator.transition_statistics import TransitionStatistics
+from evaluator.trigram_statistics import TrigramStatistics
 from models.layout import Layout
 from models.optimization_result import OptimizationResult
 from models.optimization_step import OptimizationStep
@@ -59,6 +60,7 @@ class LocalSearchOptimizer:
         layout: Layout,
         transition_statistics: TransitionStatistics,
         character_statistics: CharacterStatistics,
+        trigram_statistics: TrigramStatistics | None = None,
     ) -> OptimizationResult:
         """
         Return the complete result of the optimization run.
@@ -68,6 +70,7 @@ class LocalSearchOptimizer:
             layout=layout,
             transition_statistics=transition_statistics,
             character_statistics=character_statistics,
+            trigram_statistics=trigram_statistics,
         )
 
         current = initial
@@ -101,6 +104,7 @@ class LocalSearchOptimizer:
                         layout=candidate.layout,
                         transition_statistics=transition_statistics,
                         character_statistics=character_statistics,
+                        trigram_statistics=trigram_statistics,
                     ),
                 )
                 for candidate in swap_candidates

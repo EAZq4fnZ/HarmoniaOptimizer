@@ -2,20 +2,38 @@
 
 from __future__ import annotations
 
+from config.harmonia_position_costs import (
+    make_harmonia_position_cost_profile,
+)
 from evaluator.candidate_evaluator import CandidateEvaluator
 from evaluator.candidate_scorer import CandidateScorer
 from evaluator.character_analyzer import CharacterAnalyzer
 from evaluator.constraint_factory import ConstraintFactory
 from evaluator.corpus_analyzer import CorpusAnalyzer
 from evaluator.finger_load_pipeline import FingerLoadPipeline
+from evaluator.key_position_evaluator import KeyPositionEvaluator
 from evaluator.layout_evaluator import LayoutEvaluator
+from evaluator.trigram_layout_evaluator import TrigramLayoutEvaluator
 from models.constraint_config import ConstraintConfig
 from models.corpus import Corpus
 from models.corpus_entry import CorpusEntry
 from models.layout import Layout
+from models.multi_start_optimization_result import (
+    MultiStartOptimizationResult,
+)
 from models.optimization_config import OptimizationConfig
 from models.optimization_result import OptimizationResult
+from models.search_budget import SearchBudget
+from models.search_budget_profiles import SearchBudgetProfiles
+from models.search_mode import SearchMode
 from optimizer.local_search_optimizer import LocalSearchOptimizer
+from optimizer.multi_start_optimizer import MultiStartOptimizer
+from optimizer.random_start_layout_factory import (
+    RandomStartLayoutFactory,
+)
+from optimizer.vowel_constrained_start_layout_factory import (
+    VowelConstrainedStartLayoutFactory,
+)
 from reporting.optimization_reporter import OptimizationReporter
 
 
@@ -73,7 +91,13 @@ class OptimizationApp:
         Optimize one layout against one corpus.
         """
 
-        transition_statistics = CorpusAnalyzer().analyze(
+        corpus_analyzer = CorpusAnalyzer()
+
+        transition_statistics = corpus_analyzer.analyze(
+            corpus
+        )
+
+        trigram_statistics = corpus_analyzer.analyze_trigrams(
             corpus
         )
 
@@ -92,6 +116,98 @@ class OptimizationApp:
             layout=layout,
             transition_statistics=transition_statistics,
             character_statistics=character_statistics,
+            trigram_statistics=trigram_statistics,
+        )
+
+    def optimize_multi_start(
+        self,
+        layout: Layout,
+        corpus: Corpus,
+        runs: int,
+        seed: int,
+    ) -> MultiStartOptimizationResult:
+        """
+        Optimize from multiple reproducible
+        random starting layouts.
+        """
+
+        corpus_analyzer = CorpusAnalyzer()
+
+        transition_statistics = (
+            corpus_analyzer.analyze(
+                corpus
+            )
+        )
+
+        trigram_statistics = (
+            corpus_analyzer.analyze_trigrams(
+                corpus
+            )
+        )
+
+        character_statistics = (
+            CharacterAnalyzer().analyze(
+                corpus
+            )
+        )
+
+        evaluator = (
+            self._make_candidate_evaluator()
+        )
+
+        local_optimizer = (
+            LocalSearchOptimizer(
+                candidate_evaluator=evaluator,
+                max_iterations=(
+                    self._max_iterations
+                ),
+            )
+        )
+
+        use_vowel_constrained_factory = (
+            self
+            ._constraint_config
+            .vowel_position
+            .enabled
+            or self
+            ._constraint_config
+            .vowel_hand_distribution
+            .enabled
+        )
+
+        if use_vowel_constrained_factory:
+            start_layout_factory = (
+                VowelConstrainedStartLayoutFactory(
+                    config=self._constraint_config,
+                    seed=seed,
+                )
+            )
+        else:
+            start_layout_factory = (
+                RandomStartLayoutFactory(
+                    seed=seed
+                )
+            )
+
+        optimizer = MultiStartOptimizer(
+            local_optimizer=local_optimizer,
+            start_layout_factory=(
+                start_layout_factory
+            ),
+            runs=runs,
+        )
+
+        return optimizer.optimize(
+            layout=layout,
+            transition_statistics=(
+                transition_statistics
+            ),
+            character_statistics=(
+                character_statistics
+            ),
+            trigram_statistics=(
+                trigram_statistics
+            ),
         )
 
     def optimize_text(
@@ -128,6 +244,49 @@ class OptimizationApp:
             result
         )
 
+    def optimize_with_budget(
+        self,
+        layout: Layout,
+        corpus: Corpus,
+        budget: SearchBudget,
+        seed: int,
+    ) -> MultiStartOptimizationResult:
+        budget_app = OptimizationApp(
+            config=self._config,
+            constraint_config=(
+                self._constraint_config
+            ),
+            max_iterations=(
+                budget.max_iterations
+            ),
+        )
+
+        return budget_app.optimize_multi_start(
+            layout=layout,
+            corpus=corpus,
+            runs=budget.runs,
+            seed=seed,
+        )
+
+    def optimize_with_mode(
+        self,
+        layout: Layout,
+        corpus: Corpus,
+        mode: SearchMode,
+        profiles: SearchBudgetProfiles,
+        seed: int,
+    ) -> MultiStartOptimizationResult:
+        budget = profiles.for_mode(
+            mode
+        )
+
+        return self.optimize_with_budget(
+            layout=layout,
+            corpus=corpus,
+            budget=budget,
+            seed=seed,
+        )
+
     def _make_candidate_evaluator(
         self,
     ) -> CandidateEvaluator:
@@ -149,5 +308,11 @@ class OptimizationApp:
             ),
             finger_load_budgets=(
                 self._config.finger_load_budgets
+            ),
+            trigram_layout_evaluator=TrigramLayoutEvaluator(
+                self._config.trigram_cost_weights
+            ),
+            key_position_evaluator=KeyPositionEvaluator(
+                make_harmonia_position_cost_profile()
             ),
         )

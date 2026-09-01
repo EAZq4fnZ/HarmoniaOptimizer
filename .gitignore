@@ -37,3 +37,6 @@ __pycache__/
 # Test / lint caches
 .pytest_cache/
 .ruff_cache/
+# Local CLI smoke-test artifacts
+corpus_cli_smoke.txt
+harmonia_result.json

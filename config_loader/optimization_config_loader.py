@@ -136,6 +136,12 @@ class OptimizationConfigLoader:
                     "finger_load_weight"
                 ]
             ),
+            position_weight=float(
+                candidate_data.get(
+                    "position_weight",
+                    0.0,
+                )
+            ),
         )
 
         budgets = tuple(

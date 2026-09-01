@@ -1,11 +1,10 @@
-# evaluator/candidate_evaluator.py
-
 from __future__ import annotations
 
 from evaluator.candidate_scorer import CandidateScorer
 from evaluator.character_statistics import CharacterStatistics
 from evaluator.constraint_set import ConstraintSet
 from evaluator.finger_load_pipeline import FingerLoadPipeline
+from evaluator.key_position_evaluator import KeyPositionEvaluator
 from evaluator.layout_evaluator import LayoutEvaluator
 from evaluator.transition_statistics import TransitionStatistics
 from evaluator.trigram_layout_evaluator import (
@@ -27,7 +26,8 @@ class CandidateEvaluator:
     2. Transition/layout evaluation
     3. Trigram evaluation
     4. Finger-load evaluation
-    5. Combined candidate score
+    5. Key-position evaluation
+    6. Combined candidate score
 
     Invalid candidates are rejected before the more expensive
     soft-evaluation stages are performed.
@@ -43,6 +43,9 @@ class CandidateEvaluator:
         trigram_layout_evaluator: (
             TrigramLayoutEvaluator | None
         ) = None,
+        key_position_evaluator: (
+            KeyPositionEvaluator | None
+        ) = None,
     ) -> None:
         self._constraint_set = constraint_set
         self._layout_evaluator = layout_evaluator
@@ -51,6 +54,9 @@ class CandidateEvaluator:
         self._finger_load_budgets = finger_load_budgets
         self._trigram_layout_evaluator = (
             trigram_layout_evaluator
+        )
+        self._key_position_evaluator = (
+            key_position_evaluator
         )
 
     def evaluate(
@@ -102,11 +108,24 @@ class CandidateEvaluator:
             )
         )
 
+        key_position_evaluation = None
+
+        if self._key_position_evaluator is not None:
+            key_position_evaluation = (
+                self._key_position_evaluator.evaluate(
+                    layout,
+                    character_statistics,
+                )
+            )
+
         candidate_score = self._candidate_scorer.score(
             layout_evaluation=layout_evaluation,
             finger_load_evaluations=finger_load_evaluations,
             trigram_layout_evaluation=(
                 trigram_layout_evaluation
+            ),
+            key_position_evaluation=(
+                key_position_evaluation
             ),
         )
 

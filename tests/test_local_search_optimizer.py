@@ -78,6 +78,7 @@ class FakeCandidateEvaluator:
         layout,
         transition_statistics,
         character_statistics,
+        trigram_statistics=None,
     ):
         self.evaluated_layouts.append(
             layout.name
