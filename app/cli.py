@@ -164,11 +164,18 @@ def main() -> int:
         )
 
     if args.output is not None:
+        budget = search_profiles.for_mode(
+            args.mode
+        )
+
         data = serialize_best_result(
             result=result,
             source_layout=layout,
             mode=args.mode,
             seed=args.seed,
+            max_iterations=(
+                budget.max_iterations
+            ),
             corpus_path=args.corpus,
             corpus_sha256=sha256_file(
                 args.corpus

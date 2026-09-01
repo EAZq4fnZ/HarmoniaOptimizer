@@ -17,6 +17,7 @@ def serialize_best_result(
     source_layout: Layout,
     mode: SearchMode,
     seed: int,
+    max_iterations: int,
     corpus_path: str | Path,
     corpus_sha256: str,
 ) -> dict[str, Any]:
@@ -43,6 +44,7 @@ def serialize_best_result(
         "search": {
             "mode": mode.value,
             "runs": result.run_count,
+            "max_iterations": max_iterations,
             "seed": seed,
         },
         "source": {

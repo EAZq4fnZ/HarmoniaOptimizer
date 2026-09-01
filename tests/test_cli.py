@@ -185,9 +185,16 @@ def test_main_writes_output_when_requested(
         "app.cli.ConstraintConfigLoader.load",
         lambda path: object(),
     )
+    search_profiles = argparse.Namespace(
+        for_mode=lambda mode: argparse.Namespace(
+            runs=2,
+            max_iterations=20,
+        )
+    )
+
     monkeypatch.setattr(
         "app.cli.SearchBudgetProfilesLoader.load",
-        lambda path: object(),
+        lambda path: search_profiles,
     )
     monkeypatch.setattr(
         "app.cli.Layout.load",
@@ -246,6 +253,7 @@ def test_main_writes_output_when_requested(
         "source_layout": source_layout,
         "mode": SearchMode.FAST,
         "seed": 12345,
+        "max_iterations": 20,
         "corpus_path": corpus_path,
         "corpus_sha256": sha256_file(
             corpus_path

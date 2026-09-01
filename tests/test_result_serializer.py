@@ -77,6 +77,7 @@ def test_serialize_best_result() -> None:
         source_layout=make_layout(),
         mode=SearchMode.FAST,
         seed=12345,
+        max_iterations=20,
         corpus_path="corpus.txt",
         corpus_sha256="abc123",
     )
@@ -86,6 +87,7 @@ def test_serialize_best_result() -> None:
     assert data["search"] == {
         "mode": "fast",
         "runs": 1,
+        "max_iterations": 20,
         "seed": 12345,
     }
 
@@ -127,12 +129,69 @@ def test_serialize_best_result() -> None:
     )
 
 
+def test_serialize_best_result_uses_explicit_source_layout() -> None:
+    result = make_result()
+
+    source_mapping = {
+        chr(ord("A") + index): f"P-{(index + 1) % 26}"
+        for index in range(26)
+    }
+
+    source_layout = Layout(
+        name="Source Layout",
+        version="source-1",
+        layer="L0",
+        description="original source layout",
+        mapping=source_mapping,
+    )
+
+    best = result.best_result
+
+    assert best is not None
+
+    initial_mapping = (
+        best.initial_evaluation.layout.mapping
+    )
+
+    assert source_layout.mapping != initial_mapping
+
+    data = serialize_best_result(
+        result=result,
+        source_layout=source_layout,
+        mode=SearchMode.FAST,
+        seed=12345,
+        max_iterations=20,
+        corpus_path="corpus.txt",
+        corpus_sha256="abc123",
+    )
+
+    assert (
+        data["source"]["layout"]["mapping"]
+        == source_layout.mapping
+    )
+
+    assert (
+        data["source"]["layout"]["mapping"]
+        != initial_mapping
+    )
+
+    assert data["source"]["layout"]["name"] == (
+        "Source Layout"
+    )
+
+    assert (
+        data["result"]["layout"]
+        == best.final_evaluation.layout.mapping
+    )
+
+
 def test_serialize_best_result_includes_weights() -> None:
     data = serialize_best_result(
         result=make_result(),
         source_layout=make_layout(),
         mode=SearchMode.FAST,
         seed=12345,
+        max_iterations=20,
         corpus_path="corpus.txt",
         corpus_sha256="abc123",
     )
@@ -157,6 +216,7 @@ def test_write_result_json(
         source_layout=make_layout(),
         mode=SearchMode.FAST,
         seed=12345,
+        max_iterations=20,
         corpus_path="corpus.txt",
         corpus_sha256="abc123",
     )
