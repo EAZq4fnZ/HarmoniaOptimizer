@@ -258,6 +258,30 @@ def test_main_writes_output_when_requested(
         "corpus_sha256": sha256_file(
             corpus_path
         ),
+        "optimization_config_path": Path(
+            "config/optimization/default.json"
+        ),
+        "optimization_config_sha256": sha256_file(
+            Path("config/optimization/default.json")
+        ),
+        "constraint_config_path": Path(
+            "config/constraints/default.json"
+        ),
+        "constraint_config_sha256": sha256_file(
+            Path("config/constraints/default.json")
+        ),
+        "search_config_path": Path(
+            "config/search/default.json"
+        ),
+        "search_config_sha256": sha256_file(
+            Path("config/search/default.json")
+        ),
+        "position_costs_path": Path(
+            "config/harmonia_position_costs.py"
+        ),
+        "position_costs_sha256": sha256_file(
+            Path("config/harmonia_position_costs.py")
+        ),
     }
 
     write_call = calls["write"]

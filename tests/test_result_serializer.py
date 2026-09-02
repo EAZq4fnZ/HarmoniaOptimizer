@@ -71,6 +71,27 @@ def make_result() -> MultiStartOptimizationResult:
     )
 
 
+def make_config_provenance_kwargs() -> dict[str, object]:
+    return {
+        "optimization_config_path": (
+            "config/optimization/default.json"
+        ),
+        "optimization_config_sha256": "optimization-hash",
+        "constraint_config_path": (
+            "config/constraints/default.json"
+        ),
+        "constraint_config_sha256": "constraints-hash",
+        "search_config_path": (
+            "config/search/default.json"
+        ),
+        "search_config_sha256": "search-hash",
+        "position_costs_path": (
+            "config/harmonia_position_costs.py"
+        ),
+        "position_costs_sha256": "position-costs-hash",
+    }
+
+
 def test_serialize_best_result() -> None:
     result = make_result()
 
@@ -82,6 +103,7 @@ def test_serialize_best_result() -> None:
         max_iterations=20,
         corpus_path="corpus.txt",
         corpus_sha256="abc123",
+        **make_config_provenance_kwargs(),
     )
 
     assert data["schema_version"] == 1
@@ -165,6 +187,7 @@ def test_serialize_best_result_uses_explicit_source_layout() -> None:
         max_iterations=20,
         corpus_path="corpus.txt",
         corpus_sha256="abc123",
+        **make_config_provenance_kwargs(),
     )
 
     assert (
@@ -196,6 +219,7 @@ def test_serialize_best_result_includes_weights() -> None:
         max_iterations=20,
         corpus_path="corpus.txt",
         corpus_sha256="abc123",
+        **make_config_provenance_kwargs(),
     )
 
     assert data["result"]["score_weights"] == {
@@ -203,6 +227,53 @@ def test_serialize_best_result_includes_weights() -> None:
         "trigram": 1.0,
         "finger_load": 2.0,
         "position": 5.0,
+    }
+
+
+def test_serialize_best_result_includes_config_provenance() -> None:
+    data = serialize_best_result(
+        result=make_result(),
+        source_layout=make_layout(),
+        mode=SearchMode.FAST,
+        seed=12345,
+        max_iterations=20,
+        corpus_path="corpus.txt",
+        corpus_sha256="corpus-hash",
+        optimization_config_path=(
+            "config/optimization/default.json"
+        ),
+        optimization_config_sha256="optimization-hash",
+        constraint_config_path=(
+            "config/constraints/default.json"
+        ),
+        constraint_config_sha256="constraints-hash",
+        search_config_path=(
+            "config/search/default.json"
+        ),
+        search_config_sha256="search-hash",
+        position_costs_path=(
+            "config/harmonia_position_costs.py"
+        ),
+        position_costs_sha256="position-costs-hash",
+    )
+
+    assert data["source"]["config"] == {
+        "optimization": {
+            "path": "config/optimization/default.json",
+            "sha256": "optimization-hash",
+        },
+        "constraints": {
+            "path": "config/constraints/default.json",
+            "sha256": "constraints-hash",
+        },
+        "search": {
+            "path": "config/search/default.json",
+            "sha256": "search-hash",
+        },
+        "position_costs": {
+            "path": "config/harmonia_position_costs.py",
+            "sha256": "position-costs-hash",
+        },
     }
 
 
@@ -242,6 +313,7 @@ def test_serialize_best_result_rejects_unscored_result() -> None:
             max_iterations=20,
             corpus_path="corpus.txt",
             corpus_sha256="abc123",
+            **make_config_provenance_kwargs(),
         )
 
 
@@ -260,6 +332,7 @@ def test_write_result_json(
         max_iterations=20,
         corpus_path="corpus.txt",
         corpus_sha256="abc123",
+        **make_config_provenance_kwargs(),
     )
 
     path = tmp_path / "result.json"

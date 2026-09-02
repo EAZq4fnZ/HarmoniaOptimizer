@@ -24,6 +24,19 @@ from result_serializer import (
     write_result_json,
 )
 
+OPTIMIZATION_CONFIG_PATH = Path(
+    "config/optimization/default.json"
+)
+CONSTRAINT_CONFIG_PATH = Path(
+    "config/constraints/default.json"
+)
+SEARCH_CONFIG_PATH = Path(
+    "config/search/default.json"
+)
+POSITION_COSTS_PATH = Path(
+    "config/harmonia_position_costs.py"
+)
+
 
 def parse_args(
     argv: list[str] | None = None,
@@ -96,19 +109,19 @@ def main() -> int:
 
     optimization_config = (
         OptimizationConfigLoader.load(
-            "config/optimization/default.json"
+            OPTIMIZATION_CONFIG_PATH
         )
     )
 
     constraint_config = (
         ConstraintConfigLoader.load(
-            "config/constraints/default.json"
+            CONSTRAINT_CONFIG_PATH
         )
     )
 
     search_profiles = (
         SearchBudgetProfilesLoader.load(
-            "config/search/default.json"
+            SEARCH_CONFIG_PATH
         )
     )
 
@@ -179,6 +192,34 @@ def main() -> int:
             corpus_path=args.corpus,
             corpus_sha256=sha256_file(
                 args.corpus
+            ),
+            optimization_config_path=(
+                OPTIMIZATION_CONFIG_PATH
+            ),
+            optimization_config_sha256=(
+                sha256_file(
+                    OPTIMIZATION_CONFIG_PATH
+                )
+            ),
+            constraint_config_path=(
+                CONSTRAINT_CONFIG_PATH
+            ),
+            constraint_config_sha256=(
+                sha256_file(
+                    CONSTRAINT_CONFIG_PATH
+                )
+            ),
+            search_config_path=(
+                SEARCH_CONFIG_PATH
+            ),
+            search_config_sha256=sha256_file(
+                SEARCH_CONFIG_PATH
+            ),
+            position_costs_path=(
+                POSITION_COSTS_PATH
+            ),
+            position_costs_sha256=sha256_file(
+                POSITION_COSTS_PATH
             ),
         )
 

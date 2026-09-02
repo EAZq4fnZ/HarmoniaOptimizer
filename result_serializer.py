@@ -20,6 +20,14 @@ def serialize_best_result(
     max_iterations: int,
     corpus_path: str | Path,
     corpus_sha256: str,
+    optimization_config_path: str | Path,
+    optimization_config_sha256: str,
+    constraint_config_path: str | Path,
+    constraint_config_sha256: str,
+    search_config_path: str | Path,
+    search_config_sha256: str,
+    position_costs_path: str | Path,
+    position_costs_sha256: str,
 ) -> dict[str, Any]:
     best = result.best_result
 
@@ -62,6 +70,38 @@ def serialize_best_result(
             "corpus": {
                 "path": str(corpus_path),
                 "sha256": corpus_sha256,
+            },
+            "config": {
+                "optimization": {
+                    "path": str(
+                        optimization_config_path
+                    ),
+                    "sha256": (
+                        optimization_config_sha256
+                    ),
+                },
+                "constraints": {
+                    "path": str(
+                        constraint_config_path
+                    ),
+                    "sha256": (
+                        constraint_config_sha256
+                    ),
+                },
+                "search": {
+                    "path": str(
+                        search_config_path
+                    ),
+                    "sha256": search_config_sha256,
+                },
+                "position_costs": {
+                    "path": str(
+                        position_costs_path
+                    ),
+                    "sha256": (
+                        position_costs_sha256
+                    ),
+                },
             },
         },
         "result": {
