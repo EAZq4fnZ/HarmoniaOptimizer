@@ -4,6 +4,7 @@ from corpus_builder.japanese_preprocessor import (
     preprocess_japanese_source,
 )
 from corpus_builder.japanese_reader import make_default_japanese_reader
+from corpus_builder.japanese_romanizer import romanize_japanese_reading
 
 
 def test_preprocess_japanese_source_applies_common_normalization() -> None:
@@ -73,3 +74,41 @@ def test_preprocess_japanese_source_with_default_reader() -> None:
         "  ＡＢＣ\t今日は良い天気です\n ",
         reader=make_default_japanese_reader(),
     ) == "ABCキョウハヨイテンキデス"
+
+
+def test_preprocess_japanese_source_applies_reader_then_romanizer() -> None:
+    assert preprocess_japanese_source(
+        "  ＡＢＣ\t今日は良い天気です。\n ",
+        reader=make_default_japanese_reader(),
+        romanizer=romanize_japanese_reading,
+    ) == "ABCkyouhayoitennkidesu。"
+
+
+def test_preprocess_japanese_source_rejects_empty_romanizer_output() -> None:
+    def fake_romanizer(text: str) -> str:
+        return "   \t\n"
+
+    with pytest.raises(
+        ValueError,
+        match="romanizer output must not be empty",
+    ):
+        preprocess_japanese_source(
+            "テスト",
+            reader=lambda text: "テスト",
+            romanizer=fake_romanizer,
+        )
+
+
+def test_preprocess_japanese_source_rejects_non_string_romanizer_output() -> None:
+    def fake_romanizer(text: str) -> str:
+        return None  # type: ignore[return-value]
+
+    with pytest.raises(
+        TypeError,
+        match="romanizer output must be a string",
+    ):
+        preprocess_japanese_source(
+            "テスト",
+            reader=lambda text: "テスト",
+            romanizer=fake_romanizer,
+        )

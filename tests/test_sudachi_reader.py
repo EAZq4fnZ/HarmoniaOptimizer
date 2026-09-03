@@ -13,6 +13,7 @@ class FakeMorpheme:
         self,
         reading: str,
         surface: str | None = None,
+        part_of_speech: str = "名詞",
     ) -> None:
         self._reading = reading
         self._surface = (
@@ -20,6 +21,7 @@ class FakeMorpheme:
             if surface is None
             else surface
         )
+        self._part_of_speech = part_of_speech
 
     def surface(
         self,
@@ -30,6 +32,18 @@ class FakeMorpheme:
         self,
     ) -> str:
         return self._reading
+
+    def part_of_speech(
+        self,
+    ) -> tuple[str, ...]:
+        return (
+            self._part_of_speech,
+            "*",
+            "*",
+            "*",
+            "*",
+            "*",
+        )
 
 
 def test_extract_sudachi_readings_returns_reading_forms() -> None:
@@ -144,6 +158,18 @@ def test_extract_sudachi_corpus_parts_preserves_ascii_and_skips_whitespace() -> 
         ) -> str:
             return self._reading
 
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "*",
+                "*",
+                "*",
+                "*",
+                "*",
+            )
+
     morphemes = (
         SurfaceMorpheme(
             "ABC",
@@ -192,6 +218,18 @@ def test_make_sudachi_tokenizer_preserves_ascii_and_skips_whitespace() -> None:
         ) -> str:
             return self._reading
 
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "*",
+                "*",
+                "*",
+                "*",
+                "*",
+            )
+
     class FakeTokenizer:
         def tokenize(
             self,
@@ -223,4 +261,48 @@ def test_make_sudachi_tokenizer_preserves_ascii_and_skips_whitespace() -> None:
     ) == (
         "ABC",
         "ニホンゴ",
+    )
+
+
+def test_extract_sudachi_corpus_parts_preserves_symbols() -> None:
+    tokenizer = make_default_sudachi_tokenizer()
+
+    assert "".join(
+        tokenizer("今日は良い天気です。")
+    ) == "キョウハヨイテンキデス。"
+
+    assert "".join(
+        tokenizer("「テスト！」")
+    ) == "「テスト！」"
+
+    assert "".join(
+        tokenizer("：（）；")
+    ) == "：（）；"
+
+
+def test_extract_sudachi_corpus_parts_uses_surface_for_symbols() -> None:
+    morphemes = (
+        FakeMorpheme(
+            reading="キゴウ",
+            surface="：",
+            part_of_speech="補助記号",
+        ),
+        FakeMorpheme(
+            reading="!",
+            surface="！",
+            part_of_speech="補助記号",
+        ),
+        FakeMorpheme(
+            reading="キゴウ",
+            surface="（",
+            part_of_speech="補助記号",
+        ),
+    )
+
+    assert tuple(
+        extract_sudachi_corpus_parts(morphemes)
+    ) == (
+        "：",
+        "！",
+        "（",
     )

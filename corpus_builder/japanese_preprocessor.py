@@ -12,6 +12,7 @@ def preprocess_japanese_source(
     text: str,
     *,
     reader: Callable[[str], str] | None = None,
+    romanizer: Callable[[str], str] | None = None,
 ) -> str:
     normalized = normalize_fullwidth_ascii(
         normalize_text(text)
@@ -39,4 +40,28 @@ def preprocess_japanese_source(
             "reader output must not be empty"
         )
 
-    return reader_output
+    if romanizer is None:
+        return reader_output
+
+    raw_romanizer_output = romanizer(
+        reader_output
+    )
+
+    if not isinstance(
+        raw_romanizer_output,
+        str,
+    ):
+        raise TypeError(
+            "romanizer output must be a string"
+        )
+
+    romanizer_output = normalize_text(
+        raw_romanizer_output
+    )
+
+    if not romanizer_output:
+        raise ValueError(
+            "romanizer output must not be empty"
+        )
+
+    return romanizer_output

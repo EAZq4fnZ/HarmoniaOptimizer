@@ -15,6 +15,11 @@ class SudachiMorpheme(Protocol):
     ) -> str:
         ...
 
+    def part_of_speech(
+        self,
+    ) -> tuple[str, ...]:
+        ...
+
 
 def extract_sudachi_readings(
     morphemes: Iterable[SudachiMorpheme],
@@ -59,6 +64,12 @@ def extract_sudachi_corpus_parts(
             )
 
         if surface.isspace():
+            continue
+
+        part_of_speech = morpheme.part_of_speech()
+
+        if part_of_speech[0] == "補助記号":
+            yield surface
             continue
 
         if surface.isascii():
