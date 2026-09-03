@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from tools.audit_japanese_corpus import (
@@ -273,3 +274,75 @@ def test_main_prints_issues_by_count_descending(
     ) < captured.out.index(
         "surface: 少数"
     )
+
+
+def test_main_writes_json_output(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    import tools.audit_japanese_corpus as tool
+    from corpus_builder.japanese_audit import (
+        JapaneseAuditIssue,
+        JapaneseAuditResult,
+    )
+
+    source = tmp_path / "sample.txt"
+    output = tmp_path / "audit.json"
+
+    source.write_text(
+        "未知の語です。\n",
+        encoding="utf-8",
+    )
+
+    result = JapaneseAuditResult(
+        total_morphemes=3,
+        successful_morphemes=2,
+        failed_morphemes=1,
+        issues=(
+            JapaneseAuditIssue(
+                surface="未知",
+                reading="ㇰ",
+                part_of_speech="名詞",
+                context="未知の語です。",
+                error="Unsupported katakana: ㇰ",
+                count=1,
+            ),
+        ),
+    )
+
+    monkeypatch.setattr(
+        tool,
+        "audit_default_file",
+        lambda path: result,
+    )
+
+    exit_code = tool.main(
+        [
+            str(source),
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert exit_code == 0
+    assert output.exists()
+
+    data = json.loads(
+        output.read_text(
+            encoding="utf-8",
+        )
+    )
+
+    assert data["total_morphemes"] == 3
+    assert data["successful_morphemes"] == 2
+    assert data["failed_morphemes"] == 1
+    assert data["issues"] == [
+        {
+            "surface": "未知",
+            "reading": "ㇰ",
+            "part_of_speech": "名詞",
+            "context": "未知の語です。",
+            "error": "Unsupported katakana: ㇰ",
+            "count": 1,
+        }
+    ]

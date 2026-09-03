@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,10 @@ def main(
         "source",
         type=Path,
     )
+    parser.add_argument(
+        "--output",
+        type=Path,
+    )
 
     args = parser.parse_args(argv)
 
@@ -130,6 +135,41 @@ def main(
         print(
             f"error: "
             f"{issue.error}"
+        )
+
+    if args.output is not None:
+        payload = {
+            "total_morphemes": (
+                result.total_morphemes
+            ),
+            "successful_morphemes": (
+                result.successful_morphemes
+            ),
+            "failed_morphemes": (
+                result.failed_morphemes
+            ),
+            "issues": [
+                {
+                    "surface": issue.surface,
+                    "reading": issue.reading,
+                    "part_of_speech": (
+                        issue.part_of_speech
+                    ),
+                    "context": issue.context,
+                    "error": issue.error,
+                    "count": issue.count,
+                }
+                for issue in result.issues
+            ],
+        }
+
+        args.output.write_text(
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
         )
 
     return 0
