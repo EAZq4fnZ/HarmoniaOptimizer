@@ -44,54 +44,63 @@ def extract_sudachi_readings(
 
 
 
+def select_sudachi_corpus_part(
+    morpheme: SudachiMorpheme,
+) -> str | None:
+    surface = morpheme.surface()
+
+    if not isinstance(
+        surface,
+        str,
+    ):
+        raise TypeError(
+            "Sudachi surface must be a string"
+        )
+
+    if not surface:
+        raise ValueError(
+            "Sudachi surface must not be empty"
+        )
+
+    if surface.isspace():
+        return None
+
+    part_of_speech = morpheme.part_of_speech()
+
+    if part_of_speech[0] == "補助記号":
+        return surface
+
+    if surface.isascii():
+        return surface
+
+    reading = morpheme.reading_form()
+
+    if not isinstance(
+        reading,
+        str,
+    ):
+        raise TypeError(
+            "Sudachi reading must be a string"
+        )
+
+    if not reading:
+        raise ValueError(
+            "Sudachi reading must not be empty"
+        )
+
+    return reading
+
+
 def extract_sudachi_corpus_parts(
     morphemes: Iterable[SudachiMorpheme],
 ) -> Iterable[str]:
     for morpheme in morphemes:
-        surface = morpheme.surface()
+        part = select_sudachi_corpus_part(
+            morpheme
+        )
 
-        if not isinstance(
-            surface,
-            str,
-        ):
-            raise TypeError(
-                "Sudachi surface must be a string"
-            )
-
-        if not surface:
-            raise ValueError(
-                "Sudachi surface must not be empty"
-            )
-
-        if surface.isspace():
-            continue
-
-        part_of_speech = morpheme.part_of_speech()
-
-        if part_of_speech[0] == "補助記号":
-            yield surface
-            continue
-
-        if surface.isascii():
-            yield surface
-            continue
-
-        reading = morpheme.reading_form()
-
-        if not isinstance(
-            reading,
-            str,
-        ):
-            raise TypeError(
-                "Sudachi reading must be a string"
-            )
-
-        if not reading:
-            raise ValueError(
-                "Sudachi reading must not be empty"
-            )
-
-        yield reading
+        if part is not None:
+            yield part
 
 
 class SudachiTokenizer(Protocol):

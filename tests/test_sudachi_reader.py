@@ -306,3 +306,64 @@ def test_extract_sudachi_corpus_parts_uses_surface_for_symbols() -> None:
         "！",
         "（",
     )
+
+
+def test_select_sudachi_corpus_part_returns_none_for_whitespace() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    morpheme = FakeMorpheme(
+        reading="キゴウ",
+        surface=" ",
+    )
+
+    assert select_sudachi_corpus_part(
+        morpheme
+    ) is None
+
+
+def test_select_sudachi_corpus_part_uses_surface_for_symbol() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    morpheme = FakeMorpheme(
+        reading="キゴウ",
+        surface="：",
+        part_of_speech="補助記号",
+    )
+
+    assert select_sudachi_corpus_part(
+        morpheme
+    ) == "："
+
+
+def test_select_sudachi_corpus_part_uses_surface_for_ascii() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    morpheme = FakeMorpheme(
+        reading="エービーシー",
+        surface="ABC",
+    )
+
+    assert select_sudachi_corpus_part(
+        morpheme
+    ) == "ABC"
+
+
+def test_select_sudachi_corpus_part_uses_reading_for_japanese() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    morpheme = FakeMorpheme(
+        reading="キョウ",
+        surface="今日",
+    )
+
+    assert select_sudachi_corpus_part(
+        morpheme
+    ) == "キョウ"
