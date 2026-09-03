@@ -102,7 +102,11 @@ def main(
         f"{len(result.issues)}"
     )
 
-    for issue in result.issues:
+    for issue in sorted(
+        result.issues,
+        key=lambda issue: issue.count,
+        reverse=True,
+    ):
         print(
             f"surface: "
             f"{issue.surface}"

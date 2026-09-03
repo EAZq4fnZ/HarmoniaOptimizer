@@ -209,3 +209,67 @@ def test_main_prints_issue_details(
     assert "count: 2" in captured.out
     assert "context: 未知の語です。" in captured.out
     assert "error: Unsupported katakana: ㇰ" in captured.out
+
+
+def test_main_prints_issues_by_count_descending(
+    tmp_path: Path,
+    capsys: object,
+    monkeypatch: object,
+) -> None:
+    import tools.audit_japanese_corpus as tool
+    from corpus_builder.japanese_audit import (
+        JapaneseAuditIssue,
+        JapaneseAuditResult,
+    )
+
+    source = tmp_path / "sample.txt"
+
+    source.write_text(
+        "sample\n",
+        encoding="utf-8",
+    )
+
+    result = JapaneseAuditResult(
+        total_morphemes=7,
+        successful_morphemes=2,
+        failed_morphemes=5,
+        issues=(
+            JapaneseAuditIssue(
+                surface="少数",
+                reading="ㇰ",
+                part_of_speech="名詞",
+                context="少数",
+                error="error-a",
+                count=1,
+            ),
+            JapaneseAuditIssue(
+                surface="多数",
+                reading="ㇱ",
+                part_of_speech="名詞",
+                context="多数",
+                error="error-b",
+                count=4,
+            ),
+        ),
+    )
+
+    monkeypatch.setattr(
+        tool,
+        "audit_default_file",
+        lambda path: result,
+    )
+
+    exit_code = tool.main(
+        [
+            str(source),
+        ]
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out.index(
+        "surface: 多数"
+    ) < captured.out.index(
+        "surface: 少数"
+    )
