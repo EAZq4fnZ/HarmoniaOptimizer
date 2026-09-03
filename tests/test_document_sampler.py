@@ -166,3 +166,75 @@ def test_sample_documents_is_independent_of_input_order() -> None:
     )
 
     assert first == second
+
+
+def test_sample_documents_filters_by_min_length() -> None:
+    documents = (
+        "短い",
+        "これは十分に長い文書です",
+        "これも十分に長い文章です",
+    )
+
+    result = sample_documents(
+        documents,
+        sample_size=10,
+        seed=1,
+        min_length=5,
+    )
+
+    assert set(result) == {
+        "これは十分に長い文書です",
+        "これも十分に長い文章です",
+    }
+
+
+def test_sample_documents_keeps_short_documents_by_default() -> None:
+    result = sample_documents(
+        (
+            "短い",
+            "長い文書です",
+        ),
+        sample_size=10,
+        seed=1,
+    )
+
+    assert set(result) == {
+        "短い",
+        "長い文書です",
+    }
+
+
+def test_sample_documents_rejects_zero_min_length() -> None:
+    try:
+        sample_documents(
+            ("alpha",),
+            sample_size=1,
+            seed=1,
+            min_length=0,
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "min_length must be greater than 0"
+        )
+    else:
+        raise AssertionError(
+            "ValueError was not raised"
+        )
+
+
+def test_sample_documents_rejects_negative_min_length() -> None:
+    try:
+        sample_documents(
+            ("alpha",),
+            sample_size=1,
+            seed=1,
+            min_length=-1,
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "min_length must be greater than 0"
+        )
+    else:
+        raise AssertionError(
+            "ValueError was not raised"
+        )
