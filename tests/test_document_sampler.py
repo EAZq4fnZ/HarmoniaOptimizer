@@ -1,5 +1,6 @@
 from corpus_builder.document_sampler import (
     sample_documents,
+    sample_documents_streaming,
 )
 
 
@@ -238,3 +239,223 @@ def test_sample_documents_rejects_negative_min_length() -> None:
         raise AssertionError(
             "ValueError was not raised"
         )
+
+
+def test_sample_documents_streaming_is_deterministic() -> None:
+    documents = (
+        "alpha",
+        "bravo",
+        "charlie",
+        "delta",
+        "echo",
+    )
+
+    first = sample_documents_streaming(
+        documents,
+        sample_size=3,
+        seed=20260904,
+    )
+    second = sample_documents_streaming(
+        documents,
+        sample_size=3,
+        seed=20260904,
+    )
+
+    assert first == second
+    assert len(first) == 3
+
+
+def test_sample_documents_streaming_is_independent_of_input_order() -> None:
+    first = sample_documents_streaming(
+        (
+            "alpha",
+            "bravo",
+            "charlie",
+            "delta",
+            "echo",
+        ),
+        sample_size=3,
+        seed=20260904,
+    )
+
+    second = sample_documents_streaming(
+        (
+            "echo",
+            "charlie",
+            "alpha",
+            "delta",
+            "bravo",
+        ),
+        sample_size=3,
+        seed=20260904,
+    )
+
+    assert first == second
+
+
+def test_sample_documents_streaming_removes_duplicates() -> None:
+    result = sample_documents_streaming(
+        (
+            "alpha",
+            "bravo",
+            "alpha",
+            "charlie",
+            "bravo",
+        ),
+        sample_size=10,
+        seed=1,
+    )
+
+    assert set(result) == {
+        "alpha",
+        "bravo",
+        "charlie",
+    }
+
+
+def test_sample_documents_streaming_filters_by_min_length() -> None:
+    result = sample_documents_streaming(
+        (
+            "短い",
+            "これは十分に長い文書です",
+            "これも十分に長い文章です",
+        ),
+        sample_size=10,
+        seed=1,
+        min_length=5,
+    )
+
+    assert set(result) == {
+        "これは十分に長い文書です",
+        "これも十分に長い文章です",
+    }
+
+
+def test_sample_documents_streaming_consumes_input_once() -> None:
+    iteration_count = 0
+
+    def documents():
+        nonlocal iteration_count
+        iteration_count += 1
+
+        if iteration_count > 1:
+            raise AssertionError(
+                "documents were iterated more than once"
+            )
+
+        yield "alpha"
+        yield "bravo"
+        yield "charlie"
+        yield "delta"
+
+    result = sample_documents_streaming(
+        documents(),
+        sample_size=2,
+        seed=1,
+    )
+
+    assert len(result) == 2
+    assert iteration_count == 1
+
+
+def test_sample_documents_streaming_rejects_zero_sample_size() -> None:
+    try:
+        sample_documents_streaming(
+            ("alpha",),
+            sample_size=0,
+            seed=1,
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "sample_size must be greater than 0"
+        )
+    else:
+        raise AssertionError(
+            "ValueError was not raised"
+        )
+
+
+def test_sample_documents_streaming_rejects_negative_sample_size() -> None:
+    try:
+        sample_documents_streaming(
+            ("alpha",),
+            sample_size=-1,
+            seed=1,
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "sample_size must be greater than 0"
+        )
+    else:
+        raise AssertionError(
+            "ValueError was not raised"
+        )
+
+
+def test_sample_documents_streaming_rejects_zero_min_length() -> None:
+    try:
+        sample_documents_streaming(
+            ("alpha",),
+            sample_size=1,
+            seed=1,
+            min_length=0,
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "min_length must be greater than 0"
+        )
+    else:
+        raise AssertionError(
+            "ValueError was not raised"
+        )
+
+
+def test_sample_documents_streaming_rejects_negative_min_length() -> None:
+    try:
+        sample_documents_streaming(
+            ("alpha",),
+            sample_size=1,
+            seed=1,
+            min_length=-1,
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "min_length must be greater than 0"
+        )
+    else:
+        raise AssertionError(
+            "ValueError was not raised"
+        )
+
+
+def test_sample_documents_streaming_handles_large_generator() -> None:
+    def documents():
+        for index in range(100_000):
+            yield f"document-{index}"
+
+    result = sample_documents_streaming(
+        documents(),
+        sample_size=100,
+        seed=20260904,
+    )
+
+    assert len(result) == 100
+    assert len(set(result)) == 100
+
+
+def test_sample_documents_streaming_returns_all_when_sample_is_large() -> None:
+    result = sample_documents_streaming(
+        (
+            "alpha",
+            "bravo",
+            "charlie",
+        ),
+        sample_size=10,
+        seed=1,
+    )
+
+    assert set(result) == {
+        "alpha",
+        "bravo",
+        "charlie",
+    }
