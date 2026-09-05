@@ -1,0 +1,823 @@
+{
+  "schema_version": "1.0",
+  "source": {
+    "provider": "huggingface",
+    "dataset": "singletongue/cc100-documents",
+    "config": "ja",
+    "split": "train",
+    "population_size": 65613665
+  },
+  "sampling": {
+    "method": "deterministic_non_overlapping_blocks",
+    "document_count": 20000,
+    "seed": 20260905,
+    "block_size": 100,
+    "ranges": [
+      {
+        "offset": 92422,
+        "length": 100
+      },
+      {
+        "offset": 712239,
+        "length": 100
+      },
+      {
+        "offset": 1261951,
+        "length": 100
+      },
+      {
+        "offset": 1439380,
+        "length": 100
+      },
+      {
+        "offset": 1556654,
+        "length": 100
+      },
+      {
+        "offset": 2287685,
+        "length": 100
+      },
+      {
+        "offset": 2681792,
+        "length": 100
+      },
+      {
+        "offset": 2692517,
+        "length": 100
+      },
+      {
+        "offset": 2911825,
+        "length": 100
+      },
+      {
+        "offset": 2996113,
+        "length": 100
+      },
+      {
+        "offset": 3281931,
+        "length": 100
+      },
+      {
+        "offset": 5177641,
+        "length": 100
+      },
+      {
+        "offset": 5451811,
+        "length": 100
+      },
+      {
+        "offset": 5493753,
+        "length": 100
+      },
+      {
+        "offset": 5592585,
+        "length": 100
+      },
+      {
+        "offset": 5672178,
+        "length": 100
+      },
+      {
+        "offset": 6056766,
+        "length": 100
+      },
+      {
+        "offset": 6058675,
+        "length": 100
+      },
+      {
+        "offset": 6122603,
+        "length": 100
+      },
+      {
+        "offset": 6561060,
+        "length": 100
+      },
+      {
+        "offset": 7033250,
+        "length": 100
+      },
+      {
+        "offset": 7531339,
+        "length": 100
+      },
+      {
+        "offset": 7776761,
+        "length": 100
+      },
+      {
+        "offset": 7914247,
+        "length": 100
+      },
+      {
+        "offset": 8243790,
+        "length": 100
+      },
+      {
+        "offset": 8351252,
+        "length": 100
+      },
+      {
+        "offset": 8443905,
+        "length": 100
+      },
+      {
+        "offset": 8550623,
+        "length": 100
+      },
+      {
+        "offset": 9447963,
+        "length": 100
+      },
+      {
+        "offset": 9954088,
+        "length": 100
+      },
+      {
+        "offset": 10436642,
+        "length": 100
+      },
+      {
+        "offset": 10776482,
+        "length": 100
+      },
+      {
+        "offset": 11306279,
+        "length": 100
+      },
+      {
+        "offset": 11401821,
+        "length": 100
+      },
+      {
+        "offset": 11966422,
+        "length": 100
+      },
+      {
+        "offset": 12015324,
+        "length": 100
+      },
+      {
+        "offset": 12016504,
+        "length": 100
+      },
+      {
+        "offset": 12206104,
+        "length": 100
+      },
+      {
+        "offset": 12578599,
+        "length": 100
+      },
+      {
+        "offset": 12579658,
+        "length": 100
+      },
+      {
+        "offset": 13434819,
+        "length": 100
+      },
+      {
+        "offset": 14061152,
+        "length": 100
+      },
+      {
+        "offset": 14160859,
+        "length": 100
+      },
+      {
+        "offset": 14854969,
+        "length": 100
+      },
+      {
+        "offset": 15086036,
+        "length": 100
+      },
+      {
+        "offset": 15938470,
+        "length": 100
+      },
+      {
+        "offset": 15954790,
+        "length": 100
+      },
+      {
+        "offset": 15975961,
+        "length": 100
+      },
+      {
+        "offset": 16071116,
+        "length": 100
+      },
+      {
+        "offset": 16629790,
+        "length": 100
+      },
+      {
+        "offset": 16863172,
+        "length": 100
+      },
+      {
+        "offset": 17633635,
+        "length": 100
+      },
+      {
+        "offset": 17830504,
+        "length": 100
+      },
+      {
+        "offset": 19100367,
+        "length": 100
+      },
+      {
+        "offset": 19572317,
+        "length": 100
+      },
+      {
+        "offset": 19751092,
+        "length": 100
+      },
+      {
+        "offset": 20065252,
+        "length": 100
+      },
+      {
+        "offset": 20544967,
+        "length": 100
+      },
+      {
+        "offset": 20968907,
+        "length": 100
+      },
+      {
+        "offset": 21061542,
+        "length": 100
+      },
+      {
+        "offset": 21083963,
+        "length": 100
+      },
+      {
+        "offset": 21147023,
+        "length": 100
+      },
+      {
+        "offset": 21328859,
+        "length": 100
+      },
+      {
+        "offset": 21576664,
+        "length": 100
+      },
+      {
+        "offset": 21794155,
+        "length": 100
+      },
+      {
+        "offset": 23228074,
+        "length": 100
+      },
+      {
+        "offset": 23354788,
+        "length": 100
+      },
+      {
+        "offset": 23399790,
+        "length": 100
+      },
+      {
+        "offset": 23431583,
+        "length": 100
+      },
+      {
+        "offset": 23759927,
+        "length": 100
+      },
+      {
+        "offset": 23795149,
+        "length": 100
+      },
+      {
+        "offset": 24025409,
+        "length": 100
+      },
+      {
+        "offset": 24038816,
+        "length": 100
+      },
+      {
+        "offset": 24089576,
+        "length": 100
+      },
+      {
+        "offset": 24240289,
+        "length": 100
+      },
+      {
+        "offset": 25282193,
+        "length": 100
+      },
+      {
+        "offset": 25874197,
+        "length": 100
+      },
+      {
+        "offset": 25905048,
+        "length": 100
+      },
+      {
+        "offset": 26056665,
+        "length": 100
+      },
+      {
+        "offset": 26282848,
+        "length": 100
+      },
+      {
+        "offset": 26298141,
+        "length": 100
+      },
+      {
+        "offset": 26827839,
+        "length": 100
+      },
+      {
+        "offset": 26910458,
+        "length": 100
+      },
+      {
+        "offset": 27740150,
+        "length": 100
+      },
+      {
+        "offset": 27798629,
+        "length": 100
+      },
+      {
+        "offset": 27928126,
+        "length": 100
+      },
+      {
+        "offset": 27961119,
+        "length": 100
+      },
+      {
+        "offset": 28551217,
+        "length": 100
+      },
+      {
+        "offset": 28613780,
+        "length": 100
+      },
+      {
+        "offset": 29357101,
+        "length": 100
+      },
+      {
+        "offset": 29394582,
+        "length": 100
+      },
+      {
+        "offset": 29399974,
+        "length": 100
+      },
+      {
+        "offset": 29537723,
+        "length": 100
+      },
+      {
+        "offset": 29898328,
+        "length": 100
+      },
+      {
+        "offset": 30336344,
+        "length": 100
+      },
+      {
+        "offset": 30487265,
+        "length": 100
+      },
+      {
+        "offset": 30720980,
+        "length": 100
+      },
+      {
+        "offset": 30841963,
+        "length": 100
+      },
+      {
+        "offset": 31102201,
+        "length": 100
+      },
+      {
+        "offset": 31383807,
+        "length": 100
+      },
+      {
+        "offset": 31456723,
+        "length": 100
+      },
+      {
+        "offset": 32365816,
+        "length": 100
+      },
+      {
+        "offset": 32451174,
+        "length": 100
+      },
+      {
+        "offset": 32487279,
+        "length": 100
+      },
+      {
+        "offset": 32769789,
+        "length": 100
+      },
+      {
+        "offset": 33646149,
+        "length": 100
+      },
+      {
+        "offset": 33769399,
+        "length": 100
+      },
+      {
+        "offset": 33868813,
+        "length": 100
+      },
+      {
+        "offset": 33923776,
+        "length": 100
+      },
+      {
+        "offset": 34189763,
+        "length": 100
+      },
+      {
+        "offset": 34818598,
+        "length": 100
+      },
+      {
+        "offset": 34834553,
+        "length": 100
+      },
+      {
+        "offset": 35739766,
+        "length": 100
+      },
+      {
+        "offset": 35765474,
+        "length": 100
+      },
+      {
+        "offset": 35905701,
+        "length": 100
+      },
+      {
+        "offset": 36725409,
+        "length": 100
+      },
+      {
+        "offset": 36975864,
+        "length": 100
+      },
+      {
+        "offset": 37184749,
+        "length": 100
+      },
+      {
+        "offset": 37367903,
+        "length": 100
+      },
+      {
+        "offset": 37850458,
+        "length": 100
+      },
+      {
+        "offset": 37985523,
+        "length": 100
+      },
+      {
+        "offset": 38023010,
+        "length": 100
+      },
+      {
+        "offset": 38375425,
+        "length": 100
+      },
+      {
+        "offset": 38399903,
+        "length": 100
+      },
+      {
+        "offset": 38517350,
+        "length": 100
+      },
+      {
+        "offset": 39660155,
+        "length": 100
+      },
+      {
+        "offset": 40404033,
+        "length": 100
+      },
+      {
+        "offset": 40441613,
+        "length": 100
+      },
+      {
+        "offset": 40648862,
+        "length": 100
+      },
+      {
+        "offset": 40902900,
+        "length": 100
+      },
+      {
+        "offset": 40933193,
+        "length": 100
+      },
+      {
+        "offset": 41027110,
+        "length": 100
+      },
+      {
+        "offset": 41342881,
+        "length": 100
+      },
+      {
+        "offset": 41547352,
+        "length": 100
+      },
+      {
+        "offset": 41557539,
+        "length": 100
+      },
+      {
+        "offset": 42037471,
+        "length": 100
+      },
+      {
+        "offset": 42213518,
+        "length": 100
+      },
+      {
+        "offset": 42532399,
+        "length": 100
+      },
+      {
+        "offset": 42802592,
+        "length": 100
+      },
+      {
+        "offset": 43099452,
+        "length": 100
+      },
+      {
+        "offset": 43536664,
+        "length": 100
+      },
+      {
+        "offset": 44203183,
+        "length": 100
+      },
+      {
+        "offset": 44409163,
+        "length": 100
+      },
+      {
+        "offset": 44416970,
+        "length": 100
+      },
+      {
+        "offset": 44654716,
+        "length": 100
+      },
+      {
+        "offset": 44719265,
+        "length": 100
+      },
+      {
+        "offset": 44961575,
+        "length": 100
+      },
+      {
+        "offset": 45267064,
+        "length": 100
+      },
+      {
+        "offset": 45285014,
+        "length": 100
+      },
+      {
+        "offset": 45871843,
+        "length": 100
+      },
+      {
+        "offset": 45874183,
+        "length": 100
+      },
+      {
+        "offset": 45892640,
+        "length": 100
+      },
+      {
+        "offset": 46206347,
+        "length": 100
+      },
+      {
+        "offset": 46312487,
+        "length": 100
+      },
+      {
+        "offset": 47016514,
+        "length": 100
+      },
+      {
+        "offset": 47258465,
+        "length": 100
+      },
+      {
+        "offset": 47367318,
+        "length": 100
+      },
+      {
+        "offset": 47832435,
+        "length": 100
+      },
+      {
+        "offset": 47912433,
+        "length": 100
+      },
+      {
+        "offset": 48111260,
+        "length": 100
+      },
+      {
+        "offset": 48478706,
+        "length": 100
+      },
+      {
+        "offset": 48634304,
+        "length": 100
+      },
+      {
+        "offset": 48948002,
+        "length": 100
+      },
+      {
+        "offset": 49416785,
+        "length": 100
+      },
+      {
+        "offset": 49514011,
+        "length": 100
+      },
+      {
+        "offset": 50107522,
+        "length": 100
+      },
+      {
+        "offset": 50362302,
+        "length": 100
+      },
+      {
+        "offset": 50477021,
+        "length": 100
+      },
+      {
+        "offset": 50778861,
+        "length": 100
+      },
+      {
+        "offset": 50950158,
+        "length": 100
+      },
+      {
+        "offset": 51066752,
+        "length": 100
+      },
+      {
+        "offset": 51279681,
+        "length": 100
+      },
+      {
+        "offset": 51612204,
+        "length": 100
+      },
+      {
+        "offset": 51749160,
+        "length": 100
+      },
+      {
+        "offset": 51967562,
+        "length": 100
+      },
+      {
+        "offset": 52915946,
+        "length": 100
+      },
+      {
+        "offset": 53056758,
+        "length": 100
+      },
+      {
+        "offset": 53206525,
+        "length": 100
+      },
+      {
+        "offset": 53810849,
+        "length": 100
+      },
+      {
+        "offset": 53916353,
+        "length": 100
+      },
+      {
+        "offset": 55221122,
+        "length": 100
+      },
+      {
+        "offset": 56541036,
+        "length": 100
+      },
+      {
+        "offset": 56670463,
+        "length": 100
+      },
+      {
+        "offset": 57443636,
+        "length": 100
+      },
+      {
+        "offset": 58044345,
+        "length": 100
+      },
+      {
+        "offset": 58405488,
+        "length": 100
+      },
+      {
+        "offset": 58649684,
+        "length": 100
+      },
+      {
+        "offset": 59009957,
+        "length": 100
+      },
+      {
+        "offset": 59909628,
+        "length": 100
+      },
+      {
+        "offset": 59993309,
+        "length": 100
+      },
+      {
+        "offset": 60276899,
+        "length": 100
+      },
+      {
+        "offset": 60621310,
+        "length": 100
+      },
+      {
+        "offset": 61610074,
+        "length": 100
+      },
+      {
+        "offset": 62271372,
+        "length": 100
+      },
+      {
+        "offset": 62392434,
+        "length": 100
+      },
+      {
+        "offset": 63590186,
+        "length": 100
+      },
+      {
+        "offset": 63602313,
+        "length": 100
+      },
+      {
+        "offset": 63654358,
+        "length": 100
+      },
+      {
+        "offset": 64734657,
+        "length": 100
+      },
+      {
+        "offset": 64910888,
+        "length": 100
+      }
+    ]
+  },
+  "snapshot": {
+    "path": "corpus/raw/cc100-ja/cc100-ja-seed-20260905-20000.jsonl",
+    "document_count": 20000,
+    "sha256": "eb1aee1ea3d462b24378cb135ca2c32bd64ea0a47c1acad5ba587a9b59610877"
+  }
+}
