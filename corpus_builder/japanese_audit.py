@@ -47,17 +47,61 @@ def audit_japanese_morphemes(
         tuple[str, str, str]
     ] = []
 
+    selection_failures = 0
+
     for morpheme in morphemes:
-        reading = select_sudachi_corpus_part(
-            morpheme
-        )
-
-        if reading is None:
-            continue
-
         surface = morpheme.surface()
         part_of_speech = morpheme.part_of_speech()
         part_of_speech_name = part_of_speech[0]
+
+        try:
+            reading = select_sudachi_corpus_part(
+                morpheme
+            )
+        except (
+            TypeError,
+            ValueError,
+        ) as error:
+            selection_failures += 1
+            failed_morphemes += 1
+
+            raw_reading = morpheme.reading_form()
+            reading_text = (
+                raw_reading
+                if isinstance(
+                    raw_reading,
+                    str,
+                )
+                else repr(raw_reading)
+            )
+
+            error_message = str(error)
+
+            key = (
+                surface,
+                reading_text,
+                part_of_speech_name,
+                error_message,
+            )
+
+            previous = issue_counts.get(key)
+
+            if previous is None:
+                issue_counts[key] = (
+                    context,
+                    1,
+                )
+            else:
+                first_context, count = previous
+                issue_counts[key] = (
+                    first_context,
+                    count + 1,
+                )
+
+            continue
+
+        if reading is None:
+            continue
 
         parts.append(
             (
@@ -67,8 +111,9 @@ def audit_japanese_morphemes(
             )
         )
 
-    total_morphemes = len(
-        parts
+    total_morphemes = (
+        len(parts)
+        + selection_failures
     )
 
     index = 0
@@ -162,16 +207,85 @@ def audit_japanese_morphemes(
 
 
 
+SUDACHI_TEXT_MAX_BYTES = 48_000
+
+
+def split_sudachi_text_chunks(
+    text: str,
+    *,
+    max_bytes: int = SUDACHI_TEXT_MAX_BYTES,
+) -> tuple[str, ...]:
+    if max_bytes <= 0:
+        raise ValueError(
+            "max_bytes must be greater than 0"
+        )
+
+    if not text:
+        return ()
+
+    if len(
+        text.encode("utf-8")
+    ) <= max_bytes:
+        return (text,)
+
+    lines = text.splitlines(
+        keepends=True
+    )
+
+    chunks: list[str] = []
+    current_lines: list[str] = []
+    current_bytes = 0
+
+    for line in lines:
+        line_bytes = len(
+            line.encode("utf-8")
+        )
+
+        if line_bytes > max_bytes:
+            raise ValueError(
+                "Single line exceeds Sudachi byte limit"
+            )
+
+        if (
+            current_lines
+            and current_bytes + line_bytes
+            > max_bytes
+        ):
+            chunks.append(
+                "".join(current_lines)
+            )
+            current_lines = []
+            current_bytes = 0
+
+        current_lines.append(line)
+        current_bytes += line_bytes
+
+    if current_lines:
+        chunks.append(
+            "".join(current_lines)
+        )
+
+    return tuple(chunks)
+
+
+
 def audit_japanese_text(
     text: str,
     *,
     tokenizer: SudachiTokenizer,
     romanizer: Callable[[str], str],
 ) -> JapaneseAuditResult:
-    return audit_japanese_morphemes(
-        tokenizer.tokenize(text),
-        romanizer=romanizer,
-        context=text,
+    chunks = split_sudachi_text_chunks(
+        text
+    )
+
+    return merge_japanese_audit_results(
+        audit_japanese_morphemes(
+            tokenizer.tokenize(chunk),
+            romanizer=romanizer,
+            context=text,
+        )
+        for chunk in chunks
     )
 
 

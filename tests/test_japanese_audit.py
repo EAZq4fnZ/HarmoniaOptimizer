@@ -489,3 +489,80 @@ def test_audit_japanese_morphemes_joins_trailing_small_tsu_with_next_reading() -
     assert result.successful_morphemes == 2
     assert result.failed_morphemes == 0
     assert result.issues == ()
+
+
+def test_audit_japanese_morphemes_records_empty_surface_as_issue() -> None:
+    morphemes = (
+        FakeMorpheme(
+            surface="",
+            reading="テスト",
+            part_of_speech="名詞",
+        ),
+    )
+
+    result = audit_japanese_morphemes(
+        morphemes,
+        romanizer=lambda text: text,
+        context="テスト",
+    )
+
+    assert result.total_morphemes == 1
+    assert result.successful_morphemes == 0
+    assert result.failed_morphemes == 1
+    assert len(result.issues) == 1
+    assert result.issues[0].error == (
+        "Sudachi surface must not be empty"
+    )
+
+
+def test_split_sudachi_text_chunks_keeps_chunks_within_byte_limit() -> None:
+    from corpus_builder.japanese_audit import (
+        split_sudachi_text_chunks,
+    )
+
+    text = "\n".join(
+        (
+            "あ" * 100,
+            "い" * 100,
+            "う" * 100,
+        )
+    )
+
+    chunks = split_sudachi_text_chunks(
+        text,
+        max_bytes=700,
+    )
+
+    assert "".join(chunks) == text
+
+    assert all(
+        len(
+            chunk.encode("utf-8")
+        )
+        <= 700
+        for chunk in chunks
+    )
+
+    assert len(chunks) == 2
+
+
+def test_split_sudachi_text_chunks_rejects_single_oversized_line() -> None:
+    from corpus_builder.japanese_audit import (
+        split_sudachi_text_chunks,
+    )
+
+    text = "あ" * 100
+
+    try:
+        split_sudachi_text_chunks(
+            text,
+            max_bytes=100,
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "Single line exceeds Sudachi byte limit"
+        )
+    else:
+        raise AssertionError(
+            "Expected ValueError"
+        )
