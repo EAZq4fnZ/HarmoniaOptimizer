@@ -251,6 +251,51 @@ def test_audit_japanese_text_tokenizes_source_text() -> None:
     assert issue.count == 1
 
 
+
+def test_audit_japanese_text_normalizes_source_before_tokenizing() -> None:
+    from corpus_builder.japanese_audit import (
+        audit_japanese_text,
+    )
+
+    received: list[str] = []
+
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ) -> tuple[FakeMorpheme, ...]:
+            received.append(text)
+
+            return (
+                FakeMorpheme(
+                    surface="今日",
+                    reading="キョウ",
+                ),
+            )
+
+    result = audit_japanese_text(
+        (
+            "\ufeff"
+            "今日は"
+            "\u200b"
+            "晴れ"
+            "\ufe0e"
+            "。"
+            "\ufe0f"
+        ),
+        tokenizer=FakeTokenizer(),
+        romanizer=lambda text: text,
+    )
+
+    assert received == [
+        "今日は晴れ。",
+    ]
+
+    assert result.total_morphemes == 1
+    assert result.successful_morphemes == 1
+    assert result.failed_morphemes == 0
+    assert result.issues == ()
+
 def test_merge_japanese_audit_results_aggregates_counts_and_issues() -> None:
     from corpus_builder.japanese_audit import (
         JapaneseAuditIssue,

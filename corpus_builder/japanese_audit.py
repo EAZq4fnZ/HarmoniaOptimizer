@@ -8,6 +8,7 @@ from .sudachi_reader import (
     SudachiTokenizer,
     select_sudachi_corpus_part,
 )
+from .text_normalizer import normalize_text
 
 
 @dataclass(frozen=True, slots=True)
@@ -316,8 +317,12 @@ def audit_japanese_text(
     tokenizer: SudachiTokenizer,
     romanizer: Callable[[str], str],
 ) -> JapaneseAuditResult:
-    chunks = split_sudachi_text_chunks(
+    normalized = normalize_text(
         text
+    )
+
+    chunks = split_sudachi_text_chunks(
+        normalized
     )
 
     return merge_japanese_audit_results(
