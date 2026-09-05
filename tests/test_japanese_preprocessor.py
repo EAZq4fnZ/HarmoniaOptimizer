@@ -112,3 +112,21 @@ def test_preprocess_japanese_source_rejects_non_string_romanizer_output() -> Non
             reader=lambda text: "テスト",
             romanizer=fake_romanizer,
         )
+
+
+def test_preprocess_japanese_source_removes_ignored_format_characters() -> None:
+    received: list[str] = []
+
+    def fake_reader(text: str) -> str:
+        received.append(text)
+        return "テスト"
+
+    result = preprocess_japanese_source(
+        "\ufeffテ\u200bス\ufe0fト\ufe0e",
+        reader=fake_reader,
+    )
+
+    assert received == [
+        "テスト"
+    ]
+    assert result == "テスト"

@@ -19,11 +19,34 @@ def normalize_unicode(
 
 
 
+IGNORED_FORMAT_CHARACTERS = frozenset(
+    {
+        "\u200b",
+        "\ufeff",
+        "\ufe0e",
+        "\ufe0f",
+    }
+)
+
+
+def remove_ignored_format_characters(
+    text: str,
+) -> str:
+    return "".join(
+        char
+        for char in text
+        if char
+        not in IGNORED_FORMAT_CHARACTERS
+    )
+
+
 def normalize_text(
     text: str,
 ) -> str:
     return normalize_whitespace(
-        normalize_unicode(text)
+        remove_ignored_format_characters(
+            normalize_unicode(text)
+        )
     )
 
 

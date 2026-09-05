@@ -128,3 +128,47 @@ def test_romanize_preserves_non_ascii_symbols() -> None:
     assert romanize_japanese_reading(
         "：（）；"
     ) == "：（）；"
+
+
+def test_romanize_preserves_unicode_symbols() -> None:
+    assert romanize_japanese_reading(
+        "★♪→♡"
+    ) == "★♪→♡"
+
+    assert romanize_japanese_reading(
+        "テスト×テスト"
+    ) == "tesuto×tesuto"
+
+
+def test_romanize_does_not_treat_unsupported_small_kana_as_symbol() -> None:
+    import pytest
+
+    with pytest.raises(
+        ValueError,
+        match="Unsupported katakana: ァ",
+    ):
+        romanize_japanese_reading(
+            "ナァ"
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="Unsupported katakana: ュ",
+    ):
+        romanize_japanese_reading(
+            "ュ"
+        )
+
+
+def test_romanize_deyu_foreign_sound_sequence() -> None:
+    assert romanize_japanese_reading(
+        "デュ"
+    ) == "dhu"
+
+    assert romanize_japanese_reading(
+        "エデュケーション"
+    ) == "edhuke-shonn"
+
+    assert romanize_japanese_reading(
+        "デュカス"
+    ) == "dhukasu"

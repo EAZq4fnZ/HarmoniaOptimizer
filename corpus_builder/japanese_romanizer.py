@@ -140,6 +140,7 @@ DIGRAPH_MAP = {
 
     "ティ": "thi",
     "ディ": "dhi",
+    "デュ": "dhu",
 
     "ファ": "fa",
     "フィ": "fi",
@@ -210,7 +211,9 @@ def romanize_japanese_reading(
             index += 1
             continue
 
-        if category(char).startswith("P"):
+        if category(char).startswith(
+            ("P", "S")
+        ):
             result.append(char)
             index += 1
             continue

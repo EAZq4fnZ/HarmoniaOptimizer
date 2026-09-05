@@ -43,8 +43,11 @@ def audit_japanese_morphemes(
         tuple[str, int],
     ] = {}
 
+    parts: list[
+        tuple[str, str, str]
+    ] = []
+
     for morpheme in morphemes:
-        surface = morpheme.surface()
         reading = select_sudachi_corpus_part(
             morpheme
         )
@@ -52,10 +55,49 @@ def audit_japanese_morphemes(
         if reading is None:
             continue
 
-        total_morphemes += 1
-
+        surface = morpheme.surface()
         part_of_speech = morpheme.part_of_speech()
         part_of_speech_name = part_of_speech[0]
+
+        parts.append(
+            (
+                surface,
+                reading,
+                part_of_speech_name,
+            )
+        )
+
+    total_morphemes = len(
+        parts
+    )
+
+    index = 0
+
+    while index < len(parts):
+        (
+            surface,
+            reading,
+            part_of_speech_name,
+        ) = parts[index]
+
+        if (
+            reading.endswith("ッ")
+            and index + 1 < len(parts)
+        ):
+            next_reading = parts[
+                index + 1
+            ][1]
+
+            try:
+                romanizer(
+                    reading + next_reading
+                )
+            except ValueError:
+                pass
+            else:
+                successful_morphemes += 2
+                index += 2
+                continue
 
         try:
             romanizer(reading)
@@ -85,9 +127,11 @@ def audit_japanese_morphemes(
                     count + 1,
                 )
 
+            index += 1
             continue
 
         successful_morphemes += 1
+        index += 1
 
     issues = tuple(
         JapaneseAuditIssue(

@@ -443,3 +443,49 @@ def test_audit_japanese_texts_skips_blank_texts() -> None:
     assert result.successful_morphemes == 1
     assert result.failed_morphemes == 0
     assert result.issues == ()
+
+
+def test_audit_japanese_morphemes_joins_trailing_small_tsu_with_next_reading() -> None:
+    morphemes = (
+        FakeMorpheme(
+            surface="なっ",
+            reading="ナッ",
+            part_of_speech="動詞",
+        ),
+        FakeMorpheme(
+            surface="た",
+            reading="タ",
+            part_of_speech="助動詞",
+        ),
+    )
+
+    received: list[str] = []
+
+    def fake_romanizer(
+        text: str,
+    ) -> str:
+        received.append(
+            text
+        )
+
+        if text.endswith("ッ"):
+            raise ValueError(
+                "Small tsu must be followed by katakana"
+            )
+
+        return text
+
+    result = audit_japanese_morphemes(
+        morphemes,
+        romanizer=fake_romanizer,
+        context="なった",
+    )
+
+    assert received == [
+        "ナッタ",
+    ]
+
+    assert result.total_morphemes == 2
+    assert result.successful_morphemes == 2
+    assert result.failed_morphemes == 0
+    assert result.issues == ()

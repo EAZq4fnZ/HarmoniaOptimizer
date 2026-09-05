@@ -367,3 +367,19 @@ def test_select_sudachi_corpus_part_uses_reading_for_japanese() -> None:
     assert select_sudachi_corpus_part(
         morpheme
     ) == "キョウ"
+
+
+def test_select_sudachi_corpus_part_uses_reading_for_empty_symbol_surface() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    morpheme = FakeMorpheme(
+        reading="．",
+        surface="",
+        part_of_speech="補助記号",
+    )
+
+    assert select_sudachi_corpus_part(
+        morpheme
+    ) == "．"

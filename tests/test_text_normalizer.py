@@ -46,3 +46,11 @@ def test_normalize_fullwidth_ascii_preserves_fullwidth_symbols() -> None:
     assert normalize_fullwidth_ascii(
         "Ａ！Ｂ？Ｃ"
     ) == "A！B？C"
+
+
+def test_normalize_text_removes_ignored_format_characters() -> None:
+    from corpus_builder.text_normalizer import normalize_text
+
+    assert normalize_text(
+        "\ufeffABC\u200bテ\ufe0fスト\ufe0e"
+    ) == "ABCテスト"
