@@ -28,6 +28,41 @@ class JapaneseAuditResult:
     issues: tuple[JapaneseAuditIssue, ...]
 
 
+def should_audit_japanese_part(
+    surface: str,
+    reading: str,
+) -> bool:
+    ignored_surfaces = {
+        "〇",
+        "×",
+        "△",
+        "□",
+        "㈱",
+    }
+
+    if surface in ignored_surfaces:
+        return False
+
+    for character in reading:
+        code_point = ord(character)
+
+        is_greek = (
+            0x0370 <= code_point <= 0x03FF
+            or 0x1F00 <= code_point <= 0x1FFF
+        )
+
+        is_cyrillic = (
+            0x0400 <= code_point <= 0x052F
+            or 0x1C80 <= code_point <= 0x1C8F
+            or 0x2DE0 <= code_point <= 0x2DFF
+            or 0xA640 <= code_point <= 0xA69F
+        )
+
+        if is_greek or is_cyrillic:
+            return False
+
+    return True
+
 def audit_japanese_morphemes(
     morphemes: Iterable[SudachiMorpheme],
     *,
@@ -101,6 +136,12 @@ def audit_japanese_morphemes(
             continue
 
         if reading is None:
+            continue
+
+        if not should_audit_japanese_part(
+            surface,
+            reading,
+        ):
             continue
 
         parts.append(

@@ -566,3 +566,118 @@ def test_split_sudachi_text_chunks_rejects_single_oversized_line() -> None:
         raise AssertionError(
             "Expected ValueError"
         )
+
+
+def test_audit_japanese_morphemes_ignores_foreign_symbol_morpheme() -> None:
+    morphemes = (
+        FakeMorpheme(
+            surface="(*´ω｀*)",
+            reading="(*´ω｀*)",
+            part_of_speech="補助記号",
+        ),
+    )
+
+    result = audit_japanese_morphemes(
+        morphemes,
+        romanizer=lambda text: (_ for _ in ()).throw(
+            ValueError("must not be called")
+        ),
+        context="顔文字",
+    )
+
+    assert result.total_morphemes == 0
+    assert result.successful_morphemes == 0
+    assert result.failed_morphemes == 0
+    assert result.issues == ()
+
+
+def test_audit_japanese_morphemes_keeps_japanese_small_kana_candidate() -> None:
+    morphemes = (
+        FakeMorpheme(
+            surface="あぁ",
+            reading="アァ",
+            part_of_speech="感動詞",
+        ),
+    )
+
+    result = audit_japanese_morphemes(
+        morphemes,
+        romanizer=lambda text: (
+            (_ for _ in ()).throw(
+                ValueError("Unsupported katakana: ァ")
+            )
+            if "ァ" in text
+            else text
+        ),
+        context="あぁ",
+    )
+
+    assert result.total_morphemes == 1
+    assert result.successful_morphemes == 0
+    assert result.failed_morphemes == 1
+    assert len(result.issues) == 1
+
+
+def test_audit_japanese_morphemes_ignores_symbol_readings() -> None:
+    for symbol in (
+        "〇",
+        "×",
+        "△",
+        "□",
+        "㈱",
+    ):
+        morphemes = (
+            FakeMorpheme(
+                surface=symbol,
+                reading=symbol,
+                part_of_speech="補助記号",
+            ),
+        )
+
+        result = audit_japanese_morphemes(
+            morphemes,
+            romanizer=lambda text: (
+                (_ for _ in ()).throw(
+                    ValueError("must not be called")
+                )
+            ),
+            context=symbol,
+        )
+
+        assert result.total_morphemes == 0
+        assert result.successful_morphemes == 0
+        assert result.failed_morphemes == 0
+        assert result.issues == ()
+
+
+def test_audit_japanese_morphemes_keeps_small_kana_and_tsu() -> None:
+    for surface, reading in (
+        ("ぁ", "ァ"),
+        ("ぃ", "ィ"),
+        ("ぇ", "ェ"),
+        ("っ", "ッ"),
+    ):
+        morphemes = (
+            FakeMorpheme(
+                surface=surface,
+                reading=reading,
+                part_of_speech="補助記号",
+            ),
+        )
+
+        result = audit_japanese_morphemes(
+            morphemes,
+            romanizer=lambda text: (
+                (_ for _ in ()).throw(
+                    ValueError(
+                        f"Unsupported katakana: {text}"
+                    )
+                )
+            ),
+            context=surface,
+        )
+
+        assert result.total_morphemes == 1
+        assert result.successful_morphemes == 0
+        assert result.failed_morphemes == 1
+        assert len(result.issues) == 1
