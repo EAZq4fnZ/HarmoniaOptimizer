@@ -140,24 +140,13 @@ def test_romanize_preserves_unicode_symbols() -> None:
     ) == "tesuto×tesuto"
 
 
-def test_romanize_does_not_treat_unsupported_small_kana_as_symbol() -> None:
-    import pytest
-
-    with pytest.raises(
-        ValueError,
-        match="Unsupported katakana: ァ",
-    ):
+def test_romanize_supports_small_kana_explicitly() -> None:
+    assert (
         romanize_japanese_reading(
-            "ナァ"
+            "ァ"
         )
-
-    with pytest.raises(
-        ValueError,
-        match="Unsupported katakana: ュ",
-    ):
-        romanize_japanese_reading(
-            "ュ"
-        )
+        == "la"
+    )
 
 
 def test_romanize_deyu_foreign_sound_sequence() -> None:
@@ -172,3 +161,72 @@ def test_romanize_deyu_foreign_sound_sequence() -> None:
     assert romanize_japanese_reading(
         "デュカス"
     ) == "dhukasu"
+
+
+def test_romanize_japanese_reading_supports_small_kana_sequences() -> None:
+    from corpus_builder.japanese_romanizer import (
+        romanize_japanese_reading,
+    )
+
+    cases = (
+        ("ナァ", "nala"),
+        ("ネェ", "nele"),
+        ("ルビィ", "rubili"),
+    )
+
+    for reading, expected in cases:
+        assert (
+            romanize_japanese_reading(
+                reading
+            )
+            == expected
+        )
+
+
+def test_romanize_japanese_reading_supports_terminal_small_tsu() -> None:
+    from corpus_builder.japanese_romanizer import (
+        romanize_japanese_reading,
+    )
+
+    cases = (
+        ("アッ", "altu"),
+        ("ナッ", "naltu"),
+        ("ポチッ", "potiltu"),
+    )
+
+    for reading, expected in cases:
+        assert (
+            romanize_japanese_reading(
+                reading
+            )
+            == expected
+        )
+
+
+def test_romanize_japanese_reading_supports_foreign_small_kana_digraphs() -> None:
+    from corpus_builder.japanese_romanizer import (
+        romanize_japanese_reading,
+    )
+
+    cases = (
+        (
+            "フューチャー",
+            "fulyu-cha-",
+        ),
+        (
+            "スィーツ",
+            "suli-tu",
+        ),
+        (
+            "クォーツ",
+            "kulo-tu",
+        ),
+    )
+
+    for reading, expected in cases:
+        assert (
+            romanize_japanese_reading(
+                reading
+            )
+            == expected
+        )

@@ -61,6 +61,26 @@ ROMAJI_MAP = {
     "ヴ": "vu",
     "ー": "-",
 
+    "ァ": "la",
+    "ィ": "li",
+    "ゥ": "lu",
+    "ェ": "le",
+    "ォ": "lo",
+    "ャ": "lya",
+    "ュ": "lyu",
+    "ョ": "lyo",
+    "ヮ": "lwa",
+
+    "ぁ": "la",
+    "ぃ": "li",
+    "ぅ": "lu",
+    "ぇ": "le",
+    "ぉ": "lo",
+    "ゃ": "lya",
+    "ゅ": "lyu",
+    "ょ": "lyo",
+    "ゎ": "lwa",
+
     "ガ": "ga",
     "ギ": "gi",
     "グ": "gu",
@@ -218,13 +238,13 @@ def romanize_japanese_reading(
             index += 1
             continue
 
-        if char == "ッ":
+        if char in {"ッ", "っ"}:
             next_index = index + 1
 
             if next_index >= len(text):
-                raise ValueError(
-                    "Small tsu must be followed by katakana"
-                )
+                result.append("ltu")
+                index += 1
+                continue
 
             next_romaji, _ = _romanize_unit(
                 text,
