@@ -95,6 +95,43 @@ def audit_japanese_morphemes(
         part_of_speech = morpheme.part_of_speech()
         part_of_speech_name = part_of_speech[0]
 
+        if surface == "":
+            selection_failures += 1
+            failed_morphemes += 1
+
+            raw_reading = morpheme.reading_form()
+            reading_text = (
+                raw_reading
+                if isinstance(
+                    raw_reading,
+                    str,
+                )
+                else repr(raw_reading)
+            )
+
+            key = (
+                surface,
+                reading_text,
+                part_of_speech_name,
+                "Sudachi surface is empty",
+            )
+
+            previous = issue_counts.get(key)
+
+            if previous is None:
+                issue_counts[key] = (
+                    context,
+                    1,
+                )
+            else:
+                first_context, count = previous
+                issue_counts[key] = (
+                    first_context,
+                    count + 1,
+                )
+
+            continue
+
         try:
             reading = select_sudachi_corpus_part(
                 morpheme

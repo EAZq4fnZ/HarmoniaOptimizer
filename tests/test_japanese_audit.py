@@ -596,7 +596,7 @@ def test_audit_japanese_morphemes_records_empty_surface_as_issue() -> None:
     assert result.failed_morphemes == 1
     assert len(result.issues) == 1
     assert result.issues[0].error == (
-        "Sudachi surface must not be empty"
+        "Sudachi surface is empty"
     )
 
 

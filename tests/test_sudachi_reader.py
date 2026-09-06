@@ -897,3 +897,30 @@ def test_split_text_by_utf8_bytes_ignores_natural_boundary_beyond_lookback() -> 
     assert "".join(
         chunks
     ) == text
+
+def test_select_sudachi_corpus_part_uses_reading_for_empty_non_symbol_surface() -> None:
+    morpheme = FakeMorpheme(
+        reading="ニ",
+        surface="",
+        part_of_speech="名詞",
+    )
+
+    assert select_sudachi_corpus_part(
+        morpheme
+    ) == "ニ"
+
+
+def test_select_sudachi_corpus_part_rejects_empty_surface_with_empty_reading() -> None:
+    morpheme = FakeMorpheme(
+        reading="",
+        surface="",
+        part_of_speech="名詞",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Sudachi reading must not be empty",
+    ):
+        select_sudachi_corpus_part(
+            morpheme
+        )

@@ -139,27 +139,22 @@ def select_sudachi_corpus_part(
     part_of_speech = morpheme.part_of_speech()
 
     if not surface:
-        if part_of_speech[0] == "補助記号":
-            reading = morpheme.reading_form()
+        reading = morpheme.reading_form()
 
-            if not isinstance(
-                reading,
-                str,
-            ):
-                raise TypeError(
-                    "Sudachi reading must be a string"
-                )
+        if not isinstance(
+            reading,
+            str,
+        ):
+            raise TypeError(
+                "Sudachi reading must be a string"
+            )
 
-            if not reading:
-                raise ValueError(
-                    "Sudachi reading must not be empty"
-                )
+        if not reading:
+            raise ValueError(
+                "Sudachi reading must not be empty"
+            )
 
-            return reading
-
-        raise ValueError(
-            "Sudachi surface must not be empty"
-        )
+        return reading
 
     if surface.isspace():
         return None
