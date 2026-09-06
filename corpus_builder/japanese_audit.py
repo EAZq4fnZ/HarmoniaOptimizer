@@ -317,24 +317,20 @@ def audit_japanese_text(
     tokenizer: SudachiTokenizer,
     romanizer: Callable[[str], str],
 ) -> JapaneseAuditResult:
-    normalized = normalize_text(
-        text
-    )
-
     chunks = split_sudachi_text_chunks(
-        normalized
+        text
     )
 
     return merge_japanese_audit_results(
         audit_japanese_morphemes(
-            tokenizer.tokenize(chunk),
+            tokenizer.tokenize(
+                normalize_text(chunk)
+            ),
             romanizer=romanizer,
             context=text,
         )
         for chunk in chunks
     )
-
-
 
 def merge_japanese_audit_results(
     results: Iterable[JapaneseAuditResult],

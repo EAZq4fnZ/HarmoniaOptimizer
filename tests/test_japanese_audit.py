@@ -726,3 +726,43 @@ def test_audit_japanese_morphemes_keeps_small_kana_and_tsu() -> None:
         assert result.successful_morphemes == 0
         assert result.failed_morphemes == 1
         assert len(result.issues) == 1
+
+
+def test_audit_japanese_text_chunks_before_whitespace_normalization() -> None:
+    from corpus_builder.japanese_audit import (
+        audit_japanese_text,
+    )
+
+    class RecordingTokenizer:
+        def __init__(self) -> None:
+            self.inputs: list[str] = []
+
+        def tokenize(
+            self,
+            text: str,
+        ) -> tuple[FakeMorpheme, ...]:
+            self.inputs.append(text)
+            return ()
+
+    tokenizer = RecordingTokenizer()
+
+    line = "あ" * 10_000
+
+    text = f"{line}\n{line}"
+
+    result = audit_japanese_text(
+        text,
+        tokenizer=tokenizer,
+        romanizer=lambda value: value,
+    )
+
+    assert result.total_morphemes == 0
+    assert result.successful_morphemes == 0
+    assert result.failed_morphemes == 0
+
+    assert len(tokenizer.inputs) == 2
+
+    assert all(
+        "\n" not in value
+        for value in tokenizer.inputs
+    )
