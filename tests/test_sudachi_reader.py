@@ -817,3 +817,83 @@ def test_split_text_by_utf8_bytes_rejects_non_positive_limit() -> None:
             "テスト",
             max_bytes=0,
         )
+
+
+def test_split_text_by_utf8_bytes_prefers_nearby_natural_boundary() -> None:
+    text = (
+        "あ" * 15_990
+        + "。"
+        + "い" * 1_000
+    )
+
+    chunks = split_text_by_utf8_bytes(
+        text
+    )
+
+    assert len(chunks) == 2
+
+    assert chunks[0].endswith(
+        "。"
+    )
+
+    assert "".join(
+        chunks
+    ) == text
+
+    assert all(
+        len(chunk.encode("utf-8"))
+        <= 48_000
+        for chunk in chunks
+    )
+
+
+def test_split_text_by_utf8_bytes_falls_back_to_hard_cut_without_boundary() -> None:
+    text = (
+        "あ" * 20_000
+    )
+
+    chunks = split_text_by_utf8_bytes(
+        text
+    )
+
+    assert len(chunks) == 2
+
+    assert "".join(
+        chunks
+    ) == text
+
+    assert all(
+        len(chunk.encode("utf-8"))
+        <= 48_000
+        for chunk in chunks
+    )
+
+
+def test_split_text_by_utf8_bytes_ignores_natural_boundary_beyond_lookback() -> None:
+    text = (
+        "。"
+        + "a" * 1_200
+    )
+
+    chunks = split_text_by_utf8_bytes(
+        text,
+        max_bytes=1_000,
+    )
+
+    assert len(chunks) == 2
+
+    assert chunks[0].startswith(
+        "。"
+    )
+
+    assert not chunks[0].endswith(
+        "。"
+    )
+
+    assert len(
+        chunks[0].encode("utf-8")
+    ) == 1_000
+
+    assert "".join(
+        chunks
+    ) == text

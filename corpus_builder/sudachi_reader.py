@@ -225,6 +225,20 @@ def extract_sudachi_corpus_parts(
 
 SUDACHI_TEXT_MAX_BYTES = 48_000
 
+SUDACHI_NATURAL_BOUNDARIES = frozenset(
+    {
+        "。",
+        "！",
+        "？",
+        "!",
+        "?",
+        " ",
+        "\t",
+    }
+)
+
+SUDACHI_NATURAL_BOUNDARY_LOOKBACK = 256
+
 
 def split_text_by_utf8_bytes(
     text: str,
@@ -274,11 +288,37 @@ def split_text_by_utf8_bytes(
                 "Single character exceeds byte limit"
             )
 
-        chunks.append(
-            text[start:best]
+        earliest_boundary = max(
+            start + 1,
+            best
+            - SUDACHI_NATURAL_BOUNDARY_LOOKBACK,
         )
 
-        start = best
+        natural_cut = None
+
+        for candidate in range(
+            best,
+            earliest_boundary - 1,
+            -1,
+        ):
+            if (
+                text[candidate - 1]
+                in SUDACHI_NATURAL_BOUNDARIES
+            ):
+                natural_cut = candidate
+                break
+
+        cut = (
+            natural_cut
+            if natural_cut is not None
+            else best
+        )
+
+        chunks.append(
+            text[start:cut]
+        )
+
+        start = cut
 
     return tuple(chunks)
 
