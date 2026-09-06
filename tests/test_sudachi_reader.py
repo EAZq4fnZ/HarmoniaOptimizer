@@ -626,3 +626,68 @@ def test_select_sudachi_corpus_part_prefers_sudachi_reading_when_oov_reading_dif
     assert select_sudachi_corpus_part(
         OovMorpheme()
     ) == "ス"
+
+
+def test_select_sudachi_corpus_part_skips_auxiliary_symbol_containing_letter() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    morpheme = FakeMorpheme(
+        reading="(株)",
+        surface="(株)",
+        part_of_speech="補助記号",
+    )
+
+    assert (
+        select_sudachi_corpus_part(
+            morpheme
+        )
+        is None
+    )
+
+
+def test_select_sudachi_corpus_part_skips_auxiliary_symbol_iteration_mark() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    morpheme = FakeMorpheme(
+        reading="々",
+        surface="々",
+        part_of_speech="補助記号",
+    )
+
+    assert (
+        select_sudachi_corpus_part(
+            morpheme
+        )
+        is None
+    )
+
+
+def test_select_sudachi_corpus_part_preserves_punctuation_and_symbols() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    for surface in (
+        "：",
+        "！",
+        "（",
+        "☆",
+        "「」",
+        "！？",
+    ):
+        morpheme = FakeMorpheme(
+            reading="キゴウ",
+            surface=surface,
+            part_of_speech="補助記号",
+        )
+
+        assert (
+            select_sudachi_corpus_part(
+                morpheme
+            )
+            == surface
+        )

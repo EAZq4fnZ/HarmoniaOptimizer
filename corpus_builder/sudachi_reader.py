@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Callable, Iterable
 from typing import Protocol
 
@@ -91,6 +92,19 @@ def hiragana_to_katakana(
     )
 
 
+
+def is_punctuation_or_symbol_text(
+    text: str,
+) -> bool:
+    return bool(text) and all(
+        unicodedata.category(
+            char
+        )[0]
+        in {"P", "S"}
+        for char in text
+    )
+
+
 def select_sudachi_corpus_part(
     morpheme: SudachiMorpheme,
 ) -> str | None:
@@ -133,7 +147,18 @@ def select_sudachi_corpus_part(
         return None
 
     if part_of_speech[0] == "補助記号":
-        return surface
+        if (
+            surface in SMALL_HIRAGANA
+            or surface == "っ"
+        ):
+            return surface
+
+        if is_punctuation_or_symbol_text(
+            surface
+        ):
+            return surface
+
+        return None
 
     if surface.isascii():
         return surface
