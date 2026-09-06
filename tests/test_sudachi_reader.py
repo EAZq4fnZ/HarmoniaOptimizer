@@ -5,6 +5,7 @@ from corpus_builder.sudachi_reader import (
     extract_sudachi_readings,
     make_default_sudachi_tokenizer,
     make_sudachi_tokenizer,
+    select_sudachi_corpus_part,
 )
 
 
@@ -681,6 +682,29 @@ def test_select_sudachi_corpus_part_preserves_punctuation_and_symbols() -> None:
     ):
         morpheme = FakeMorpheme(
             reading="キゴウ",
+            surface=surface,
+            part_of_speech="補助記号",
+        )
+
+        assert (
+            select_sudachi_corpus_part(
+                morpheme
+            )
+            == surface
+        )
+
+
+def test_select_sudachi_corpus_part_preserves_supported_japanese_auxiliary_text() -> None:
+    for surface in (
+        "ー",
+        "ーー",
+        "ァ",
+        "ッ",
+        "ぁ",
+        "っ",
+    ):
+        morpheme = FakeMorpheme(
+            reading=surface,
             surface=surface,
             part_of_speech="補助記号",
         )

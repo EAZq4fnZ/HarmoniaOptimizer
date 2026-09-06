@@ -56,6 +56,24 @@ SMALL_HIRAGANA = frozenset(
     "ゎ"
 )
 
+SMALL_KATAKANA = frozenset(
+    "ァィゥェォ"
+    "ャュョ"
+    "ヮ"
+)
+
+SUPPORTED_JAPANESE_AUXILIARY_CHARACTERS = (
+    SMALL_HIRAGANA
+    | SMALL_KATAKANA
+    | frozenset(
+        {
+            "っ",
+            "ッ",
+            "ー",
+        }
+    )
+)
+
 SPECIAL_HIRAGANA = frozenset(
     {
         "っ",
@@ -147,9 +165,10 @@ def select_sudachi_corpus_part(
         return None
 
     if part_of_speech[0] == "補助記号":
-        if (
-            surface in SMALL_HIRAGANA
-            or surface == "っ"
+        if all(
+            char
+            in SUPPORTED_JAPANESE_AUXILIARY_CHARACTERS
+            for char in surface
         ):
             return surface
 
