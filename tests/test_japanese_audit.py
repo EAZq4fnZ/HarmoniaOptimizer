@@ -31,6 +31,9 @@ class FakeMorpheme:
             "*",
         )
 
+    def is_oov(self) -> bool:
+        return False
+
 
 def test_audit_japanese_morphemes_collects_romanizer_failure() -> None:
     morphemes = (
@@ -295,6 +298,43 @@ def test_audit_japanese_text_normalizes_source_before_tokenizing() -> None:
     assert result.successful_morphemes == 1
     assert result.failed_morphemes == 0
     assert result.issues == ()
+
+def test_audit_japanese_text_normalizes_fullwidth_ascii_before_tokenizing() -> None:
+    from corpus_builder.japanese_audit import (
+        audit_japanese_text,
+    )
+
+    received: list[str] = []
+
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ) -> tuple[FakeMorpheme, ...]:
+            received.append(text)
+
+            return (
+                FakeMorpheme(
+                    surface="TEST",
+                    reading="TEST",
+                ),
+            )
+
+    result = audit_japanese_text(
+        "ＡＺａｚ０９",
+        tokenizer=FakeTokenizer(),
+        romanizer=lambda text: text,
+    )
+
+    assert received == [
+        "AZaz09",
+    ]
+
+    assert result.total_morphemes == 1
+    assert result.successful_morphemes == 1
+    assert result.failed_morphemes == 0
+    assert result.issues == ()
+
 
 def test_merge_japanese_audit_results_aggregates_counts_and_issues() -> None:
     from corpus_builder.japanese_audit import (
@@ -661,6 +701,31 @@ def test_audit_japanese_morphemes_keeps_japanese_small_kana_candidate() -> None:
     assert result.successful_morphemes == 0
     assert result.failed_morphemes == 1
     assert len(result.issues) == 1
+
+
+def test_audit_japanese_morphemes_ignores_standalone_halfwidth_semivoiced_mark() -> None:
+    morphemes = (
+        FakeMorpheme(
+            surface="ﾟ",
+            reading="゚",
+            part_of_speech="名詞",
+        ),
+    )
+
+    result = audit_japanese_morphemes(
+        morphemes,
+        romanizer=lambda text: (
+            (_ for _ in ()).throw(
+                ValueError("must not be called")
+            )
+        ),
+        context="(ﾟ∀ﾟ)",
+    )
+
+    assert result.total_morphemes == 0
+    assert result.successful_morphemes == 0
+    assert result.failed_morphemes == 0
+    assert result.issues == ()
 
 
 def test_audit_japanese_morphemes_ignores_symbol_readings() -> None:

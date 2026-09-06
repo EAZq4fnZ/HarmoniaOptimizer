@@ -8,7 +8,10 @@ from .sudachi_reader import (
     SudachiTokenizer,
     select_sudachi_corpus_part,
 )
-from .text_normalizer import normalize_text
+from .text_normalizer import (
+    normalize_fullwidth_ascii,
+    normalize_text,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,7 @@ def should_audit_japanese_part(
         "△",
         "□",
         "㈱",
+        "ﾟ",
     }
 
     if surface in ignored_surfaces:
@@ -324,7 +328,9 @@ def audit_japanese_text(
     return merge_japanese_audit_results(
         audit_japanese_morphemes(
             tokenizer.tokenize(
-                normalize_text(chunk)
+                normalize_fullwidth_ascii(
+                    normalize_text(chunk)
+                )
             ),
             romanizer=romanizer,
             context=text,

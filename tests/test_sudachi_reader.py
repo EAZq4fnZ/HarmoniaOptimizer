@@ -45,6 +45,11 @@ class FakeMorpheme:
             "*",
         )
 
+    def is_oov(
+        self,
+    ) -> bool:
+        return False
+
 
 def test_extract_sudachi_readings_returns_reading_forms() -> None:
     morphemes = (
@@ -170,6 +175,11 @@ def test_extract_sudachi_corpus_parts_preserves_ascii_and_skips_whitespace() -> 
                 "*",
             )
 
+        def is_oov(
+            self,
+        ) -> bool:
+            return False
+
     morphemes = (
         SurfaceMorpheme(
             "ABC",
@@ -229,6 +239,11 @@ def test_make_sudachi_tokenizer_preserves_ascii_and_skips_whitespace() -> None:
                 "*",
                 "*",
             )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return False
 
     class FakeTokenizer:
         def tokenize(
@@ -383,3 +398,231 @@ def test_select_sudachi_corpus_part_uses_reading_for_empty_symbol_surface() -> N
     assert select_sudachi_corpus_part(
         morpheme
     ) == "．"
+
+
+def test_select_sudachi_corpus_part_converts_plain_hiragana_oov_to_katakana() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class OovMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "す"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "す"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "普通名詞",
+                "一般",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    assert select_sudachi_corpus_part(
+        OovMorpheme()
+    ) == "ス"
+
+
+def test_select_sudachi_corpus_part_does_not_fallback_for_known_hiragana() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class KnownMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "す"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "ス"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "助動詞",
+                "*",
+                "*",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return False
+
+    assert select_sudachi_corpus_part(
+        KnownMorpheme()
+    ) == "ス"
+
+
+def test_select_sudachi_corpus_part_does_not_fallback_for_cjk_oov() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class OovMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "激"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "激"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "普通名詞",
+                "一般",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    assert select_sudachi_corpus_part(
+        OovMorpheme()
+    ) == "激"
+
+
+def test_select_sudachi_corpus_part_does_not_fallback_for_small_hiragana_oov() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class OovMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "ぇ"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "ぇ"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "普通名詞",
+                "一般",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    assert select_sudachi_corpus_part(
+        OovMorpheme()
+    ) == "ぇ"
+
+
+def test_select_sudachi_corpus_part_does_not_fallback_for_small_tsu_oov() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class OovMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "っ"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "っ"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "普通名詞",
+                "一般",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    assert select_sudachi_corpus_part(
+        OovMorpheme()
+    ) == "っ"
+
+
+def test_select_sudachi_corpus_part_prefers_sudachi_reading_when_oov_reading_differs_from_surface() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class OovMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "す"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "ス"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "普通名詞",
+                "一般",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    assert select_sudachi_corpus_part(
+        OovMorpheme()
+    ) == "ス"

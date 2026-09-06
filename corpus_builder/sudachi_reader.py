@@ -20,6 +20,11 @@ class SudachiMorpheme(Protocol):
     ) -> tuple[str, ...]:
         ...
 
+    def is_oov(
+        self,
+    ) -> bool:
+        ...
+
 
 def extract_sudachi_readings(
     morphemes: Iterable[SudachiMorpheme],
@@ -42,6 +47,48 @@ def extract_sudachi_readings(
 
         yield reading
 
+
+
+SMALL_HIRAGANA = frozenset(
+    "ぁぃぅぇぉ"
+    "ゃゅょ"
+    "ゎ"
+)
+
+SPECIAL_HIRAGANA = frozenset(
+    {
+        "っ",
+        "ゔ",
+        "ゝ",
+        "ゞ",
+        "゛",
+        "゜",
+    }
+)
+
+
+def is_plain_hiragana(
+    text: str,
+) -> bool:
+    return bool(text) and all(
+        (
+            "\u3040" <= char <= "\u309f"
+            and char not in SMALL_HIRAGANA
+            and char not in SPECIAL_HIRAGANA
+        )
+        for char in text
+    )
+
+
+def hiragana_to_katakana(
+    text: str,
+) -> str:
+    return "".join(
+        chr(
+            ord(char) + 0x60
+        )
+        for char in text
+    )
 
 
 def select_sudachi_corpus_part(
@@ -104,6 +151,17 @@ def select_sudachi_corpus_part(
     if not reading:
         raise ValueError(
             "Sudachi reading must not be empty"
+        )
+
+    if (
+        morpheme.is_oov()
+        and reading == surface
+        and is_plain_hiragana(
+            surface
+        )
+    ):
+        return hiragana_to_katakana(
+            surface
         )
 
     return reading
