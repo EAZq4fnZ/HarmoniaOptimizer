@@ -81,3 +81,15 @@ def test_normalize_text_keeps_unrelated_combining_mark() -> None:
     assert normalize_text(
         "a\u0301"
     ) == "á"
+
+
+def test_normalize_text_removes_observed_spacing_voiced_mark_noise() -> None:
+    assert normalize_text(
+        "CORNS゛での"
+    ) == "CORNSでの"
+
+
+def test_normalize_text_preserves_combining_voiced_kana() -> None:
+    assert normalize_text(
+        "カ\u3099"
+    ) == "ガ"

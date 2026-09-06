@@ -43,6 +43,13 @@ IGNORED_COMBINING_CHARACTERS = frozenset(
 )
 
 
+IGNORED_SPACING_MARK_CHARACTERS = frozenset(
+    {
+        "\u309b",
+    }
+)
+
+
 def remove_ignored_format_characters(
     text: str,
 ) -> str:
@@ -65,13 +72,26 @@ def remove_ignored_combining_characters(
     )
 
 
+def remove_ignored_spacing_mark_characters(
+    text: str,
+) -> str:
+    return "".join(
+        char
+        for char in text
+        if char
+        not in IGNORED_SPACING_MARK_CHARACTERS
+    )
+
+
 def normalize_text(
     text: str,
 ) -> str:
     return normalize_whitespace(
         remove_ignored_format_characters(
-            remove_ignored_combining_characters(
-                normalize_unicode(text)
+            remove_ignored_spacing_mark_characters(
+                remove_ignored_combining_characters(
+                    normalize_unicode(text)
+                )
             )
         )
     )
