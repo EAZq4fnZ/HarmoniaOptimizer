@@ -271,3 +271,66 @@ def test_romanize_preserves_isolated_cyrillic_in_japanese_text() -> None:
     assert romanize_japanese_reading(
         "タチバナОシテ"
     ) == "tatibanaОshite"
+
+
+def test_romanize_preserves_accented_latin_text() -> None:
+    assert romanize_japanese_reading(
+        "カトリックCathédraleデス"
+    ) == "katorikkuCathédraledesu"
+
+
+def test_romanize_preserves_greek_text() -> None:
+    assert romanize_japanese_reading(
+        "コレハτάμαデス"
+    ) == "korehaτάμαdesu"
+
+
+
+def test_romanize_preserves_ideographic_zero() -> None:
+    assert romanize_japanese_reading(
+        "スケ〇ギョサイテン"
+    ) == "suke〇gyosaitenn"
+
+
+def test_romanize_preserves_leading_ideographic_zero() -> None:
+    assert romanize_japanese_reading(
+        "〇トウオンシミンハナビ"
+    ) == "〇touonnshiminnhanabi"
+
+
+
+def test_romanize_collapses_repeated_small_tsu_before_consonant() -> None:
+    assert romanize_japanese_reading(
+        "アッッタリ"
+    ) == "attari"
+
+
+def test_romanize_collapses_mixed_repeated_small_tsu_before_consonant() -> None:
+    assert romanize_japanese_reading(
+        "タッっックサン"
+    ) == "takkusann"
+
+
+def test_romanize_collapses_repeated_small_tsu_before_punctuation() -> None:
+    assert romanize_japanese_reading(
+        "キテクレマシタッッ！！"
+    ) == "kitekuremashitaltu！！"
+
+
+def test_romanize_uses_explicit_small_tsu_before_vowel() -> None:
+    assert romanize_japanese_reading(
+        "ギャッアナル"
+    ) == "gyaltuanaru"
+
+
+def test_romanize_uses_explicit_small_tsu_before_vowel_in_sentence() -> None:
+    assert romanize_japanese_reading(
+        "マスッイガイ"
+    ) == "masultuigai"
+
+
+
+def test_romanize_preserves_non_ascii_number_symbols() -> None:
+    assert romanize_japanese_reading(
+        "➊ト➋"
+    ) == "➊to➋"

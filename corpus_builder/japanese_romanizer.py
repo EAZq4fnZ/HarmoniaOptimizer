@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unicodedata import category
+from unicodedata import category, name
 
 ROMAJI_MAP = {
     "ア": "a",
@@ -60,6 +60,7 @@ ROMAJI_MAP = {
     "ン": "nn",
     "ヴ": "vu",
     "ー": "-",
+    "〇": "〇",
 
     "ァ": "la",
     "ィ": "li",
@@ -200,6 +201,28 @@ def _is_cyrillic(
     )
 
 
+
+
+def _is_supported_foreign_letter(
+    char: str,
+) -> bool:
+    if _is_cyrillic(
+        char
+    ):
+        return True
+
+    unicode_name = name(
+        char,
+        "",
+    )
+
+    return unicode_name.startswith(
+        (
+            "LATIN ",
+            "GREEK ",
+        )
+    )
+
 def _romanize_unit(
     text: str,
     index: int,
@@ -241,13 +264,17 @@ def romanize_japanese_reading(
             index += 1
             continue
 
-        if _is_cyrillic(char):
-            result.append(char)
+        if _is_supported_foreign_letter(
+            char
+        ):
+            result.append(
+                char
+            )
             index += 1
             continue
 
         if category(char).startswith(
-            ("P", "S")
+            ("N", "P", "S")
         ):
             result.append(char)
             index += 1
@@ -256,9 +283,16 @@ def romanize_japanese_reading(
         if char in {"ッ", "っ"}:
             next_index = index + 1
 
+            while (
+                next_index < len(text)
+                and text[next_index]
+                in {"ッ", "っ"}
+            ):
+                next_index += 1
+
             if next_index >= len(text):
                 result.append("ltu")
-                index += 1
+                index = next_index
                 continue
 
             next_char = text[
@@ -271,7 +305,7 @@ def romanize_japanese_reading(
                 ("P", "S")
             ):
                 result.append("ltu")
-                index += 1
+                index = next_index
                 continue
 
             next_romaji, _ = _romanize_unit(
@@ -282,12 +316,12 @@ def romanize_japanese_reading(
             first = next_romaji[0]
 
             if first in "aeiou":
-                raise ValueError(
-                    "Small tsu must be followed by a consonant"
-                )
+                result.append("ltu")
+                index = next_index
+                continue
 
             result.append(first)
-            index += 1
+            index = next_index
             continue
 
         romaji, consumed = _romanize_unit(

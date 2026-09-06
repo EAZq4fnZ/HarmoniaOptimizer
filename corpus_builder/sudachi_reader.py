@@ -123,6 +123,58 @@ def is_punctuation_or_symbol_text(
     )
 
 
+def is_cjk_ideograph_text(
+    text: str,
+) -> bool:
+    if not text:
+        return False
+
+    has_cjk_ideograph = False
+
+    for char in text:
+        is_cjk_ideograph = (
+            unicodedata.name(
+                char,
+                "",
+            ).startswith(
+                (
+                    "CJK UNIFIED IDEOGRAPH-",
+                    "CJK COMPATIBILITY IDEOGRAPH-",
+                )
+            )
+        )
+
+        if is_cjk_ideograph:
+            has_cjk_ideograph = True
+            continue
+
+        if char == "々":
+            continue
+
+        return False
+
+    return has_cjk_ideograph
+
+
+def is_repeated_iteration_mark_emoticon(
+    text: str,
+) -> bool:
+    if len(text) < 7:
+        return False
+
+    return all(
+        char
+        == (
+            "ノ"
+            if index % 2 == 0
+            else "ヽ"
+        )
+        for index, char in enumerate(
+            text
+        )
+    )
+
+
 def select_sudachi_corpus_part(
     morpheme: SudachiMorpheme,
 ) -> str | None:
@@ -192,16 +244,26 @@ def select_sudachi_corpus_part(
             "Sudachi reading must not be empty"
         )
 
-    if (
-        morpheme.is_oov()
-        and reading == surface
-        and is_plain_hiragana(
-            surface
-        )
-    ):
-        return hiragana_to_katakana(
-            surface
-        )
+    if morpheme.is_oov():
+        if (
+            reading == surface
+            and is_plain_hiragana(
+                surface
+            )
+        ):
+            return hiragana_to_katakana(
+                surface
+            )
+
+        if is_repeated_iteration_mark_emoticon(
+            reading
+        ):
+            return None
+
+        if is_cjk_ideograph_text(
+            reading
+        ):
+            return None
 
     return reading
 
@@ -335,9 +397,46 @@ def make_sudachi_tokenizer(
         for chunk in split_text_by_utf8_bytes(
             text
         ):
-            yield from extract_sudachi_corpus_parts(
-                tokenizer.tokenize(chunk)
-            )
+            for morpheme in tokenizer.tokenize(
+                chunk
+            ):
+                surface = morpheme.surface()
+                reading = morpheme.reading_form()
+
+                if (
+                    morpheme.is_oov()
+                    and isinstance(
+                        surface,
+                        str,
+                    )
+                    and isinstance(
+                        reading,
+                        str,
+                    )
+                    and reading == surface
+                    and "〇" in surface
+                ):
+                    salvage_text = surface.replace(
+                        "〇",
+                        "",
+                    )
+
+                    if is_cjk_ideograph_text(
+                        salvage_text
+                    ):
+                        yield from extract_sudachi_corpus_parts(
+                            tokenizer.tokenize(
+                                salvage_text
+                            )
+                        )
+                        continue
+
+                part = select_sudachi_corpus_part(
+                    morpheme
+                )
+
+                if part is not None:
+                    yield part
 
     return read
 

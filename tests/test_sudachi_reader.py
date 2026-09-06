@@ -478,7 +478,7 @@ def test_select_sudachi_corpus_part_does_not_fallback_for_known_hiragana() -> No
     ) == "ス"
 
 
-def test_select_sudachi_corpus_part_does_not_fallback_for_cjk_oov() -> None:
+def test_select_sudachi_corpus_part_skips_unreadable_cjk_oov() -> None:
     from corpus_builder.sudachi_reader import (
         select_sudachi_corpus_part,
     )
@@ -513,7 +513,121 @@ def test_select_sudachi_corpus_part_does_not_fallback_for_cjk_oov() -> None:
 
     assert select_sudachi_corpus_part(
         OovMorpheme()
-    ) == "激"
+    ) is None
+
+
+def test_select_sudachi_corpus_part_skips_unreadable_cjk_oov_reading() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class OovMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "蜃（しん）"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "蜃"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "普通名詞",
+                "一般",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    assert select_sudachi_corpus_part(
+        OovMorpheme()
+    ) is None
+
+
+def test_select_sudachi_corpus_part_skips_unreadable_cjk_oov_with_iteration_mark() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class OovMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "夫々"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "夫々"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "普通名詞",
+                "一般",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    assert select_sudachi_corpus_part(
+        OovMorpheme()
+    ) is None
+
+
+def test_select_sudachi_corpus_part_preserves_unreadable_cyrillic_oov() -> None:
+    from corpus_builder.sudachi_reader import (
+        select_sudachi_corpus_part,
+    )
+
+    class OovMorpheme:
+        def surface(
+            self,
+        ) -> str:
+            return "галина"
+
+        def reading_form(
+            self,
+        ) -> str:
+            return "галина"
+
+        def part_of_speech(
+            self,
+        ) -> tuple[str, ...]:
+            return (
+                "名詞",
+                "普通名詞",
+                "一般",
+                "*",
+                "*",
+                "*",
+            )
+
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    assert select_sudachi_corpus_part(
+        OovMorpheme()
+    ) == "галина"
 
 
 def test_select_sudachi_corpus_part_does_not_fallback_for_small_hiragana_oov() -> None:
@@ -924,3 +1038,196 @@ def test_select_sudachi_corpus_part_rejects_empty_surface_with_empty_reading() -
         select_sudachi_corpus_part(
             morpheme
         )
+
+
+
+def test_make_sudachi_tokenizer_salvages_cjk_oov_after_ideographic_zero() -> None:
+    class OovMorpheme(FakeMorpheme):
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    received: list[str] = []
+
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            received.append(text)
+
+            if text == "〇魚菜店":
+                return (
+                    OovMorpheme(
+                        reading="〇魚菜店",
+                        surface="〇魚菜店",
+                    ),
+                )
+
+            if text == "魚菜店":
+                return (
+                    FakeMorpheme(
+                        reading="サカナ",
+                        surface="魚",
+                    ),
+                    FakeMorpheme(
+                        reading="ナ",
+                        surface="菜",
+                    ),
+                    FakeMorpheme(
+                        reading="テン",
+                        surface="店",
+                    ),
+                )
+
+            raise AssertionError(
+                f"Unexpected tokenize input: {text!r}"
+            )
+
+    reader = make_sudachi_tokenizer(
+        FakeTokenizer()
+    )
+
+    assert tuple(
+        reader("〇魚菜店")
+    ) == (
+        "サカナ",
+        "ナ",
+        "テン",
+    )
+
+    assert received == [
+        "〇魚菜店",
+        "魚菜店",
+    ]
+
+
+def test_make_sudachi_tokenizer_does_not_salvage_plain_cjk_oov() -> None:
+    class OovMorpheme(FakeMorpheme):
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    received: list[str] = []
+
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            received.append(text)
+
+            if text == "蜃":
+                return (
+                    OovMorpheme(
+                        reading="蜃",
+                        surface="蜃",
+                    ),
+                )
+
+            raise AssertionError(
+                f"Unexpected tokenize input: {text!r}"
+            )
+
+    reader = make_sudachi_tokenizer(
+        FakeTokenizer()
+    )
+
+    assert tuple(
+        reader("蜃")
+    ) == ()
+
+    assert received == [
+        "蜃",
+    ]
+
+
+
+def test_make_sudachi_tokenizer_salvages_ideographic_zero_before_known_phrase() -> None:
+    class OovMorpheme(FakeMorpheme):
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            if text == "〇東温市民花火":
+                return (
+                    OovMorpheme(
+                        reading="〇東温市民花火",
+                        surface="〇東温市民花火",
+                    ),
+                )
+
+            if text == "東温市民花火":
+                return (
+                    FakeMorpheme(
+                        reading="トウオン",
+                        surface="東温",
+                    ),
+                    FakeMorpheme(
+                        reading="シミン",
+                        surface="市民",
+                    ),
+                    FakeMorpheme(
+                        reading="ハナビ",
+                        surface="花火",
+                    ),
+                )
+
+            raise AssertionError(
+                f"Unexpected tokenize input: {text!r}"
+            )
+
+    reader = make_sudachi_tokenizer(
+        FakeTokenizer()
+    )
+
+    assert tuple(
+        reader("〇東温市民花火")
+    ) == (
+        "トウオン",
+        "シミン",
+        "ハナビ",
+    )
+
+
+
+def test_select_sudachi_corpus_part_skips_repeated_iteration_mark_emoticon_oov() -> None:
+    class OovMorpheme(FakeMorpheme):
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    morpheme = OovMorpheme(
+        reading="ノヽノヽノヽノ",
+        surface="ﾉヽﾉヽﾉヽﾉ",
+    )
+
+    assert select_sudachi_corpus_part(
+        morpheme
+    ) is None
+
+
+def test_select_sudachi_corpus_part_does_not_skip_short_iteration_mark_oov() -> None:
+    class OovMorpheme(FakeMorpheme):
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    morpheme = OovMorpheme(
+        reading="ノヽノ",
+        surface="ﾉヽﾉ",
+    )
+
+    assert select_sudachi_corpus_part(
+        morpheme
+    ) == "ノヽノ"

@@ -43,3 +43,6 @@ harmonia_result.json
 
 # Local corpus source snapshots
 corpus/raw/
+
+# Local corpus audit artifacts
+corpus/audits/
