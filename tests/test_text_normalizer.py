@@ -54,3 +54,20 @@ def test_normalize_text_removes_ignored_format_characters() -> None:
     assert normalize_text(
         "\ufeffABC\u200bテ\ufe0fスト\ufe0e"
     ) == "ABCテスト"
+
+
+def test_normalize_text_removes_audited_format_characters() -> None:
+    assert (
+        normalize_text(
+            "A"
+            "\u202c"
+            "B"
+            "\u202a"
+            "C"
+            "\u200e"
+            "D"
+            "\u2060"
+            "E"
+        )
+        == "ABCDE"
+    )

@@ -22,6 +22,10 @@ def normalize_unicode(
 IGNORED_FORMAT_CHARACTERS = frozenset(
     {
         "\u200b",
+        "\u200e",
+        "\u202a",
+        "\u202c",
+        "\u2060",
         "\ufeff",
         "\ufe0e",
         "\ufe0f",
