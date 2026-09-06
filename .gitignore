@@ -46,3 +46,4 @@ corpus/raw/
 
 # Local corpus audit artifacts
 corpus/audits/
+corpus/processed/

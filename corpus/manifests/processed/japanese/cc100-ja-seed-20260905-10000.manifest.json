@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "category": "japanese",
+  "source_document_count": 10000,
+  "processed_characters": 11895563,
+  "ascii_letter_count": 11361085,
+  "source_snapshot_sha256": "eb1aee1ea3d462b24378cb135ca2c32bd64ea0a47c1acad5ba587a9b59610877",
+  "sampling_seed": 20260905,
+  "output_sha256": "830ef2706ab7a5bdc876ea744511061c396e46c3dfce75c8d5cdd14b20f4a3e0"
+}
