@@ -254,3 +254,20 @@ def test_romanize_small_tsu_before_symbol_as_explicit_ltu() -> None:
     assert romanize_japanese_reading(
         "アッ☆"
     ) == "altu☆"
+
+def test_romanize_preserves_embedded_cyrillic() -> None:
+    assert romanize_japanese_reading(
+        "「ПM」ニヨルト"
+    ) == "「ПM」niyoruto"
+
+
+def test_romanize_preserves_cyrillic_word() -> None:
+    assert romanize_japanese_reading(
+        "ロシアゴ:галина"
+    ) == "roshiago:галина"
+
+
+def test_romanize_preserves_isolated_cyrillic_in_japanese_text() -> None:
+    assert romanize_japanese_reading(
+        "タチバナОシテ"
+    ) == "tatibanaОshite"

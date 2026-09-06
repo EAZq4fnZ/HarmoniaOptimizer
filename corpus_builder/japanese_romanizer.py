@@ -190,6 +190,16 @@ DIGRAPH_MAP = {
 }
 
 
+def _is_cyrillic(
+    char: str,
+) -> bool:
+    return (
+        "\u0400"
+        <= char
+        <= "\u052f"
+    )
+
+
 def _romanize_unit(
     text: str,
     index: int,
@@ -227,6 +237,11 @@ def romanize_japanese_reading(
         char = text[index]
 
         if char.isascii():
+            result.append(char)
+            index += 1
+            continue
+
+        if _is_cyrillic(char):
             result.append(char)
             index += 1
             continue
