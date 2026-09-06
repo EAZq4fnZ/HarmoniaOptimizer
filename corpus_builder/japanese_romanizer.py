@@ -246,6 +246,19 @@ def romanize_japanese_reading(
                 index += 1
                 continue
 
+            next_char = text[
+                next_index
+            ]
+
+            if category(
+                next_char
+            ).startswith(
+                ("P", "S")
+            ):
+                result.append("ltu")
+                index += 1
+                continue
+
             next_romaji, _ = _romanize_unit(
                 text,
                 next_index,

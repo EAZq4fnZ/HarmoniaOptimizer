@@ -230,3 +230,27 @@ def test_romanize_japanese_reading_supports_foreign_small_kana_digraphs() -> Non
             )
             == expected
         )
+
+
+def test_romanize_small_tsu_before_japanese_punctuation_as_explicit_ltu() -> None:
+    assert romanize_japanese_reading(
+        "アッ！"
+    ) == "altu！"
+
+
+def test_romanize_small_tsu_before_ascii_punctuation_as_explicit_ltu() -> None:
+    assert romanize_japanese_reading(
+        "ポチッ."
+    ) == "potiltu."
+
+
+def test_romanize_small_tsu_before_closing_quote_as_explicit_ltu() -> None:
+    assert romanize_japanese_reading(
+        "ポチッ」"
+    ) == "potiltu」"
+
+
+def test_romanize_small_tsu_before_symbol_as_explicit_ltu() -> None:
+    assert romanize_japanese_reading(
+        "アッ☆"
+    ) == "altu☆"
