@@ -71,3 +71,13 @@ def test_normalize_text_removes_audited_format_characters() -> None:
         )
         == "ABCDE"
     )
+def test_normalize_text_removes_observed_combining_noise_characters() -> None:
+    assert normalize_text(
+        "ア゚イ̆ウ̮̈エ"
+    ) == "アイウエ"
+
+
+def test_normalize_text_keeps_unrelated_combining_mark() -> None:
+    assert normalize_text(
+        "a\u0301"
+    ) == "á"

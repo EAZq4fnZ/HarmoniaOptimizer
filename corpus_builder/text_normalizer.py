@@ -33,6 +33,16 @@ IGNORED_FORMAT_CHARACTERS = frozenset(
 )
 
 
+IGNORED_COMBINING_CHARACTERS = frozenset(
+    {
+        "\u309a",
+        "\u0306",
+        "\u032e",
+        "\u0308",
+    }
+)
+
+
 def remove_ignored_format_characters(
     text: str,
 ) -> str:
@@ -44,12 +54,25 @@ def remove_ignored_format_characters(
     )
 
 
+def remove_ignored_combining_characters(
+    text: str,
+) -> str:
+    return "".join(
+        char
+        for char in text
+        if char
+        not in IGNORED_COMBINING_CHARACTERS
+    )
+
+
 def normalize_text(
     text: str,
 ) -> str:
     return normalize_whitespace(
         remove_ignored_format_characters(
-            normalize_unicode(text)
+            remove_ignored_combining_characters(
+                normalize_unicode(text)
+            )
         )
     )
 
