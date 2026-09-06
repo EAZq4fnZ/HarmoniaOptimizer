@@ -43,6 +43,49 @@ IGNORED_COMBINING_CHARACTERS = frozenset(
 )
 
 
+EMOTICON_CYRILLIC_CHARACTERS = frozenset(
+    {
+        "Д",
+        "д",
+        "о",
+        "О",
+        "з",
+    }
+)
+
+
+EMOTICON_CONTEXT_CHARACTERS = frozenset(
+    {
+        "(",
+        ")",
+        "（",
+        "）",
+        "ﾟ",
+        "゜",
+        "´",
+        "｀",
+        "`",
+        "･",
+        "・",
+        "；",
+        ";",
+        "＾",
+        "^",
+        "∀",
+        "ω",
+        "＿",
+        "_",
+        "'",
+        '"',
+        "ヽ",
+        "ﾉ",
+        "ノ",
+        "つ",
+        "⊂",
+    }
+)
+
+
 IGNORED_SPACING_MARK_CHARACTERS = frozenset(
     {
         "\u309b",
@@ -72,6 +115,44 @@ def remove_ignored_combining_characters(
     )
 
 
+def remove_observed_emoticon_cyrillic(
+    text: str,
+) -> str:
+    result: list[str] = []
+
+    for index, char in enumerate(text):
+        if (
+            char
+            not in EMOTICON_CYRILLIC_CHARACTERS
+        ):
+            result.append(char)
+            continue
+
+        previous_char = (
+            text[index - 1]
+            if index > 0
+            else ""
+        )
+
+        next_char = (
+            text[index + 1]
+            if index + 1 < len(text)
+            else ""
+        )
+
+        if (
+            previous_char
+            in EMOTICON_CONTEXT_CHARACTERS
+            or next_char
+            in EMOTICON_CONTEXT_CHARACTERS
+        ):
+            continue
+
+        result.append(char)
+
+    return "".join(result)
+
+
 def remove_ignored_spacing_mark_characters(
     text: str,
 ) -> str:
@@ -90,7 +171,9 @@ def normalize_text(
         remove_ignored_format_characters(
             remove_ignored_spacing_mark_characters(
                 remove_ignored_combining_characters(
-                    normalize_unicode(text)
+                    remove_observed_emoticon_cyrillic(
+                        normalize_unicode(text)
+                    )
                 )
             )
         )

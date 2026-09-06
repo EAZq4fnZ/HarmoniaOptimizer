@@ -93,3 +93,20 @@ def test_normalize_text_preserves_combining_voiced_kana() -> None:
     assert normalize_text(
         "カ\u3099"
     ) == "ガ"
+
+def test_normalize_text_removes_observed_emoticon_cyrillic() -> None:
+    assert normalize_text(
+        "(ﾟДﾟ) (´д｀) (о´∀`о) v(o´з｀o)"
+    ) == "(ﾟﾟ) (´｀) (´∀`) v(o´｀o)"
+
+
+def test_normalize_text_preserves_non_emoticon_cyrillic() -> None:
+    assert normalize_text(
+        "「ПM」によると"
+    ) == "「ПM」によると"
+
+
+def test_normalize_text_preserves_cyrillic_word() -> None:
+    assert normalize_text(
+        "галинаивановнауствольская"
+    ) == "галинаивановнауствольская"
