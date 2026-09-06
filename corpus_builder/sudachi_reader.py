@@ -223,6 +223,66 @@ def extract_sudachi_corpus_parts(
             yield part
 
 
+SUDACHI_TEXT_MAX_BYTES = 48_000
+
+
+def split_text_by_utf8_bytes(
+    text: str,
+    *,
+    max_bytes: int = SUDACHI_TEXT_MAX_BYTES,
+) -> tuple[str, ...]:
+    if max_bytes <= 0:
+        raise ValueError(
+            "max_bytes must be greater than 0"
+        )
+
+    if not text:
+        return ()
+
+    if len(
+        text.encode("utf-8")
+    ) <= max_bytes:
+        return (text,)
+
+    chunks: list[str] = []
+    start = 0
+
+    while start < len(text):
+        low = start + 1
+        high = len(text)
+        best = start
+
+        while low <= high:
+            middle = (
+                low + high
+            ) // 2
+
+            candidate = text[
+                start:middle
+            ]
+
+            if len(
+                candidate.encode("utf-8")
+            ) <= max_bytes:
+                best = middle
+                low = middle + 1
+            else:
+                high = middle - 1
+
+        if best == start:
+            raise ValueError(
+                "Single character exceeds byte limit"
+            )
+
+        chunks.append(
+            text[start:best]
+        )
+
+        start = best
+
+    return tuple(chunks)
+
+
 class SudachiTokenizer(Protocol):
     def tokenize(
         self,
@@ -237,12 +297,14 @@ def make_sudachi_tokenizer(
     def read(
         text: str,
     ) -> Iterable[str]:
-        return extract_sudachi_corpus_parts(
-            tokenizer.tokenize(text)
-        )
+        for chunk in split_text_by_utf8_bytes(
+            text
+        ):
+            yield from extract_sudachi_corpus_parts(
+                tokenizer.tokenize(chunk)
+            )
 
     return read
-
 
 
 def make_default_sudachi_tokenizer() -> Callable[[str], Iterable[str]]:

@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from .sudachi_reader import (
+    SUDACHI_TEXT_MAX_BYTES,
     SudachiMorpheme,
     SudachiTokenizer,
     select_sudachi_corpus_part,
@@ -252,8 +253,6 @@ def audit_japanese_morphemes(
     )
 
 
-
-SUDACHI_TEXT_MAX_BYTES = 48_000
 
 
 def split_sudachi_text_chunks(

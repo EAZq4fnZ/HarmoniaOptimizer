@@ -6,6 +6,7 @@ from corpus_builder.sudachi_reader import (
     make_default_sudachi_tokenizer,
     make_sudachi_tokenizer,
     select_sudachi_corpus_part,
+    split_text_by_utf8_bytes,
 )
 
 
@@ -714,4 +715,105 @@ def test_select_sudachi_corpus_part_preserves_supported_japanese_auxiliary_text(
                 morpheme
             )
             == surface
+        )
+
+
+def test_make_sudachi_tokenizer_chunks_large_input_before_raw_tokenizer() -> None:
+    received: list[str] = []
+
+    class ByteLimitedTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ) -> tuple[FakeMorpheme, ...]:
+            received.append(text)
+
+            if len(text.encode("utf-8")) > 48_000:
+                raise ValueError(
+                    "Sudachi input exceeds byte limit"
+                )
+
+            return (
+                FakeMorpheme(
+                    reading="ア",
+                    surface="あ",
+                ),
+            )
+
+    reader = make_sudachi_tokenizer(
+        ByteLimitedTokenizer()
+    )
+
+    result = tuple(
+        reader(
+            "あ" * 20_000
+        )
+    )
+
+    assert len(received) > 1
+
+    assert all(
+        len(chunk.encode("utf-8"))
+        <= 48_000
+        for chunk in received
+    )
+
+    assert result == tuple(
+        "ア"
+        for _ in received
+    )
+
+
+def test_split_text_by_utf8_bytes_returns_empty_for_empty_text() -> None:
+    assert split_text_by_utf8_bytes(
+        ""
+    ) == ()
+
+
+def test_split_text_by_utf8_bytes_keeps_text_at_exact_byte_limit() -> None:
+    text = "あ" * 16_000
+
+    assert len(
+        text.encode("utf-8")
+    ) == 48_000
+
+    assert split_text_by_utf8_bytes(
+        text
+    ) == (
+        text,
+    )
+
+
+def test_split_text_by_utf8_bytes_preserves_text_across_chunks() -> None:
+    text = (
+        "ABC"
+        + "あ" * 20_000
+        + "XYZ"
+    )
+
+    chunks = split_text_by_utf8_bytes(
+        text
+    )
+
+    assert len(chunks) > 1
+
+    assert all(
+        len(chunk.encode("utf-8"))
+        <= 48_000
+        for chunk in chunks
+    )
+
+    assert "".join(
+        chunks
+    ) == text
+
+
+def test_split_text_by_utf8_bytes_rejects_non_positive_limit() -> None:
+    with pytest.raises(
+        ValueError,
+        match="max_bytes must be greater than 0",
+    ):
+        split_text_by_utf8_bytes(
+            "テスト",
+            max_bytes=0,
         )
