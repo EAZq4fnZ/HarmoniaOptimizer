@@ -1212,3 +1212,165 @@ def test_sampled_row_blocks_feed_streaming_sampler() -> None:
         len(document) >= 100
         for document in sampled
     )
+
+def test_fetch_rows_retries_http_429() -> None:
+    attempts = 0
+    sleep_calls: list[float] = []
+
+    def fake_open(
+        url: str,
+        *,
+        timeout: float,
+    ) -> FakeResponse:
+        nonlocal attempts
+
+        attempts += 1
+
+        if attempts == 1:
+            raise HTTPError(
+                url,
+                429,
+                "Too Many Requests",
+                hdrs=None,
+                fp=None,
+            )
+
+        return FakeResponse(
+            """
+            {
+              "rows": [
+                {
+                  "row": {
+                    "text": "alpha"
+                  }
+                }
+              ]
+            }
+            """
+        )
+
+    result = fetch_rows(
+        dataset="singletongue/cc100-documents",
+        config="en",
+        split="train",
+        offset=0,
+        length=1,
+        text_field="text",
+        opener=fake_open,
+        sleeper=sleep_calls.append,
+    )
+
+    assert result == (
+        "alpha",
+    )
+    assert attempts == 2
+    assert sleep_calls == [
+        1.0,
+    ]
+
+def test_fetch_rows_retries_repeated_http_429_with_exponential_backoff() -> None:
+    attempts = 0
+    sleep_calls: list[float] = []
+
+    def fake_open(
+        url: str,
+        *,
+        timeout: float,
+    ) -> FakeResponse:
+        nonlocal attempts
+
+        attempts += 1
+
+        if attempts <= 3:
+            raise HTTPError(
+                url,
+                429,
+                "Too Many Requests",
+                hdrs=None,
+                fp=None,
+            )
+
+        return FakeResponse(
+            """
+            {
+              "rows": [
+                {
+                  "row": {
+                    "text": "alpha"
+                  }
+                }
+              ]
+            }
+            """
+        )
+
+    result = fetch_rows(
+        dataset="singletongue/cc100-documents",
+        config="en",
+        split="train",
+        offset=0,
+        length=1,
+        text_field="text",
+        opener=fake_open,
+        sleeper=sleep_calls.append,
+    )
+
+    assert result == (
+        "alpha",
+    )
+    assert attempts == 4
+    assert sleep_calls == [
+        1.0,
+        2.0,
+        4.0,
+    ]
+
+
+def test_fetch_rows_stops_retrying_http_429_after_limit() -> None:
+    attempts = 0
+    sleep_calls: list[float] = []
+
+    def fake_open(
+        url: str,
+        *,
+        timeout: float,
+    ) -> FakeResponse:
+        nonlocal attempts
+
+        attempts += 1
+
+        raise HTTPError(
+            url,
+            429,
+            "Too Many Requests",
+            hdrs=None,
+            fp=None,
+        )
+
+    try:
+        fetch_rows(
+            dataset="singletongue/cc100-documents",
+            config="en",
+            split="train",
+            offset=0,
+            length=1,
+            text_field="text",
+            opener=fake_open,
+            sleeper=sleep_calls.append,
+        )
+    except RuntimeError as error:
+        assert str(error) == (
+            "Failed to fetch rows"
+        )
+    else:
+        raise AssertionError(
+            "RuntimeError was not raised"
+        )
+
+    assert attempts == 5
+    assert sleep_calls == [
+        1.0,
+        2.0,
+        4.0,
+        8.0,
+    ]

@@ -350,6 +350,7 @@ def fetch_rows(
     text_field: str,
     timeout: float = 30.0,
     opener: Callable[..., object] = urlopen,
+    sleeper: Callable[[float], None] | None = None,
 ) -> tuple[str, ...]:
     if timeout <= 0:
         raise ValueError(
@@ -364,19 +365,44 @@ def fetch_rows(
         length=length,
     )
 
-    try:
-        with opener(
-            url,
-            timeout=timeout,
-        ) as response:
-            body = response.read()
-    except (
-        HTTPError,
-        URLError,
-    ) as error:
-        raise RuntimeError(
-            "Failed to fetch rows"
-        ) from error
+    max_attempts = 5
+
+    for attempt in range(max_attempts):
+        try:
+            with opener(
+                url,
+                timeout=timeout,
+            ) as response:
+                body = response.read()
+            break
+        except HTTPError as error:
+            is_retryable = (
+                error.code == 429
+                and attempt
+                < max_attempts - 1
+            )
+
+            if is_retryable:
+                delay = float(
+                    2 ** attempt
+                )
+
+                if sleeper is None:
+                    from time import sleep
+
+                    sleep(delay)
+                else:
+                    sleeper(delay)
+
+                continue
+
+            raise RuntimeError(
+                "Failed to fetch rows"
+            ) from error
+        except URLError as error:
+            raise RuntimeError(
+                "Failed to fetch rows"
+            ) from error
 
     try:
         payload = json.loads(
@@ -396,8 +422,6 @@ def fetch_rows(
         payload,
         text_field=text_field,
     )
-
-
 
 def iter_sampled_row_blocks(
     *,
