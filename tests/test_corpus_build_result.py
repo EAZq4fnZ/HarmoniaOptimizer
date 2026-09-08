@@ -1,11 +1,10 @@
 import pytest
 
-from corpus_builder.corpus_mix import CorpusMix
-from evaluator.character_analyzer import CharacterAnalyzer
-
 from corpus_builder.corpus_build_result import (
     CorpusBuildResult,
 )
+from corpus_builder.corpus_mix import CorpusMix
+from evaluator.character_analyzer import CharacterAnalyzer
 
 
 def test_corpus_build_result_records_processed_text_metrics() -> None:
