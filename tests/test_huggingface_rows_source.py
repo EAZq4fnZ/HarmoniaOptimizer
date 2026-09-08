@@ -1374,3 +1374,85 @@ def test_fetch_rows_stops_retrying_http_429_after_limit() -> None:
         4.0,
         8.0,
     ]
+
+def test_iter_sampled_row_blocks_waits_between_requests() -> None:
+    requests: list[
+        tuple[int, int]
+    ] = []
+    sleep_calls: list[float] = []
+
+    def fake_fetch(
+        *,
+        dataset: str,
+        config: str,
+        split: str,
+        offset: int,
+        length: int,
+        text_field: str,
+        **kwargs: object,
+    ) -> tuple[str, ...]:
+        requests.append(
+            (
+                offset,
+                length,
+            )
+        )
+
+        return tuple(
+            "document"
+            for _ in range(
+                length
+            )
+        )
+
+    result = tuple(
+        iter_sampled_row_blocks(
+            dataset="example/dataset",
+            config="en",
+            split="train",
+            population_size=1_000,
+            document_count=250,
+            seed=12345,
+            text_field="text",
+            block_size=100,
+            request_delay=3.0,
+            sleeper=sleep_calls.append,
+            fetcher=fake_fetch,
+        )
+    )
+
+    assert len(
+        requests
+    ) == 3
+
+    assert len(
+        result
+    ) == 250
+
+    assert sleep_calls == [
+        3.0,
+        3.0,
+    ]
+
+def test_iter_sampled_row_blocks_rejects_negative_request_delay() -> None:
+    try:
+        tuple(
+            iter_sampled_row_blocks(
+                dataset="example/dataset",
+                config="en",
+                split="train",
+                population_size=10,
+                document_count=1,
+                seed=12345,
+                text_field="text",
+                request_delay=-1.0,
+            )
+        )
+    except ValueError as error:
+        assert str(error) == (
+            "request_delay must be greater than or equal to 0"
+        )
+    else:
+        raise AssertionError(
+            "ValueError was not raised"
+        )

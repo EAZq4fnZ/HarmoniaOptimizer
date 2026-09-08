@@ -433,8 +433,15 @@ def iter_sampled_row_blocks(
     seed: int,
     text_field: str,
     block_size: int = 100,
+    request_delay: float = 0.0,
+    sleeper: Callable[[float], None] | None = None,
     fetcher: Callable[..., tuple[str, ...]] = fetch_rows,
 ) -> Iterator[str]:
+    if request_delay < 0:
+        raise ValueError(
+            "request_delay must be greater than or equal to 0"
+        )
+
     ranges = generate_sample_ranges(
         population_size=population_size,
         document_count=document_count,
@@ -442,7 +449,10 @@ def iter_sampled_row_blocks(
         block_size=block_size,
     )
 
-    for offset, length in ranges:
+    for range_index, (
+        offset,
+        length,
+    ) in enumerate(ranges):
         documents = fetcher(
             dataset=dataset,
             config=config,
@@ -459,6 +469,23 @@ def iter_sampled_row_blocks(
 
         yield from documents
 
+        should_wait = (
+            request_delay > 0
+            and range_index
+            < len(ranges) - 1
+        )
+
+        if should_wait:
+            if sleeper is None:
+                from time import sleep
+
+                sleep(
+                    request_delay
+                )
+            else:
+                sleeper(
+                    request_delay
+                )
 
 def iter_sampled_rows(
     *,
