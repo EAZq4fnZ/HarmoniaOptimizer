@@ -1456,3 +1456,58 @@ def test_iter_sampled_row_blocks_rejects_negative_request_delay() -> None:
         raise AssertionError(
             "ValueError was not raised"
         )
+
+def test_fetch_rows_retries_http_502() -> None:
+    attempts = 0
+    sleep_calls: list[float] = []
+
+    def fake_open(
+        url: str,
+        *,
+        timeout: float,
+    ) -> FakeResponse:
+        nonlocal attempts
+
+        attempts += 1
+
+        if attempts == 1:
+            raise HTTPError(
+                url,
+                502,
+                "Bad Gateway",
+                hdrs=None,
+                fp=None,
+            )
+
+        return FakeResponse(
+            """
+            {
+              "rows": [
+                {
+                  "row": {
+                    "text": "alpha"
+                  }
+                }
+              ]
+            }
+            """
+        )
+
+    result = fetch_rows(
+        dataset="singletongue/cc100-documents",
+        config="en",
+        split="train",
+        offset=0,
+        length=1,
+        text_field="text",
+        opener=fake_open,
+        sleeper=sleep_calls.append,
+    )
+
+    assert result == (
+        "alpha",
+    )
+    assert attempts == 2
+    assert sleep_calls == [
+        1.0,
+    ]

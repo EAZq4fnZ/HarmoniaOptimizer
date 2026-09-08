@@ -377,7 +377,10 @@ def fetch_rows(
             break
         except HTTPError as error:
             is_retryable = (
-                error.code == 429
+                error.code in {
+                    429,
+                    502,
+                }
                 and attempt
                 < max_attempts - 1
             )
