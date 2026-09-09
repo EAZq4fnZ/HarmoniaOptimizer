@@ -1,9 +1,13 @@
 import json
 from pathlib import Path
 
+from corpus_builder.document_source import (
+    iter_jsonl_documents,
+)
 from corpus_builder.english_corpus_pipeline import (
     build_sampled_english_corpus,
     write_sampled_english_corpus_artifact,
+    write_snapshotted_english_corpus_artifacts,
 )
 from corpus_builder.source_snapshot import (
     hash_document_snapshot,
@@ -238,3 +242,123 @@ def test_write_sampled_english_corpus_artifact_writes_result_and_manifest(
     assert manifest[
         "ascii_letter_count"
     ] == result.ascii_letter_count
+
+
+def test_write_snapshotted_english_corpus_artifacts_uses_persisted_raw_snapshot(
+    tmp_path: Path,
+) -> None:
+
+    raw_documents: list[str] = []
+
+    def fake_fetcher(
+        *,
+        dataset: str,
+        config: str,
+        split: str,
+        offset: int,
+        length: int,
+        text_field: str,
+    ) -> tuple[str, ...]:
+        documents = tuple(
+            f" Ｄｏｃｕｍｅｎｔ {offset + index}. "
+            for index in range(length)
+        )
+
+        raw_documents.extend(
+            documents
+        )
+
+        return documents
+
+    raw_snapshot_path = (
+        tmp_path
+        / "raw.jsonl"
+    )
+
+    raw_manifest_path = (
+        tmp_path
+        / "raw.manifest.json"
+    )
+
+    processed_text_path = (
+        tmp_path
+        / "english.txt"
+    )
+
+    processed_manifest_path = (
+        tmp_path
+        / "processed.manifest.json"
+    )
+
+    result = (
+        write_snapshotted_english_corpus_artifacts(
+            dataset="example/dataset",
+            config="en",
+            split="train",
+            population_size=1000,
+            document_count=5,
+            seed=42,
+            text_field="text",
+            raw_snapshot_path=(
+                raw_snapshot_path
+            ),
+            raw_manifest_path=(
+                raw_manifest_path
+            ),
+            processed_text_path=(
+                processed_text_path
+            ),
+            processed_manifest_path=(
+                processed_manifest_path
+            ),
+            block_size=3,
+            fetcher=fake_fetcher,
+        )
+    )
+
+    assert result.category == "english"
+    assert result.source_document_count == 5
+
+    persisted_documents = tuple(
+        iter_jsonl_documents(
+            raw_snapshot_path,
+            text_field="text",
+        )
+    )
+
+    assert persisted_documents == tuple(
+        raw_documents
+    )
+
+    assert processed_text_path.read_text(
+        encoding="utf-8"
+    ) == result.text
+
+    raw_manifest = json.loads(
+        raw_manifest_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    processed_manifest = json.loads(
+        processed_manifest_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert (
+        raw_manifest["snapshot"][
+            "document_count"
+        ]
+        == 5
+    )
+
+    assert processed_manifest[
+        "source_snapshot_sha256"
+    ] == hash_document_snapshot(
+        persisted_documents
+    )
+
+    assert processed_manifest[
+        "sampling_seed"
+    ] == 42

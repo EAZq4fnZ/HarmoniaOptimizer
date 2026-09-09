@@ -7,7 +7,11 @@ from .corpus_build_artifact import (
     write_corpus_build_artifact,
 )
 from .corpus_build_result import CorpusBuildResult
+from .document_source import iter_jsonl_documents
 from .english_corpus_builder import build_english_corpus
+from .huggingface_raw_snapshot import (
+    write_huggingface_raw_snapshot,
+)
 from .huggingface_rows_source import (
     fetch_rows,
     iter_sampled_row_blocks,
@@ -123,6 +127,70 @@ def write_sampled_english_corpus_artifact(
         result=result,
         text_path=text_path,
         manifest_path=manifest_path,
+        source_snapshot_sha256=(
+            source_snapshot_sha256
+        ),
+        sampling_seed=seed,
+    )
+
+    return result
+
+
+def write_snapshotted_english_corpus_artifacts(
+    *,
+    dataset: str,
+    config: str,
+    split: str,
+    population_size: int,
+    document_count: int,
+    seed: int,
+    text_field: str,
+    raw_snapshot_path: Path,
+    raw_manifest_path: Path,
+    processed_text_path: Path,
+    processed_manifest_path: Path,
+    block_size: int = 100,
+    request_delay: float = 0.0,
+    sleeper: Callable[[float], None] | None = None,
+    fetcher: Callable[..., tuple[str, ...]] = fetch_rows,
+) -> CorpusBuildResult:
+    write_huggingface_raw_snapshot(
+        dataset=dataset,
+        config=config,
+        split=split,
+        population_size=population_size,
+        document_count=document_count,
+        seed=seed,
+        text_field=text_field,
+        snapshot_path=raw_snapshot_path,
+        manifest_path=raw_manifest_path,
+        block_size=block_size,
+        request_delay=request_delay,
+        sleeper=sleeper,
+        fetcher=fetcher,
+    )
+
+    documents = tuple(
+        iter_jsonl_documents(
+            raw_snapshot_path,
+            text_field=text_field,
+        )
+    )
+
+    source_snapshot_sha256 = (
+        hash_document_snapshot(
+            documents
+        )
+    )
+
+    result = build_english_corpus(
+        documents
+    )
+
+    write_corpus_build_artifact(
+        result=result,
+        text_path=processed_text_path,
+        manifest_path=processed_manifest_path,
         source_snapshot_sha256=(
             source_snapshot_sha256
         ),
