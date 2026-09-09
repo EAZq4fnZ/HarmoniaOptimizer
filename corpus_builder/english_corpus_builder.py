@@ -1,3 +1,5 @@
+# corpus_builder/english_corpus_builder.py
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -27,10 +29,19 @@ def build_english_corpus(
                 "document must not be empty"
             )
 
-        processed_documents.append(
+        processed_document = (
             normalize_fullwidth_ascii(
                 normalize_text(document)
             )
+        )
+
+        if not processed_document:
+            raise ValueError(
+                "document must not be empty after normalization"
+            )
+
+        processed_documents.append(
+            processed_document
         )
 
     return CorpusBuildResult(
