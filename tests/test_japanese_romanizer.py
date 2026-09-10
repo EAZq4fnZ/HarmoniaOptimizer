@@ -334,4 +334,3 @@ def test_romanize_preserves_non_ascii_number_symbols() -> None:
     assert romanize_japanese_reading(
         "➊ト➋"
     ) == "➊to➋"
-

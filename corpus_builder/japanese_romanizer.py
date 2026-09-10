@@ -333,4 +333,3 @@ def romanize_japanese_reading(
         index += consumed
 
     return "".join(result)
-
