@@ -276,7 +276,15 @@ def romanize_japanese_reading(
         if category(char).startswith(
             ("N", "P", "S")
         ):
-            result.append(char)
+            if char in ROMAJI_MAP:
+                result.append(
+                    ROMAJI_MAP[char]
+                )
+            else:
+                result.append(
+                    char
+                )
+
             index += 1
             continue
 

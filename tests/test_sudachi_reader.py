@@ -1092,6 +1092,7 @@ def test_make_sudachi_tokenizer_salvages_cjk_oov_after_ideographic_zero() -> Non
     assert tuple(
         reader("〇魚菜店")
     ) == (
+        "〇",
         "サカナ",
         "ナ",
         "テン",
@@ -1192,6 +1193,7 @@ def test_make_sudachi_tokenizer_salvages_ideographic_zero_before_known_phrase() 
     assert tuple(
         reader("〇東温市民花火")
     ) == (
+        "〇",
         "トウオン",
         "シミン",
         "ハナビ",
@@ -1231,3 +1233,11 @@ def test_select_sudachi_corpus_part_does_not_skip_short_iteration_mark_oov() -> 
     assert select_sudachi_corpus_part(
         morpheme
     ) == "ノヽノ"
+
+
+def test_make_default_sudachi_tokenizer_preserves_standalone_ideographic_zero() -> None:
+    reader = make_default_sudachi_tokenizer()
+
+    assert "".join(
+        reader("〇")
+    ) == "〇"

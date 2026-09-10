@@ -211,6 +211,9 @@ def select_sudachi_corpus_part(
     if surface.isspace():
         return None
 
+    if surface == "〇":
+        return "〇"
+
     if part_of_speech[0] == "補助記号":
         if all(
             char
@@ -416,19 +419,32 @@ def make_sudachi_tokenizer(
                     and reading == surface
                     and "〇" in surface
                 ):
-                    salvage_text = surface.replace(
-                        "〇",
-                        "",
+                    segments = surface.split(
+                        "〇"
                     )
 
-                    if is_cjk_ideograph_text(
-                        salvage_text
-                    ):
-                        yield from extract_sudachi_corpus_parts(
-                            tokenizer.tokenize(
-                                salvage_text
-                            )
+                    if any(
+                        is_cjk_ideograph_text(
+                            segment
                         )
+                        for segment in segments
+                        if segment
+                    ):
+                        for index, segment in enumerate(
+                            segments
+                        ):
+                            if index > 0:
+                                yield "〇"
+
+                            if segment:
+                                yield from (
+                                    extract_sudachi_corpus_parts(
+                                        tokenizer.tokenize(
+                                            segment
+                                        )
+                                    )
+                                )
+
                         continue
 
                 part = select_sudachi_corpus_part(

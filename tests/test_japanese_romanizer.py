@@ -286,16 +286,16 @@ def test_romanize_preserves_greek_text() -> None:
 
 
 
-def test_romanize_preserves_ideographic_zero() -> None:
+def test_romanize_maps_ideographic_zero_inside_reading() -> None:
     assert romanize_japanese_reading(
         "スケ〇ギョサイテン"
-    ) == "suke〇gyosaitenn"
+    ) == "sukemarugyosaitenn"
 
 
-def test_romanize_preserves_leading_ideographic_zero() -> None:
+def test_romanize_maps_leading_ideographic_zero() -> None:
     assert romanize_japanese_reading(
         "〇トウオンシミンハナビ"
-    ) == "〇touonnshiminnhanabi"
+    ) == "marutouonnshiminnhanabi"
 
 
 
@@ -334,3 +334,9 @@ def test_romanize_preserves_non_ascii_number_symbols() -> None:
     assert romanize_japanese_reading(
         "➊ト➋"
     ) == "➊to➋"
+
+
+def test_romanize_ideographic_zero_uses_explicit_harmonia_mapping() -> None:
+    assert romanize_japanese_reading(
+        "〇"
+    ) == "maru"
