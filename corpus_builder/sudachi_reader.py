@@ -391,6 +391,43 @@ class SudachiTokenizer(Protocol):
         ...
 
 
+def split_ideographic_zero_cjk_oov(
+    morpheme: SudachiMorpheme,
+) -> tuple[str, ...] | None:
+    surface = morpheme.surface()
+    reading = morpheme.reading_form()
+
+    if not (
+        morpheme.is_oov()
+        and isinstance(
+            surface,
+            str,
+        )
+        and isinstance(
+            reading,
+            str,
+        )
+        and reading == surface
+        and "〇" in surface
+    ):
+        return None
+
+    segments = tuple(
+        surface.split("〇")
+    )
+
+    if not any(
+        is_cjk_ideograph_text(
+            segment
+        )
+        for segment in segments
+        if segment
+    ):
+        return None
+
+    return segments
+
+
 def make_sudachi_tokenizer(
     tokenizer: SudachiTokenizer,
 ) -> Callable[[str], Iterable[str]]:
@@ -403,49 +440,29 @@ def make_sudachi_tokenizer(
             for morpheme in tokenizer.tokenize(
                 chunk
             ):
-                surface = morpheme.surface()
-                reading = morpheme.reading_form()
+                segments = (
+                    split_ideographic_zero_cjk_oov(
+                        morpheme
+                    )
+                )
 
-                if (
-                    morpheme.is_oov()
-                    and isinstance(
-                        surface,
-                        str,
-                    )
-                    and isinstance(
-                        reading,
-                        str,
-                    )
-                    and reading == surface
-                    and "〇" in surface
-                ):
-                    segments = surface.split(
-                        "〇"
-                    )
-
-                    if any(
-                        is_cjk_ideograph_text(
-                            segment
-                        )
-                        for segment in segments
-                        if segment
+                if segments is not None:
+                    for index, segment in enumerate(
+                        segments
                     ):
-                        for index, segment in enumerate(
-                            segments
-                        ):
-                            if index > 0:
-                                yield "〇"
+                        if index > 0:
+                            yield "〇"
 
-                            if segment:
-                                yield from (
-                                    extract_sudachi_corpus_parts(
-                                        tokenizer.tokenize(
-                                            segment
-                                        )
+                        if segment:
+                            yield from (
+                                extract_sudachi_corpus_parts(
+                                    tokenizer.tokenize(
+                                        segment
                                     )
                                 )
+                            )
 
-                        continue
+                    continue
 
                 part = select_sudachi_corpus_part(
                     morpheme

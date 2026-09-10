@@ -8,6 +8,7 @@ from .sudachi_reader import (
     SudachiMorpheme,
     SudachiTokenizer,
     select_sudachi_corpus_part,
+    split_ideographic_zero_cjk_oov,
 )
 from .text_normalizer import (
     normalize_fullwidth_ascii,
@@ -38,7 +39,6 @@ def should_audit_japanese_part(
     reading: str,
 ) -> bool:
     ignored_surfaces = {
-        "〇",
         "×",
         "△",
         "□",
@@ -74,6 +74,7 @@ def audit_japanese_morphemes(
     *,
     romanizer: Callable[[str], str],
     context: str,
+    tokenizer: SudachiTokenizer | None = None,
 ) -> JapaneseAuditResult:
     total_morphemes = 0
     successful_morphemes = 0
@@ -95,41 +96,70 @@ def audit_japanese_morphemes(
         part_of_speech = morpheme.part_of_speech()
         part_of_speech_name = part_of_speech[0]
 
-        if surface == "":
-            selection_failures += 1
-            failed_morphemes += 1
+        segments = split_ideographic_zero_cjk_oov(
+            morpheme
+        )
 
-            raw_reading = morpheme.reading_form()
-            reading_text = (
-                raw_reading
-                if isinstance(
-                    raw_reading,
-                    str,
-                )
-                else repr(raw_reading)
+        if (
+            segments is not None
+            and tokenizer is not None
+        ):
+            salvaged_parts: list[
+                tuple[str, str, str]
+            ] = []
+
+            for segment_index, segment in enumerate(
+                segments
+            ):
+                if segment_index > 0:
+                    salvaged_parts.append(
+                        (
+                            "〇",
+                            "〇",
+                            part_of_speech_name,
+                        )
+                    )
+
+                if not segment:
+                    continue
+
+                for salvaged_morpheme in tokenizer.tokenize(
+                    segment
+                ):
+                    salvaged_surface = (
+                        salvaged_morpheme.surface()
+                    )
+
+                    try:
+                        salvaged_reading = (
+                            select_sudachi_corpus_part(
+                                salvaged_morpheme
+                            )
+                        )
+                    except (
+                        TypeError,
+                        ValueError,
+                    ):
+                        salvaged_reading = None
+
+                    if salvaged_reading is None:
+                        continue
+
+                    salvaged_part_of_speech = (
+                        salvaged_morpheme.part_of_speech()
+                    )[0]
+
+                    salvaged_parts.append(
+                        (
+                            salvaged_surface,
+                            salvaged_reading,
+                            salvaged_part_of_speech,
+                        )
+                    )
+
+            parts.extend(
+                salvaged_parts
             )
-
-            key = (
-                surface,
-                reading_text,
-                part_of_speech_name,
-                "Sudachi surface is empty",
-            )
-
-            previous = issue_counts.get(key)
-
-            if previous is None:
-                issue_counts[key] = (
-                    context,
-                    1,
-                )
-            else:
-                first_context, count = previous
-                issue_counts[key] = (
-                    first_context,
-                    count + 1,
-                )
-
             continue
 
         try:
@@ -181,16 +211,23 @@ def audit_japanese_morphemes(
         if reading is None:
             continue
 
+        normalized_reading = normalize_text(
+            reading
+        )
+
+        if not normalized_reading:
+            continue
+
         if not should_audit_japanese_part(
             surface,
-            reading,
+            normalized_reading,
         ):
             continue
 
         parts.append(
             (
                 surface,
-                reading,
+                normalized_reading,
                 part_of_speech_name,
             )
         )
@@ -370,6 +407,7 @@ def audit_japanese_text(
             ),
             romanizer=romanizer,
             context=text,
+            tokenizer=tokenizer,
         )
         for chunk in chunks
     )

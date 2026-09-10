@@ -1,5 +1,6 @@
 from corpus_builder.japanese_audit import (
     audit_japanese_morphemes,
+    audit_japanese_text,
 )
 
 
@@ -576,7 +577,9 @@ def test_audit_japanese_morphemes_joins_trailing_small_tsu_with_next_reading() -
     assert result.issues == ()
 
 
-def test_audit_japanese_morphemes_records_empty_surface_as_issue() -> None:
+def test_audit_japanese_morphemes_uses_reading_for_empty_surface() -> None:
+    received: list[str] = []
+
     morphemes = (
         FakeMorpheme(
             surface="",
@@ -585,19 +588,21 @@ def test_audit_japanese_morphemes_records_empty_surface_as_issue() -> None:
         ),
     )
 
+    def fake_romanizer(text: str) -> str:
+        received.append(text)
+        return text
+
     result = audit_japanese_morphemes(
         morphemes,
-        romanizer=lambda text: text,
+        romanizer=fake_romanizer,
         context="テスト",
     )
 
+    assert received == ["テスト"]
     assert result.total_morphemes == 1
-    assert result.successful_morphemes == 0
-    assert result.failed_morphemes == 1
-    assert len(result.issues) == 1
-    assert result.issues[0].error == (
-        "Sudachi surface is empty"
-    )
+    assert result.successful_morphemes == 1
+    assert result.failed_morphemes == 0
+    assert result.issues == ()
 
 
 def test_split_sudachi_text_chunks_keeps_chunks_within_byte_limit() -> None:
@@ -730,7 +735,6 @@ def test_audit_japanese_morphemes_ignores_standalone_halfwidth_semivoiced_mark()
 
 def test_audit_japanese_morphemes_ignores_symbol_readings() -> None:
     for symbol in (
-        "〇",
         "×",
         "△",
         "□",
@@ -758,6 +762,149 @@ def test_audit_japanese_morphemes_ignores_symbol_readings() -> None:
         assert result.successful_morphemes == 0
         assert result.failed_morphemes == 0
         assert result.issues == ()
+
+
+def test_audit_japanese_text_salvages_cjk_oov_after_ideographic_zero() -> None:
+    class OovMorpheme(FakeMorpheme):
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            if text == "〇魚菜店":
+                return (
+                    OovMorpheme(
+                        surface="〇魚菜店",
+                        reading="〇魚菜店",
+                        part_of_speech="名詞",
+                    ),
+                )
+
+            if text == "魚菜店":
+                return (
+                    FakeMorpheme(
+                        surface="魚",
+                        reading="サカナ",
+                        part_of_speech="名詞",
+                    ),
+                    FakeMorpheme(
+                        surface="菜",
+                        reading="ナ",
+                        part_of_speech="名詞",
+                    ),
+                    FakeMorpheme(
+                        surface="店",
+                        reading="テン",
+                        part_of_speech="名詞",
+                    ),
+                )
+
+            raise AssertionError(
+                f"Unexpected tokenize input: {text!r}"
+            )
+
+    received: list[str] = []
+
+    def fake_romanizer(
+        reading: str,
+    ) -> str:
+        received.append(reading)
+
+        mapping = {
+            "〇": "maru",
+            "サカナ": "sakana",
+            "ナ": "na",
+            "テン": "tenn",
+        }
+
+        return mapping[reading]
+
+    result = audit_japanese_text(
+        "〇魚菜店",
+        tokenizer=FakeTokenizer(),
+        romanizer=fake_romanizer,
+    )
+
+    assert received == [
+        "〇",
+        "サカナ",
+        "ナ",
+        "テン",
+    ]
+    assert result.failed_morphemes == 0
+    assert result.issues == ()
+
+
+def test_audit_japanese_morphemes_skips_ignored_combining_readings() -> None:
+    received: list[str] = []
+
+    def fake_romanizer(
+        reading: str,
+    ) -> str:
+        received.append(reading)
+        return "ignored"
+
+    result = audit_japanese_morphemes(
+        (
+            FakeMorpheme(
+                surface="ﾟﾟ",
+                reading="゚゚",
+                part_of_speech="名詞",
+            ),
+            FakeMorpheme(
+                surface="",
+                reading=" ̆",
+                part_of_speech="補助記号",
+            ),
+        ),
+        romanizer=fake_romanizer,
+        context="test",
+    )
+
+    assert received == []
+    assert result.total_morphemes == 0
+    assert result.successful_morphemes == 0
+    assert result.failed_morphemes == 0
+    assert result.issues == ()
+
+
+def test_audit_japanese_morphemes_audits_ideographic_zero() -> None:
+    received: list[str] = []
+
+    morphemes = (
+        FakeMorpheme(
+            surface="〇",
+            reading="〇",
+            part_of_speech="補助記号",
+        ),
+    )
+
+    def fake_romanizer(text: str) -> str:
+        received.append(text)
+
+        if text == "〇":
+            return "maru"
+
+        raise ValueError(
+            f"Unexpected reading: {text}"
+        )
+
+    result = audit_japanese_morphemes(
+        morphemes,
+        romanizer=fake_romanizer,
+        context="〇",
+    )
+
+    assert received == ["〇"]
+    assert result.total_morphemes == 1
+    assert result.successful_morphemes == 1
+    assert result.failed_morphemes == 0
+    assert result.issues == ()
 
 
 def test_audit_japanese_morphemes_keeps_small_kana_and_tsu() -> None:
