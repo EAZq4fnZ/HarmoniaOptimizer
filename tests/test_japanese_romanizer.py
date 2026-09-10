@@ -149,18 +149,18 @@ def test_romanize_supports_small_kana_explicitly() -> None:
     )
 
 
-def test_romanize_deyu_foreign_sound_sequence() -> None:
+def test_romanize_deyu_as_delyu() -> None:
     assert romanize_japanese_reading(
         "デュ"
-    ) == "dhu"
+    ) == "delyu"
 
     assert romanize_japanese_reading(
         "エデュケーション"
-    ) == "edhuke-shonn"
+    ) == "edelyuke-shonn"
 
     assert romanize_japanese_reading(
         "デュカス"
-    ) == "dhukasu"
+    ) == "delyukasu"
 
 
 def test_romanize_japanese_reading_supports_small_kana_sequences() -> None:
