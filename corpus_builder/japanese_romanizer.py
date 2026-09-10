@@ -60,7 +60,7 @@ ROMAJI_MAP = {
     "ン": "nn",
     "ヴ": "vu",
     "ー": "-",
-    "〇": "〇",
+    "〇": "maru",
 
     "ァ": "la",
     "ィ": "li",
@@ -333,3 +333,4 @@ def romanize_japanese_reading(
         index += consumed
 
     return "".join(result)
+
