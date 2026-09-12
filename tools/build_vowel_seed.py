@@ -7,6 +7,9 @@ import json
 import time
 from pathlib import Path
 
+from config.harmonia_position_costs import (
+    make_harmonia_position_cost_profile,
+)
 from config_loader.constraint_config_loader import (
     ConstraintConfigLoader,
 )
@@ -27,6 +30,9 @@ from evaluator.fast_candidate_scorer import (
 from evaluator.fast_finger_load_score_evaluator import (
     FastFingerLoadScoreEvaluator,
 )
+from evaluator.fast_key_position_score_evaluator import (
+    FastKeyPositionScoreEvaluator,
+)
 from evaluator.fast_layout_score_evaluator import (
     FastLayoutScoreEvaluator,
 )
@@ -34,6 +40,7 @@ from evaluator.fast_trigram_layout_score_evaluator import (
     FastTrigramLayoutScoreEvaluator,
 )
 from evaluator.finger_load_pipeline import FingerLoadPipeline
+from evaluator.key_position_evaluator import KeyPositionEvaluator
 from evaluator.layout_evaluator import LayoutEvaluator
 from evaluator.trigram_layout_evaluator import TrigramLayoutEvaluator
 from models.corpus import Corpus
@@ -71,6 +78,9 @@ def build_evaluator(
         trigram_layout_evaluator=TrigramLayoutEvaluator(
             optimization_config.trigram_cost_weights
         ),
+        key_position_evaluator=KeyPositionEvaluator(
+            make_harmonia_position_cost_profile()
+        ),
     )
 
 
@@ -104,6 +114,11 @@ def build_fast_evaluator(
         trigram_layout_evaluator=(
             FastTrigramLayoutScoreEvaluator(
                 optimization_config.trigram_cost_weights
+            )
+        ),
+        key_position_evaluator=(
+            FastKeyPositionScoreEvaluator(
+                make_harmonia_position_cost_profile()
             )
         ),
     )

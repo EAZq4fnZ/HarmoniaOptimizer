@@ -206,6 +206,21 @@ class VowelSeedBuilder:
             | None
         ) = None
 
+        prepared_position_costs: (
+            tuple[float, ...]
+            | None
+        ) = None
+
+        prepared_position_weighted_statistics: (
+            tuple[float, ...]
+            | None
+        ) = None
+
+        prepared_position_total_weighted_load: (
+            float
+            | None
+        ) = None
+
         candidate_position_indexes: tuple[int, ...] | None = None
         left_position_indexes: tuple[int, ...] | None = None
         right_position_indexes: tuple[int, ...] | None = None
@@ -343,6 +358,28 @@ class VowelSeedBuilder:
                     character_statistics
                 )
             )
+
+            prepared_position_costs = (
+                self
+                ._fast_evaluator
+                .prepare_position_indexed_position_costs(
+                    position_ids_by_index
+                )
+            )
+
+            prepared_position_statistics = (
+                self
+                ._fast_evaluator
+                .prepare_position_indexed_position_statistics(
+                    character_statistics
+                )
+            )
+
+            if prepared_position_statistics is not None:
+                (
+                    prepared_position_weighted_statistics,
+                    prepared_position_total_weighted_load,
+                ) = prepared_position_statistics
 
             # Finger-load baseline is prepared per selected vowel
             # position set inside the exhaustive loop. Consonant positions
@@ -644,10 +681,26 @@ class VowelSeedBuilder:
                             )
                         )
 
+                    position_score = (
+                        self
+                        ._fast_evaluator
+                        .evaluate_prepared_position_score(
+                            candidate_positions_list,
+                            prepared_position_costs,
+                            prepared_position_weighted_statistics,
+                            prepared_position_total_weighted_load,
+                        )
+                    )
+
                     score = (
                         transition_total_cost * transition_factor
                         + trigram_total_cost * trigram_factor
                         + finger_load_penalty * finger_load_weight
+                        + self
+                        ._fast_evaluator
+                        .weighted_position_score(
+                            position_score
+                        )
                     )
 
                     if (

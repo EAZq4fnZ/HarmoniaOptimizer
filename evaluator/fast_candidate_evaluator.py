@@ -11,6 +11,9 @@ from evaluator.fast_finger_load_score_evaluator import (
     FastFingerLoadScoreEvaluator,
     PreparedPositionIndexedFingerLoadBaseline,
 )
+from evaluator.fast_key_position_score_evaluator import (
+    FastKeyPositionScoreEvaluator,
+)
 from evaluator.fast_layout_score_evaluator import (
     FastLayoutScoreEvaluator,
     PositionIndexedDeltaBaseline,
@@ -69,6 +72,9 @@ class FastCandidateEvaluator:
         trigram_layout_evaluator: (
             FastTrigramLayoutScoreEvaluator | None
         ) = None,
+        key_position_evaluator: (
+            FastKeyPositionScoreEvaluator | None
+        ) = None,
     ) -> None:
         self._constraint_set = constraint_set
         self._layout_evaluator = layout_evaluator
@@ -76,6 +82,25 @@ class FastCandidateEvaluator:
         self._candidate_scorer = candidate_scorer
         self._trigram_layout_evaluator = (
             trigram_layout_evaluator
+        )
+        self._key_position_evaluator = (
+            key_position_evaluator
+        )
+
+    def weighted_position_score(
+        self,
+        position_score: float,
+    ) -> float:
+        """
+        Apply the configured candidate position weight.
+
+        Scalar hot paths can use this without depending on the
+        FastCandidateScorer implementation details.
+        """
+
+        return (
+            position_score
+            * self._candidate_scorer.weights.position_weight
         )
 
     def evaluate(
@@ -513,6 +538,83 @@ class FastCandidateEvaluator:
                 layout_score.evaluated_weight
             ),
             finger_load_penalty=finger_load_penalty,
+        )
+
+    def prepare_position_indexed_position_costs(
+        self,
+        positions: Sequence[str],
+    ) -> tuple[float, ...] | None:
+        """
+        Prepare key-position costs for a position-indexed hot path.
+
+        None means key-position evaluation is not configured, matching
+        CandidateEvaluator's optional key-position semantics.
+        """
+
+        if self._key_position_evaluator is None:
+            return None
+
+        return (
+            self._key_position_evaluator
+            .build_position_costs(
+                positions
+            )
+        )
+
+    def prepare_position_indexed_position_statistics(
+        self,
+        character_statistics: CharacterStatistics,
+    ) -> tuple[tuple[float, ...], float] | None:
+        """
+        Prepare A-Z weighted statistics for key-position scoring.
+
+        None means key-position evaluation is not configured.
+        """
+
+        if self._key_position_evaluator is None:
+            return None
+
+        return (
+            self._key_position_evaluator
+            .prepare_position_indexed_statistics(
+                character_statistics
+            )
+        )
+
+    def evaluate_prepared_position_score(
+        self,
+        positions: Sequence[int],
+        position_costs: Sequence[float] | None,
+        weighted_statistics: Sequence[float] | None,
+        total_weighted_load: float | None,
+    ) -> float:
+        """
+        Evaluate a prepared complete-layout key-position score.
+
+        When key-position evaluation is not configured, return zero to
+        preserve CandidateEvaluator compatibility.
+        """
+
+        if self._key_position_evaluator is None:
+            return 0.0
+
+        if (
+            position_costs is None
+            or weighted_statistics is None
+            or total_weighted_load is None
+        ):
+            raise RuntimeError(
+                "key-position search data was not initialized"
+            )
+
+        return (
+            self._key_position_evaluator
+            .evaluate_prepared_position_indexed_complete(
+                positions,
+                position_costs,
+                weighted_statistics,
+                total_weighted_load,
+            )
         )
 
     def prepare_position_indexed_character_statistics(
