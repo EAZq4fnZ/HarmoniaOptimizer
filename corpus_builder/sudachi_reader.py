@@ -4,6 +4,16 @@ import unicodedata
 from collections.abc import Callable, Iterable
 from typing import Protocol
 
+from corpus_builder.japanese_corpus_part import (
+    JapaneseCorpusPart,
+    JapaneseCorpusPartKind,
+)
+from corpus_builder.japanese_keystroke_canonicalizer import (
+    FULLWIDTH_ASCII_PUNCTUATION_MAP,
+    HALFWIDTH_JAPANESE_PUNCTUATION_MAP,
+    HARMONIA_NATIVE_CHARACTERS,
+)
+
 
 class SudachiMorpheme(Protocol):
     def surface(
@@ -172,6 +182,97 @@ def is_repeated_iteration_mark_emoticon(
         for index, char in enumerate(
             text
         )
+    )
+
+
+AMBIGUOUS_JAPANESE_CORPUS_CHARACTERS = frozenset(
+    {
+        "〜",
+        "〆",
+        "α",
+        "β",
+        "γ",
+        "μ",
+        "θ",
+        "φ",
+        "Δ",
+        "Σ",
+        "×",
+        "○",
+        "￥",
+    }
+)
+
+
+def classify_sudachi_corpus_part(
+    *,
+    surface: str,
+) -> JapaneseCorpusPartKind:
+    if not surface:
+        return JapaneseCorpusPartKind.JAPANESE_LEXICAL
+
+    if surface in HARMONIA_NATIVE_CHARACTERS:
+        return JapaneseCorpusPartKind.HARMONIA_NATIVE
+
+    if surface.isascii():
+        if is_punctuation_or_symbol_text(surface):
+            return JapaneseCorpusPartKind.PUNCTUATION
+
+        return JapaneseCorpusPartKind.ASCII_LITERAL
+
+    if any(
+        char in AMBIGUOUS_JAPANESE_CORPUS_CHARACTERS
+        for char in surface
+    ):
+        return JapaneseCorpusPartKind.AMBIGUOUS
+
+    if all(
+        (
+            char in FULLWIDTH_ASCII_PUNCTUATION_MAP
+            or char
+            in HALFWIDTH_JAPANESE_PUNCTUATION_MAP
+        )
+        for char in surface
+    ):
+        return JapaneseCorpusPartKind.PUNCTUATION
+
+    if is_punctuation_or_symbol_text(surface):
+        return JapaneseCorpusPartKind.AMBIGUOUS
+
+    return JapaneseCorpusPartKind.JAPANESE_LEXICAL
+
+
+def select_sudachi_corpus_part_record(
+    morpheme: SudachiMorpheme,
+) -> JapaneseCorpusPart | None:
+    surface = morpheme.surface()
+
+    if not isinstance(surface, str):
+        raise TypeError(
+            "Sudachi surface must be a string"
+        )
+
+    if surface.isspace():
+        return None
+
+    kind = classify_sudachi_corpus_part(
+        surface=surface,
+    )
+
+    processing_text = select_sudachi_corpus_part(
+        morpheme
+    )
+
+    if processing_text is None:
+        if kind is not JapaneseCorpusPartKind.AMBIGUOUS:
+            return None
+
+        processing_text = surface
+
+    return JapaneseCorpusPart(
+        kind=kind,
+        source_text=surface,
+        processing_text=processing_text,
     )
 
 
