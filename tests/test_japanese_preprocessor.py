@@ -1,6 +1,14 @@
 import pytest
 
+from corpus_builder.japanese_corpus_part import (
+    JapaneseCorpusPart,
+    JapaneseCorpusPartKind,
+)
+from corpus_builder.japanese_keystroke_canonicalizer import (
+    canonicalize_japanese_keystroke_text,
+)
 from corpus_builder.japanese_preprocessor import (
+    preprocess_japanese_corpus_part,
     preprocess_japanese_source,
 )
 from corpus_builder.japanese_reader import make_default_japanese_reader
@@ -130,3 +138,90 @@ def test_preprocess_japanese_source_removes_ignored_format_characters() -> None:
         "テスト"
     ]
     assert result == "テスト"
+
+@pytest.mark.parametrize(
+    ("part", "expected"),
+    (
+        (
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.JAPANESE_LEXICAL
+                ),
+                source_text="今日",
+                processing_text="キョウ",
+            ),
+            "kyou",
+        ),
+        (
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.ASCII_LITERAL
+                ),
+                source_text="Python",
+                processing_text="パイソン",
+            ),
+            "Python",
+        ),
+        (
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.PUNCTUATION
+                ),
+                source_text="！",
+                processing_text="！",
+            ),
+            "!",
+        ),
+        (
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.HARMONIA_NATIVE
+                ),
+                source_text="－",
+                processing_text="－",
+            ),
+            "－",
+        ),
+        (
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.JAPANESE_LEXICAL
+                ),
+                source_text="〇",
+                processing_text="〇",
+            ),
+            "maru",
+        ),
+    ),
+)
+def test_preprocess_japanese_corpus_part_applies_kind_policy(
+    part: JapaneseCorpusPart,
+    expected: str,
+) -> None:
+    assert preprocess_japanese_corpus_part(
+        part,
+        romanizer=romanize_japanese_reading,
+        canonicalizer=(
+            canonicalize_japanese_keystroke_text
+        ),
+    ) == expected
+
+
+def test_preprocess_japanese_corpus_part_rejects_ambiguous_part() -> None:
+    part = JapaneseCorpusPart(
+        kind=JapaneseCorpusPartKind.AMBIGUOUS,
+        source_text="〜",
+        processing_text="ドウ",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="ambiguous Japanese corpus part",
+    ):
+        preprocess_japanese_corpus_part(
+            part,
+            romanizer=romanize_japanese_reading,
+            canonicalizer=(
+                canonicalize_japanese_keystroke_text
+            ),
+        )

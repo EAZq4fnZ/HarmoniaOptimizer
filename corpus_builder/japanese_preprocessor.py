@@ -2,10 +2,81 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from .japanese_corpus_part import (
+    JapaneseCorpusPart,
+    JapaneseCorpusPartKind,
+)
 from .text_normalizer import (
     normalize_fullwidth_ascii,
     normalize_text,
 )
+
+
+def preprocess_japanese_corpus_part(
+    part: JapaneseCorpusPart,
+    *,
+    romanizer: Callable[[str], str],
+    canonicalizer: Callable[[str], str],
+) -> str:
+    if (
+        part.kind
+        is JapaneseCorpusPartKind.JAPANESE_LEXICAL
+    ):
+        result = romanizer(
+            part.processing_text
+        )
+    elif (
+        part.kind
+        is JapaneseCorpusPartKind.ASCII_LITERAL
+    ):
+        result = part.source_text
+    elif (
+        part.kind
+        is JapaneseCorpusPartKind.PUNCTUATION
+    ):
+        result = canonicalizer(
+            part.source_text
+        )
+    elif (
+        part.kind
+        is JapaneseCorpusPartKind.HARMONIA_NATIVE
+    ):
+        result = part.source_text
+    elif (
+        part.kind
+        is JapaneseCorpusPartKind.AMBIGUOUS
+    ):
+        raise ValueError(
+            "ambiguous Japanese corpus part "
+            f"cannot be preprocessed: "
+            f"{part.source_text!r}"
+        )
+    else:
+        raise ValueError(
+            "unsupported Japanese corpus part kind: "
+            f"{part.kind!r}"
+        )
+
+    if not isinstance(
+        result,
+        str,
+    ):
+        raise TypeError(
+            "Japanese corpus part processor "
+            "output must be a string"
+        )
+
+    normalized = normalize_text(
+        result
+    )
+
+    if not normalized:
+        raise ValueError(
+            "Japanese corpus part processor "
+            "output must not be empty"
+        )
+
+    return normalized
 
 
 def preprocess_japanese_source(
