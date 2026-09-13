@@ -647,15 +647,26 @@ def make_sudachi_tokenizer(
     return read
 
 
-def make_default_sudachi_tokenizer() -> Callable[[str], Iterable[str]]:
+def _make_default_sudachi_engine() -> SudachiTokenizer:
     from sudachipy import Dictionary, SplitMode
 
-    tokenizer = Dictionary(
+    return Dictionary(
         dict="core"
     ).create(
         mode=SplitMode.C
     )
 
+
+def make_default_sudachi_corpus_part_tokenizer() -> Callable[
+    [str],
+    Iterable[JapaneseCorpusPart],
+]:
+    return make_sudachi_corpus_part_tokenizer(
+        _make_default_sudachi_engine()
+    )
+
+
+def make_default_sudachi_tokenizer() -> Callable[[str], Iterable[str]]:
     return make_sudachi_tokenizer(
-        tokenizer
+        _make_default_sudachi_engine()
     )

@@ -6,6 +6,7 @@ from corpus_builder.japanese_corpus_part import (
 from corpus_builder.sudachi_reader import (
     extract_sudachi_corpus_parts,
     extract_sudachi_readings,
+    make_default_sudachi_corpus_part_tokenizer,
     make_default_sudachi_tokenizer,
     make_sudachi_corpus_part_tokenizer,
     make_sudachi_tokenizer,
@@ -1362,3 +1363,21 @@ def test_make_sudachi_corpus_part_tokenizer_preserves_ideographic_zero_in_cjk_oo
             "サカナ",
         ),
     )
+
+def test_make_default_sudachi_corpus_part_tokenizer_preserves_standalone_ideographic_zero() -> None:
+    reader = make_default_sudachi_corpus_part_tokenizer()
+
+    parts = tuple(
+        reader("〇")
+    )
+
+    assert len(parts) == 1
+
+    part = parts[0]
+
+    assert (
+        part.kind
+        is JapaneseCorpusPartKind.JAPANESE_LEXICAL
+    )
+    assert part.source_text == "〇"
+    assert part.processing_text == "〇"
