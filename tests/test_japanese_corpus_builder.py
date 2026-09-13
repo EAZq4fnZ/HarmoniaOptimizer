@@ -68,3 +68,99 @@ def test_build_japanese_corpus_with_default_japanese_pipeline() -> None:
     assert result.source_document_count == 2
     assert result.ascii_letter_count > 0
     assert result.text
+
+
+def test_build_japanese_corpus_with_structured_pipeline() -> None:
+    from corpus_builder.japanese_keystroke_canonicalizer import (
+        canonicalize_japanese_keystroke_text,
+    )
+    from corpus_builder.japanese_reader import (
+        make_default_japanese_reader,
+    )
+    from corpus_builder.japanese_romanizer import (
+        romanize_japanese_reading,
+    )
+
+    reader = make_default_japanese_reader()
+
+    result = build_japanese_corpus(
+        (
+            "今日はPython！〇",
+            "ＡＢＣ今日は良い天気です。",
+        ),
+        part_reader=reader.read_parts,
+        romanizer=romanize_japanese_reading,
+        canonicalizer=(
+            canonicalize_japanese_keystroke_text
+        ),
+    )
+
+    assert result.category == "japanese"
+    assert result.source_document_count == 2
+    assert result.text == (
+        "kyouhaPython!maru "
+        "ABCkyouhayoitennkidesu。"
+    )
+
+
+def test_build_japanese_corpus_structured_pipeline_rejects_ambiguous_part() -> None:
+    from corpus_builder.japanese_keystroke_canonicalizer import (
+        canonicalize_japanese_keystroke_text,
+    )
+    from corpus_builder.japanese_reader import (
+        make_default_japanese_reader,
+    )
+    from corpus_builder.japanese_romanizer import (
+        romanize_japanese_reading,
+    )
+
+    reader = make_default_japanese_reader()
+
+    with pytest.raises(
+        ValueError,
+        match="ambiguous Japanese corpus part",
+    ):
+        build_japanese_corpus(
+            ("ど〜",),
+            part_reader=reader.read_parts,
+            romanizer=romanize_japanese_reading,
+            canonicalizer=(
+                canonicalize_japanese_keystroke_text
+            ),
+        )
+
+
+def test_build_japanese_corpus_requires_part_reader_for_structured_pipeline() -> None:
+    with pytest.raises(
+        ValueError,
+        match="part_reader is required",
+    ):
+        build_japanese_corpus(
+            ("今日は晴れです。",),
+            romanizer=lambda text: text,
+            canonicalizer=lambda text: text,
+        )
+
+
+def test_build_japanese_corpus_requires_romanizer_for_structured_pipeline() -> None:
+    with pytest.raises(
+        ValueError,
+        match="romanizer is required",
+    ):
+        build_japanese_corpus(
+            ("今日は晴れです。",),
+            part_reader=lambda text: (),
+            canonicalizer=lambda text: text,
+        )
+
+
+def test_build_japanese_corpus_requires_canonicalizer_for_structured_pipeline() -> None:
+    with pytest.raises(
+        ValueError,
+        match="canonicalizer is required",
+    ):
+        build_japanese_corpus(
+            ("今日は晴れです。",),
+            part_reader=lambda text: (),
+            romanizer=lambda text: text,
+        )
