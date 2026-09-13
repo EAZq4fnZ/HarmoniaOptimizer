@@ -380,6 +380,18 @@ def select_sudachi_corpus_part(
     )
 
 
+def extract_sudachi_corpus_part_records(
+    morphemes: Iterable[SudachiMorpheme],
+) -> Iterable[JapaneseCorpusPart]:
+    for morpheme in morphemes:
+        part = select_sudachi_corpus_part_record(
+            morpheme
+        )
+
+        if part is not None:
+            yield part
+
+
 def extract_sudachi_corpus_parts(
     morphemes: Iterable[SudachiMorpheme],
 ) -> Iterable[str]:

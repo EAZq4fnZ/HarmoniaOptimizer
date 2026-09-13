@@ -3,10 +3,12 @@ from dataclasses import dataclass
 import pytest
 
 from corpus_builder.japanese_corpus_part import (
+    JapaneseCorpusPart,
     JapaneseCorpusPartKind,
 )
 from corpus_builder.sudachi_reader import (
     classify_sudachi_corpus_part,
+    extract_sudachi_corpus_part_records,
     select_sudachi_corpus_part,
     select_sudachi_corpus_part_record,
 )
@@ -381,3 +383,105 @@ def test_structured_record_can_retain_ambiguous_part_skipped_by_legacy() -> None
     )
     assert record.source_text == "〆"
     assert record.processing_text == "〆"
+
+def test_extract_sudachi_corpus_part_records_preserves_structured_parts() -> None:
+    morphemes = (
+        FakeMorpheme(
+            surface_text="今日",
+            reading_text="キョウ",
+            pos=(
+                "名詞",
+                "普通名詞",
+                "一般",
+            ),
+        ),
+        FakeMorpheme(
+            surface_text="Python",
+            reading_text="パイソン",
+            pos=(
+                "名詞",
+                "普通名詞",
+                "一般",
+            ),
+        ),
+        FakeMorpheme(
+            surface_text="！",
+            reading_text="！",
+            pos=(
+                "補助記号",
+                "一般",
+            ),
+        ),
+        FakeMorpheme(
+            surface_text="〆",
+            reading_text="〆",
+            pos=(
+                "補助記号",
+                "一般",
+            ),
+        ),
+        FakeMorpheme(
+            surface_text=" ",
+            reading_text=" ",
+            pos=(
+                "空白",
+                "*",
+            ),
+        ),
+    )
+
+    parts = tuple(
+        extract_sudachi_corpus_part_records(
+            morphemes
+        )
+    )
+
+    assert parts == (
+        JapaneseCorpusPart(
+            kind=JapaneseCorpusPartKind.JAPANESE_LEXICAL,
+            source_text="今日",
+            processing_text="キョウ",
+        ),
+        JapaneseCorpusPart(
+            kind=JapaneseCorpusPartKind.ASCII_LITERAL,
+            source_text="Python",
+            processing_text="Python",
+        ),
+        JapaneseCorpusPart(
+            kind=JapaneseCorpusPartKind.PUNCTUATION,
+            source_text="！",
+            processing_text="！",
+        ),
+        JapaneseCorpusPart(
+            kind=JapaneseCorpusPartKind.AMBIGUOUS,
+            source_text="〆",
+            processing_text="〆",
+        ),
+    )
+
+
+def test_extract_sudachi_corpus_part_records_returns_empty_for_only_whitespace() -> None:
+    morphemes = (
+        FakeMorpheme(
+            surface_text=" ",
+            reading_text=" ",
+            pos=(
+                "空白",
+                "*",
+            ),
+        ),
+        FakeMorpheme(
+            surface_text="\t",
+            reading_text="\t",
+            pos=(
+                "空白",
+                "*",
+            ),
+        ),
+    )
+
+    assert tuple(
+        extract_sudachi_corpus_part_records(
+            morphemes
+        )
+    ) == ()
