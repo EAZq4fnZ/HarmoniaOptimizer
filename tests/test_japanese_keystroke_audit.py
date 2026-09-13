@@ -147,3 +147,102 @@ def test_audit_japanese_keystroke_parts_accepts_empty_input() -> None:
     assert result.total_parts == 0
     assert result.ambiguous_parts == 0
     assert result.issues == ()
+
+
+def test_audit_japanese_keystroke_source_uses_shared_source_normalization() -> None:
+    from corpus_builder.japanese_keystroke_audit import (
+        audit_japanese_keystroke_source,
+    )
+
+    received: list[str] = []
+
+    def fake_part_reader(
+        text: str,
+    ) -> tuple[JapaneseCorpusPart, ...]:
+        received.append(text)
+
+        return (
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.ASCII_LITERAL
+                ),
+                source_text="ABC123",
+                processing_text="ABC123",
+            ),
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.AMBIGUOUS
+                ),
+                source_text="〜",
+                processing_text="ドウ",
+            ),
+        )
+
+    result = audit_japanese_keystroke_source(
+        "  ＡＢＣ１２３\tど〜\n ",
+        part_reader=fake_part_reader,
+    )
+
+    assert received == [
+        "ABC123 ど〜",
+    ]
+
+    assert result.total_parts == 2
+    assert result.ambiguous_parts == 1
+    assert len(result.issues) == 1
+
+    issue = result.issues[0]
+
+    assert issue.source_text == "〜"
+    assert issue.processing_text == "ドウ"
+    assert issue.context == (
+        "  ＡＢＣ１２３\tど〜\n "
+    )
+
+
+def test_audit_japanese_keystroke_source_with_default_reader_records_wave_dash() -> None:
+    from corpus_builder.japanese_keystroke_audit import (
+        audit_japanese_keystroke_source,
+    )
+    from corpus_builder.japanese_reader import (
+        make_default_japanese_reader,
+    )
+
+    reader = make_default_japanese_reader()
+
+    result = audit_japanese_keystroke_source(
+        "ど〜",
+        part_reader=reader.read_parts,
+    )
+
+    assert result.ambiguous_parts == 1
+    assert len(result.issues) == 1
+
+    issue = result.issues[0]
+
+    assert issue.source_text == "ど〜"
+    assert (
+        issue.kind
+        is JapaneseCorpusPartKind.AMBIGUOUS
+    )
+    assert issue.context == "ど〜"
+
+
+def test_audit_japanese_keystroke_source_accepts_resolved_default_reader_input() -> None:
+    from corpus_builder.japanese_keystroke_audit import (
+        audit_japanese_keystroke_source,
+    )
+    from corpus_builder.japanese_reader import (
+        make_default_japanese_reader,
+    )
+
+    reader = make_default_japanese_reader()
+
+    result = audit_japanese_keystroke_source(
+        "今日はPython！〇",
+        part_reader=reader.read_parts,
+    )
+
+    assert result.total_parts > 0
+    assert result.ambiguous_parts == 0
+    assert result.issues == ()

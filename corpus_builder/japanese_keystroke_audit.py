@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from .japanese_corpus_part import (
     JapaneseCorpusPart,
     JapaneseCorpusPartKind,
+)
+from .japanese_preprocessor import (
+    normalize_japanese_source_text,
 )
 
 
@@ -109,4 +112,26 @@ def audit_japanese_keystroke_parts(
         total_parts=total_parts,
         ambiguous_parts=ambiguous_parts,
         issues=issues,
+    )
+
+
+def audit_japanese_keystroke_source(
+    text: str,
+    *,
+    part_reader: Callable[
+        [str],
+        Iterable[JapaneseCorpusPart],
+    ],
+) -> JapaneseKeystrokeAuditResult:
+    normalized = normalize_japanese_source_text(
+        text
+    )
+
+    parts = part_reader(
+        normalized
+    )
+
+    return audit_japanese_keystroke_parts(
+        parts,
+        context=text,
     )
