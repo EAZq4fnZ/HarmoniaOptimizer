@@ -345,3 +345,59 @@ def test_preprocess_structured_japanese_source_rejects_empty_output() -> None:
                 canonicalize_japanese_keystroke_text
             ),
         )
+
+
+def test_preprocess_structured_japanese_source_with_default_reader() -> None:
+    reader = make_default_japanese_reader()
+
+    assert preprocess_structured_japanese_source(
+        "今日はPython！〇",
+        part_reader=reader.read_parts,
+        romanizer=romanize_japanese_reading,
+        canonicalizer=(
+            canonicalize_japanese_keystroke_text
+        ),
+    ) == "kyouhaPython!maru"
+
+
+def test_preprocess_structured_japanese_source_with_default_reader_preserves_native_punctuation() -> None:
+    reader = make_default_japanese_reader()
+
+    assert preprocess_structured_japanese_source(
+        "ＡＢＣ今日は良い天気です。",
+        part_reader=reader.read_parts,
+        romanizer=romanize_japanese_reading,
+        canonicalizer=(
+            canonicalize_japanese_keystroke_text
+        ),
+    ) == "ABCkyouhayoitennkidesu。"
+
+
+def test_preprocess_structured_japanese_source_with_default_reader_handles_ideographic_zero_cjk_oov() -> None:
+    reader = make_default_japanese_reader()
+
+    assert preprocess_structured_japanese_source(
+        "〇魚菜店",
+        part_reader=reader.read_parts,
+        romanizer=romanize_japanese_reading,
+        canonicalizer=(
+            canonicalize_japanese_keystroke_text
+        ),
+    ) == "marusakananatenn"
+
+
+def test_preprocess_structured_japanese_source_with_default_reader_rejects_wave_dash() -> None:
+    reader = make_default_japanese_reader()
+
+    with pytest.raises(
+        ValueError,
+        match="ambiguous Japanese corpus part",
+    ):
+        preprocess_structured_japanese_source(
+            "ど〜",
+            part_reader=reader.read_parts,
+            romanizer=romanize_japanese_reading,
+            canonicalizer=(
+                canonicalize_japanese_keystroke_text
+            ),
+        )
