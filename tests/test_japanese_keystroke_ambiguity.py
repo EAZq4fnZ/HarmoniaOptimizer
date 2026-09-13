@@ -4,8 +4,23 @@ from corpus_builder.japanese_keystroke_ambiguity import (
 )
 
 
+def assert_class(
+    expected: JapaneseKeystrokeAmbiguityClass,
+    *source_texts: str,
+) -> None:
+    for source_text in source_texts:
+        assert (
+            classify_japanese_keystroke_ambiguity(
+                source_text
+            )
+            is expected
+        )
+
+
 def test_classifies_japanese_punctuation() -> None:
-    for source_text in (
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .JAPANESE_PUNCTUATION,
         "「",
         "」",
         "『",
@@ -14,18 +29,13 @@ def test_classifies_japanese_punctuation() -> None:
         "】",
         "・",
         "…",
-    ):
-        assert (
-            classify_japanese_keystroke_ambiguity(
-                source_text
-            )
-            is JapaneseKeystrokeAmbiguityClass
-            .JAPANESE_PUNCTUATION
-        )
+    )
 
 
 def test_classifies_wave_dash_input_method() -> None:
-    for source_text in (
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .INPUT_METHOD,
         "〜",
         "な〜",
         "ね〜",
@@ -33,18 +43,13 @@ def test_classifies_wave_dash_input_method() -> None:
         "です〜",
         "で〜",
         "も〜",
-    ):
-        assert (
-            classify_japanese_keystroke_ambiguity(
-                source_text
-            )
-            is JapaneseKeystrokeAmbiguityClass
-            .INPUT_METHOD
-        )
+    )
 
 
 def test_classifies_semantic_symbols() -> None:
-    for source_text in (
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .SEMANTIC_SYMBOL,
         "α",
         "β",
         "μ",
@@ -53,18 +58,13 @@ def test_classifies_semantic_symbols() -> None:
         "○",
         "￥",
         "〆",
-    ):
-        assert (
-            classify_japanese_keystroke_ambiguity(
-                source_text
-            )
-            is JapaneseKeystrokeAmbiguityClass
-            .SEMANTIC_SYMBOL
-        )
+    )
 
 
 def test_classifies_technical_compatibility() -> None:
-    for source_text in (
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .COMPATIBILITY,
         "℃",
         "㎡",
         "㎏",
@@ -72,74 +72,132 @@ def test_classifies_technical_compatibility() -> None:
         "㎝",
         "²",
         "³",
-    ):
-        assert (
-            classify_japanese_keystroke_ambiguity(
-                source_text
-            )
-            is JapaneseKeystrokeAmbiguityClass
-            .COMPATIBILITY
-        )
+    )
 
 
 def test_classifies_circled_digits_as_compatibility() -> None:
-    for source_text in (
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .COMPATIBILITY,
         "①",
         "②",
         "⑩",
         "⑳",
-    ):
-        assert (
-            classify_japanese_keystroke_ambiguity(
-                source_text
-            )
-            is JapaneseKeystrokeAmbiguityClass
-            .COMPATIBILITY
-        )
+    )
 
 
 def test_classifies_roman_numerals_as_compatibility() -> None:
-    for source_text in (
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .COMPATIBILITY,
         "Ⅰ",
         "Ⅱ",
         "Ⅸ",
         "ⅰ",
         "ⅷ",
-    ):
-        assert (
-            classify_japanese_keystroke_ambiguity(
-                source_text
-            )
-            is JapaneseKeystrokeAmbiguityClass
-            .COMPATIBILITY
-        )
+    )
+
+
+def test_classifies_typographic_characters() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .TYPOGRAPHIC,
+        "“",
+        "”",
+        "‘",
+        "’",
+        "«",
+        "»",
+        "―",
+        "—",
+        "–",
+        "‐",
+        "−",
+        "´",
+    )
+
+
+def test_classifies_directional_symbols() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .DIRECTIONAL_SYMBOL,
+        "→",
+        "←",
+        "↑",
+        "↓",
+        "⇒",
+        "▶",
+    )
+
+
+def test_classifies_geometric_symbols() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .GEOMETRIC_SYMBOL,
+        "■",
+        "●",
+        "◆",
+        "◇",
+        "□",
+        "▲",
+        "▼",
+        "▽",
+        "△",
+        "◎",
+        "━",
+        "─",
+        "│",
+        "├",
+    )
+
+
+def test_classifies_decorative_symbols() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .DECORATIVE_SYMBOL,
+        "※",
+        "♪",
+        "♩",
+        "♬",
+        "☆",
+        "★",
+        "♡",
+        "♥",
+        "❤",
+        "✨",
+    )
 
 
 def test_keeps_unresolved_other_cases_other() -> None:
-    for source_text in (
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .OTHER,
         "",
-        "♪",
-        "☆",
-        "♡",
-        "→",
+        "∀",
+        "◯",
+        "〒",
         "�",
         "😊",
         "(*´∀｀)",
-    ):
-        assert (
-            classify_japanese_keystroke_ambiguity(
-                source_text
-            )
-            is JapaneseKeystrokeAmbiguityClass
-            .OTHER
-        )
+    )
 
 
-def test_does_not_use_semantic_symbol_blacklist_for_kaomoji() -> None:
-    assert (
-        classify_japanese_keystroke_ambiguity(
-            "Σ(￣ロ￣lll)"
-        )
-        is JapaneseKeystrokeAmbiguityClass
-        .OTHER
+def test_does_not_classify_multi_character_span_by_member() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .OTHER,
+        "Σ(￣ロ￣lll)",
+        "✨✨",
+        "❤❤",
+        "→→",
+    )
+
+
+def test_wave_dash_span_keeps_input_method_priority() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .INPUT_METHOD,
+        "☆〜",
+        "〜→",
+        "な〜",
     )

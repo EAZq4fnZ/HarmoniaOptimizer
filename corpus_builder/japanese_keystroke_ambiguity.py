@@ -13,6 +13,10 @@ class JapaneseKeystrokeAmbiguityClass(
     INPUT_METHOD = "input_method"
     SEMANTIC_SYMBOL = "semantic_symbol"
     COMPATIBILITY = "compatibility"
+    TYPOGRAPHIC = "typographic"
+    DIRECTIONAL_SYMBOL = "directional_symbol"
+    GEOMETRIC_SYMBOL = "geometric_symbol"
+    DECORATIVE_SYMBOL = "decorative_symbol"
     OTHER = "other"
 
 
@@ -74,6 +78,74 @@ TECHNICAL_COMPATIBILITY_CHARACTERS = frozenset(
         "²",
         "³",
         "⁰",
+    }
+)
+
+
+TYPOGRAPHIC_CHARACTERS = frozenset(
+    {
+        "“",
+        "”",
+        "‘",
+        "’",
+        "«",
+        "»",
+        "―",
+        "—",
+        "–",
+        "‐",
+        "−",
+        "´",
+        "¨",
+        "˘",
+    }
+)
+
+
+DIRECTIONAL_SYMBOL_CHARACTERS = frozenset(
+    {
+        "→",
+        "←",
+        "↑",
+        "↓",
+        "⇒",
+        "▶",
+    }
+)
+
+
+GEOMETRIC_SYMBOL_CHARACTERS = frozenset(
+    {
+        "■",
+        "●",
+        "◆",
+        "◇",
+        "□",
+        "▲",
+        "▼",
+        "▽",
+        "△",
+        "◎",
+        "━",
+        "─",
+        "│",
+        "├",
+    }
+)
+
+
+DECORATIVE_SYMBOL_CHARACTERS = frozenset(
+    {
+        "※",
+        "♪",
+        "♩",
+        "♬",
+        "☆",
+        "★",
+        "♡",
+        "♥",
+        "❤",
+        "✨",
     }
 )
 
@@ -153,6 +225,39 @@ def classify_japanese_keystroke_ambiguity(
         return (
             JapaneseKeystrokeAmbiguityClass
             .COMPATIBILITY
+        )
+
+    if source_text in TYPOGRAPHIC_CHARACTERS:
+        return (
+            JapaneseKeystrokeAmbiguityClass
+            .TYPOGRAPHIC
+        )
+
+    if (
+        source_text
+        in DIRECTIONAL_SYMBOL_CHARACTERS
+    ):
+        return (
+            JapaneseKeystrokeAmbiguityClass
+            .DIRECTIONAL_SYMBOL
+        )
+
+    if (
+        source_text
+        in GEOMETRIC_SYMBOL_CHARACTERS
+    ):
+        return (
+            JapaneseKeystrokeAmbiguityClass
+            .GEOMETRIC_SYMBOL
+        )
+
+    if (
+        source_text
+        in DECORATIVE_SYMBOL_CHARACTERS
+    ):
+        return (
+            JapaneseKeystrokeAmbiguityClass
+            .DECORATIVE_SYMBOL
         )
 
     return (
