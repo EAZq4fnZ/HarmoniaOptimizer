@@ -549,6 +549,58 @@ def split_ideographic_zero_cjk_oov(
     return segments
 
 
+def make_sudachi_corpus_part_tokenizer(
+    tokenizer: SudachiTokenizer,
+) -> Callable[[str], Iterable[JapaneseCorpusPart]]:
+    def read(
+        text: str,
+    ) -> Iterable[JapaneseCorpusPart]:
+        for chunk in split_text_by_utf8_bytes(
+            text
+        ):
+            for morpheme in tokenizer.tokenize(
+                chunk
+            ):
+                segments = (
+                    split_ideographic_zero_cjk_oov(
+                        morpheme
+                    )
+                )
+
+                if segments is not None:
+                    for index, segment in enumerate(
+                        segments
+                    ):
+                        if index > 0:
+                            yield JapaneseCorpusPart(
+                                kind=(
+                                    JapaneseCorpusPartKind.JAPANESE_LEXICAL
+                                ),
+                                source_text="〇",
+                                processing_text="〇",
+                            )
+
+                        if segment:
+                            yield from (
+                                extract_sudachi_corpus_part_records(
+                                    tokenizer.tokenize(
+                                        segment
+                                    )
+                                )
+                            )
+
+                    continue
+
+                part = select_sudachi_corpus_part_record(
+                    morpheme
+                )
+
+                if part is not None:
+                    yield part
+
+    return read
+
+
 def make_sudachi_tokenizer(
     tokenizer: SudachiTokenizer,
 ) -> Callable[[str], Iterable[str]]:

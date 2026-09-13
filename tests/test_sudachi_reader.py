@@ -1,9 +1,13 @@
 import pytest
 
+from corpus_builder.japanese_corpus_part import (
+    JapaneseCorpusPartKind,
+)
 from corpus_builder.sudachi_reader import (
     extract_sudachi_corpus_parts,
     extract_sudachi_readings,
     make_default_sudachi_tokenizer,
+    make_sudachi_corpus_part_tokenizer,
     make_sudachi_tokenizer,
     select_sudachi_corpus_part,
     split_text_by_utf8_bytes,
@@ -1241,3 +1245,120 @@ def test_make_default_sudachi_tokenizer_preserves_standalone_ideographic_zero() 
     assert "".join(
         reader("〇")
     ) == "〇"
+
+def test_make_sudachi_corpus_part_tokenizer_returns_structured_parts() -> None:
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            assert text == "今日Python！"
+
+            return (
+                FakeMorpheme(
+                    "キョウ",
+                    surface="今日",
+                ),
+                FakeMorpheme(
+                    "パイソン",
+                    surface="Python",
+                ),
+                FakeMorpheme(
+                    "！",
+                    surface="！",
+                    part_of_speech="補助記号",
+                ),
+            )
+
+    read = make_sudachi_corpus_part_tokenizer(
+        FakeTokenizer()
+    )
+
+    parts = tuple(
+        read("今日Python！")
+    )
+
+    assert tuple(
+        (
+            part.kind,
+            part.source_text,
+            part.processing_text,
+        )
+        for part in parts
+    ) == (
+        (
+            JapaneseCorpusPartKind.JAPANESE_LEXICAL,
+            "今日",
+            "キョウ",
+        ),
+        (
+            JapaneseCorpusPartKind.ASCII_LITERAL,
+            "Python",
+            "Python",
+        ),
+        (
+            JapaneseCorpusPartKind.PUNCTUATION,
+            "！",
+            "！",
+        ),
+    )
+
+def test_make_sudachi_corpus_part_tokenizer_preserves_ideographic_zero_in_cjk_oov() -> None:
+    class FakeOovMorpheme(FakeMorpheme):
+        def is_oov(
+            self,
+        ) -> bool:
+            return True
+
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            if text == "〇魚":
+                return (
+                    FakeOovMorpheme(
+                        "〇魚",
+                        surface="〇魚",
+                    ),
+                )
+
+            if text == "魚":
+                return (
+                    FakeMorpheme(
+                        "サカナ",
+                        surface="魚",
+                    ),
+                )
+
+            raise AssertionError(
+                f"Unexpected text: {text!r}"
+            )
+
+    read = make_sudachi_corpus_part_tokenizer(
+        FakeTokenizer()
+    )
+
+    parts = tuple(
+        read("〇魚")
+    )
+
+    assert tuple(
+        (
+            part.kind,
+            part.source_text,
+            part.processing_text,
+        )
+        for part in parts
+    ) == (
+        (
+            JapaneseCorpusPartKind.JAPANESE_LEXICAL,
+            "〇",
+            "〇",
+        ),
+        (
+            JapaneseCorpusPartKind.JAPANESE_LEXICAL,
+            "魚",
+            "サカナ",
+        ),
+    )
