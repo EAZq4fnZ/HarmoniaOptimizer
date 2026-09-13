@@ -7,6 +7,7 @@ from corpus_builder.japanese_corpus_part import (
 )
 from corpus_builder.sudachi_reader import (
     classify_sudachi_corpus_part,
+    select_sudachi_corpus_part,
     select_sudachi_corpus_part_record,
 )
 
@@ -279,3 +280,104 @@ def test_empty_surface_remains_traceable() -> None:
         part.kind
         is JapaneseCorpusPartKind.JAPANESE_LEXICAL
     )
+
+@pytest.mark.parametrize(
+    (
+        "surface",
+        "reading",
+        "pos",
+        "oov",
+        "expected",
+    ),
+    (
+        (
+            "今日",
+            "キョウ",
+            ("名詞", "普通名詞", "一般"),
+            False,
+            "キョウ",
+        ),
+        (
+            "Python",
+            "パイソン",
+            ("名詞", "普通名詞", "一般"),
+            False,
+            "Python",
+        ),
+        (
+            "〇",
+            "〇",
+            ("名詞", "普通名詞", "一般"),
+            False,
+            "〇",
+        ),
+        (
+            "ほげ",
+            "ほげ",
+            ("名詞", "普通名詞", "一般"),
+            True,
+            "ホゲ",
+        ),
+        (
+            "！",
+            "！",
+            ("補助記号", "一般"),
+            False,
+            "！",
+        ),
+    ),
+)
+def test_structured_record_preserves_legacy_processing_text(
+    surface: str,
+    reading: str,
+    pos: tuple[str, ...],
+    oov: bool,
+    expected: str,
+) -> None:
+    morpheme = FakeMorpheme(
+        surface_text=surface,
+        reading_text=reading,
+        pos=pos,
+        oov=oov,
+    )
+
+    legacy = select_sudachi_corpus_part(
+        morpheme
+    )
+    record = select_sudachi_corpus_part_record(
+        morpheme
+    )
+
+    assert legacy == expected
+    assert record is not None
+    assert record.processing_text == legacy
+
+
+def test_structured_record_can_retain_ambiguous_part_skipped_by_legacy() -> None:
+    morpheme = FakeMorpheme(
+        surface_text="〆",
+        reading_text="〆",
+        pos=(
+            "補助記号",
+            "一般",
+        ),
+    )
+
+    assert (
+        select_sudachi_corpus_part(
+            morpheme
+        )
+        is None
+    )
+
+    record = select_sudachi_corpus_part_record(
+        morpheme
+    )
+
+    assert record is not None
+    assert (
+        record.kind
+        is JapaneseCorpusPartKind.AMBIGUOUS
+    )
+    assert record.source_text == "〆"
+    assert record.processing_text == "〆"

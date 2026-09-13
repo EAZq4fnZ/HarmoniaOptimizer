@@ -259,7 +259,7 @@ def select_sudachi_corpus_part_record(
         surface=surface,
     )
 
-    processing_text = select_sudachi_corpus_part(
+    processing_text = _select_sudachi_corpus_processing_text(
         morpheme
     )
 
@@ -276,7 +276,7 @@ def select_sudachi_corpus_part_record(
     )
 
 
-def select_sudachi_corpus_part(
+def _select_sudachi_corpus_processing_text(
     morpheme: SudachiMorpheme,
 ) -> str | None:
     surface = morpheme.surface()
@@ -370,6 +370,14 @@ def select_sudachi_corpus_part(
             return None
 
     return reading
+
+
+def select_sudachi_corpus_part(
+    morpheme: SudachiMorpheme,
+) -> str | None:
+    return _select_sudachi_corpus_processing_text(
+        morpheme
+    )
 
 
 def extract_sudachi_corpus_parts(
