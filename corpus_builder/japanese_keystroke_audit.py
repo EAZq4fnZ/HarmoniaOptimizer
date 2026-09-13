@@ -135,3 +135,93 @@ def audit_japanese_keystroke_source(
         parts,
         context=text,
     )
+
+
+def merge_japanese_keystroke_audit_results(
+    results: Iterable[
+        JapaneseKeystrokeAuditResult
+    ],
+) -> JapaneseKeystrokeAuditResult:
+    total_parts = 0
+    ambiguous_parts = 0
+
+    issue_counts: dict[
+        tuple[
+            str,
+            str,
+            JapaneseCorpusPartKind,
+            str,
+        ],
+        tuple[str, int],
+    ] = {}
+
+    for result in results:
+        total_parts += result.total_parts
+        ambiguous_parts += result.ambiguous_parts
+
+        for issue in result.issues:
+            key = (
+                issue.source_text,
+                issue.processing_text,
+                issue.kind,
+                issue.reason,
+            )
+
+            previous = issue_counts.get(
+                key
+            )
+
+            if previous is None:
+                issue_counts[key] = (
+                    issue.context,
+                    issue.count,
+                )
+            else:
+                first_context, count = previous
+                issue_counts[key] = (
+                    first_context,
+                    count + issue.count,
+                )
+
+    issues = tuple(
+        JapaneseKeystrokeAuditIssue(
+            source_text=source_text,
+            processing_text=processing_text,
+            kind=kind,
+            context=first_context,
+            reason=reason,
+            count=count,
+        )
+        for (
+            source_text,
+            processing_text,
+            kind,
+            reason,
+        ), (
+            first_context,
+            count,
+        ) in issue_counts.items()
+    )
+
+    return JapaneseKeystrokeAuditResult(
+        total_parts=total_parts,
+        ambiguous_parts=ambiguous_parts,
+        issues=issues,
+    )
+
+
+def audit_japanese_keystroke_sources(
+    texts: Iterable[str],
+    *,
+    part_reader: Callable[
+        [str],
+        Iterable[JapaneseCorpusPart],
+    ],
+) -> JapaneseKeystrokeAuditResult:
+    return merge_japanese_keystroke_audit_results(
+        audit_japanese_keystroke_source(
+            text,
+            part_reader=part_reader,
+        )
+        for text in texts
+    )
