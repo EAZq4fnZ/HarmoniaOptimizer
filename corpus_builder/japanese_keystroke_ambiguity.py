@@ -17,6 +17,8 @@ class JapaneseKeystrokeAmbiguityClass(
     DIRECTIONAL_SYMBOL = "directional_symbol"
     GEOMETRIC_SYMBOL = "geometric_symbol"
     DECORATIVE_SYMBOL = "decorative_symbol"
+    INVALID_SOURCE = "invalid_source"
+    EMOJI = "emoji"
     OTHER = "other"
 
 
@@ -189,6 +191,30 @@ def _is_compatibility_character(
     )
 
 
+def _is_emoji_character(
+    character: str,
+) -> bool:
+    code_point = ord(character)
+
+    return (
+        0x1F1E6
+        <= code_point
+        <= 0x1F1FF
+        or 0x1F300
+        <= code_point
+        <= 0x1FAFF
+    )
+
+
+def _contains_emoji(
+    text: str,
+) -> bool:
+    return any(
+        _is_emoji_character(character)
+        for character in text
+    )
+
+
 def classify_japanese_keystroke_ambiguity(
     source_text: str,
 ) -> JapaneseKeystrokeAmbiguityClass:
@@ -258,6 +284,18 @@ def classify_japanese_keystroke_ambiguity(
         return (
             JapaneseKeystrokeAmbiguityClass
             .DECORATIVE_SYMBOL
+        )
+
+    if "\ufffd" in source_text:
+        return (
+            JapaneseKeystrokeAmbiguityClass
+            .INVALID_SOURCE
+        )
+
+    if _contains_emoji(source_text):
+        return (
+            JapaneseKeystrokeAmbiguityClass
+            .EMOJI
         )
 
     return (

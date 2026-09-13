@@ -176,8 +176,6 @@ def test_keeps_unresolved_other_cases_other() -> None:
         "∀",
         "◯",
         "〒",
-        "�",
-        "😊",
         "(*´∀｀)",
     )
 
@@ -200,4 +198,46 @@ def test_wave_dash_span_keeps_input_method_priority() -> None:
         "☆〜",
         "〜→",
         "な〜",
+    )
+
+def test_classifies_invalid_source_spans() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .INVALID_SOURCE,
+        "�",
+        "��",
+        "���",
+        "abc�def",
+    )
+
+
+def test_classifies_unicode_emoji() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .EMOJI,
+        "💦",
+        "😍",
+        "😊",
+        "🇨🇳",
+        "😽💕",
+        "👏🤣🤣🤣",
+    )
+
+
+def test_keeps_text_kaomoji_other() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .OTHER,
+        "(*´∀｀)",
+        "(･∀･)",
+        "^▽^",
+        "Σ(￣ロ￣lll)",
+    )
+
+
+def test_invalid_source_takes_priority_over_emoji() -> None:
+    assert_class(
+        JapaneseKeystrokeAmbiguityClass
+        .INVALID_SOURCE,
+        "�😊",
     )
