@@ -10,6 +10,7 @@ from corpus_builder.japanese_keystroke_canonicalizer import (
 from corpus_builder.japanese_preprocessor import (
     preprocess_japanese_corpus_part,
     preprocess_japanese_source,
+    preprocess_structured_japanese_source,
 )
 from corpus_builder.japanese_reader import make_default_japanese_reader
 from corpus_builder.japanese_romanizer import romanize_japanese_reading
@@ -220,6 +221,125 @@ def test_preprocess_japanese_corpus_part_rejects_ambiguous_part() -> None:
     ):
         preprocess_japanese_corpus_part(
             part,
+            romanizer=romanize_japanese_reading,
+            canonicalizer=(
+                canonicalize_japanese_keystroke_text
+            ),
+        )
+
+def test_preprocess_structured_japanese_source_joins_mixed_parts() -> None:
+    received: list[str] = []
+
+    def fake_part_reader(
+        text: str,
+    ) -> tuple[JapaneseCorpusPart, ...]:
+        received.append(text)
+
+        return (
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.JAPANESE_LEXICAL
+                ),
+                source_text="今日",
+                processing_text="キョウ",
+            ),
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.ASCII_LITERAL
+                ),
+                source_text="Python",
+                processing_text="パイソン",
+            ),
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.PUNCTUATION
+                ),
+                source_text="！",
+                processing_text="！",
+            ),
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.HARMONIA_NATIVE
+                ),
+                source_text="－",
+                processing_text="－",
+            ),
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.JAPANESE_LEXICAL
+                ),
+                source_text="〇",
+                processing_text="〇",
+            ),
+        )
+
+    result = preprocess_structured_japanese_source(
+        "  ＡＢＣ\t今日Python！－〇\n ",
+        part_reader=fake_part_reader,
+        romanizer=romanize_japanese_reading,
+        canonicalizer=(
+            canonicalize_japanese_keystroke_text
+        ),
+    )
+
+    assert received == [
+        "ABC 今日Python！－〇"
+    ]
+    assert result == "kyouPython!－maru"
+
+
+def test_preprocess_structured_japanese_source_rejects_ambiguous_part() -> None:
+    def fake_part_reader(
+        text: str,
+    ) -> tuple[JapaneseCorpusPart, ...]:
+        assert text == "ど〜"
+
+        return (
+            JapaneseCorpusPart(
+                kind=(
+                    JapaneseCorpusPartKind.JAPANESE_LEXICAL
+                ),
+                source_text="ど",
+                processing_text="ド",
+            ),
+            JapaneseCorpusPart(
+                kind=JapaneseCorpusPartKind.AMBIGUOUS,
+                source_text="〜",
+                processing_text="ドウ",
+            ),
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="ambiguous Japanese corpus part",
+    ):
+        preprocess_structured_japanese_source(
+            "ど〜",
+            part_reader=fake_part_reader,
+            romanizer=romanize_japanese_reading,
+            canonicalizer=(
+                canonicalize_japanese_keystroke_text
+            ),
+        )
+
+
+def test_preprocess_structured_japanese_source_rejects_empty_output() -> None:
+    def fake_part_reader(
+        text: str,
+    ) -> tuple[JapaneseCorpusPart, ...]:
+        assert text == "テスト"
+        return ()
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "structured Japanese preprocessing "
+            "output must not be empty"
+        ),
+    ):
+        preprocess_structured_japanese_source(
+            "テスト",
+            part_reader=fake_part_reader,
             romanizer=romanize_japanese_reading,
             canonicalizer=(
                 canonicalize_japanese_keystroke_text

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 
 from .japanese_corpus_part import (
     JapaneseCorpusPart,
@@ -77,6 +77,46 @@ def preprocess_japanese_corpus_part(
         )
 
     return normalized
+
+
+def preprocess_structured_japanese_source(
+    text: str,
+    *,
+    part_reader: Callable[
+        [str],
+        Iterable[JapaneseCorpusPart],
+    ],
+    romanizer: Callable[[str], str],
+    canonicalizer: Callable[[str], str],
+) -> str:
+    normalized = normalize_fullwidth_ascii(
+        normalize_text(text)
+    )
+
+    parts = part_reader(
+        normalized
+    )
+
+    result = "".join(
+        preprocess_japanese_corpus_part(
+            part,
+            romanizer=romanizer,
+            canonicalizer=canonicalizer,
+        )
+        for part in parts
+    )
+
+    output = normalize_text(
+        result
+    )
+
+    if not output:
+        raise ValueError(
+            "structured Japanese preprocessing "
+            "output must not be empty"
+        )
+
+    return output
 
 
 def preprocess_japanese_source(
