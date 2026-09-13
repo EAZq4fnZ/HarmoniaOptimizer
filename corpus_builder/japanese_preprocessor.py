@@ -12,6 +12,14 @@ from .text_normalizer import (
 )
 
 
+def normalize_japanese_source_text(
+    text: str,
+) -> str:
+    return normalize_fullwidth_ascii(
+        normalize_text(text)
+    )
+
+
 def preprocess_japanese_corpus_part(
     part: JapaneseCorpusPart,
     *,
@@ -89,8 +97,8 @@ def preprocess_structured_japanese_source(
     romanizer: Callable[[str], str],
     canonicalizer: Callable[[str], str],
 ) -> str:
-    normalized = normalize_fullwidth_ascii(
-        normalize_text(text)
+    normalized = normalize_japanese_source_text(
+        text
     )
 
     parts = part_reader(
@@ -125,8 +133,8 @@ def preprocess_japanese_source(
     reader: Callable[[str], str] | None = None,
     romanizer: Callable[[str], str] | None = None,
 ) -> str:
-    normalized = normalize_fullwidth_ascii(
-        normalize_text(text)
+    normalized = normalize_japanese_source_text(
+        text
     )
 
     if reader is None:

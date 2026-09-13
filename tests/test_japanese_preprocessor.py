@@ -401,3 +401,13 @@ def test_preprocess_structured_japanese_source_with_default_reader_rejects_wave_
                 canonicalize_japanese_keystroke_text
             ),
         )
+
+
+def test_normalize_japanese_source_text_matches_pipeline_normalization() -> None:
+    from corpus_builder.japanese_preprocessor import (
+        normalize_japanese_source_text,
+    )
+
+    assert normalize_japanese_source_text(
+        "  ＡＢＣ１２３\t今日！\n "
+    ) == "ABC123 今日！"
