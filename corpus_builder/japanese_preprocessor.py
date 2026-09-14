@@ -4,7 +4,10 @@ from collections.abc import Callable, Iterable
 
 from .japanese_corpus_part import (
     JapaneseCorpusPart,
-    JapaneseCorpusPartKind,
+)
+from .japanese_keystroke_policy import (
+    JapaneseKeystrokePolicy,
+    resolve_japanese_keystroke_policy,
 )
 from .text_normalizer import (
     normalize_fullwidth_ascii,
@@ -26,43 +29,39 @@ def preprocess_japanese_corpus_part(
     romanizer: Callable[[str], str],
     canonicalizer: Callable[[str], str],
 ) -> str:
-    if (
-        part.kind
-        is JapaneseCorpusPartKind.JAPANESE_LEXICAL
-    ):
+    policy = resolve_japanese_keystroke_policy(
+        part
+    )
+
+    if policy is JapaneseKeystrokePolicy.ROMANIZE:
         result = romanizer(
             part.processing_text
         )
-    elif (
-        part.kind
-        is JapaneseCorpusPartKind.ASCII_LITERAL
-    ):
+    elif policy is JapaneseKeystrokePolicy.PRESERVE:
         result = part.source_text
     elif (
-        part.kind
-        is JapaneseCorpusPartKind.PUNCTUATION
+        policy
+        is JapaneseKeystrokePolicy.CANONICALIZE
     ):
         result = canonicalizer(
             part.source_text
         )
-    elif (
-        part.kind
-        is JapaneseCorpusPartKind.HARMONIA_NATIVE
-    ):
-        result = part.source_text
-    elif (
-        part.kind
-        is JapaneseCorpusPartKind.AMBIGUOUS
-    ):
+    elif policy is JapaneseKeystrokePolicy.EXCLUDE:
+        raise ValueError(
+            "excluded Japanese corpus part "
+            "cannot be preprocessed: "
+            f"{part.source_text!r}"
+        )
+    elif policy is JapaneseKeystrokePolicy.AMBIGUOUS:
         raise ValueError(
             "ambiguous Japanese corpus part "
-            f"cannot be preprocessed: "
+            "cannot be preprocessed: "
             f"{part.source_text!r}"
         )
     else:
         raise ValueError(
-            "unsupported Japanese corpus part kind: "
-            f"{part.kind!r}"
+            "unsupported Japanese keystroke policy: "
+            f"{policy!r}"
         )
 
     if not isinstance(
