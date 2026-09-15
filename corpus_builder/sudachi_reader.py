@@ -4,6 +4,9 @@ import unicodedata
 from collections.abc import Callable, Iterable
 from typing import Protocol
 
+from corpus_builder.japanese_corpus_occurrence import (
+    JapaneseCorpusOccurrence,
+)
 from corpus_builder.japanese_corpus_part import (
     JapaneseCorpusPart,
     JapaneseCorpusPartKind,
@@ -504,6 +507,21 @@ def split_text_by_utf8_bytes(
     return tuple(chunks)
 
 
+class PositionalSudachiMorpheme(
+    SudachiMorpheme,
+    Protocol,
+):
+    def begin(
+        self,
+    ) -> int:
+        ...
+
+    def end(
+        self,
+    ) -> int:
+        ...
+
+
 class SudachiTokenizer(Protocol):
     def tokenize(
         self,
@@ -547,6 +565,205 @@ def split_ideographic_zero_cjk_oov(
         return None
 
     return segments
+
+
+def make_sudachi_corpus_occurrence_tokenizer(
+    tokenizer: SudachiTokenizer,
+) -> Callable[
+    [str],
+    Iterable[JapaneseCorpusOccurrence],
+]:
+    """Create a tokenizer that preserves exact document source spans."""
+
+    def make_occurrence(
+        *,
+        part: JapaneseCorpusPart,
+        source_start: int,
+        source_end: int,
+        source_text: str,
+    ) -> JapaneseCorpusOccurrence:
+        occurrence = JapaneseCorpusOccurrence(
+            part=part,
+            source_start=source_start,
+            source_end=source_end,
+        )
+
+        occurrence.validate_source(
+            source_text
+        )
+
+        return occurrence
+
+    def read_segment(
+        *,
+        segment: str,
+        segment_start: int,
+        source_text: str,
+    ) -> Iterable[JapaneseCorpusOccurrence]:
+        for morpheme in tokenizer.tokenize(
+            segment
+        ):
+            if not hasattr(
+                morpheme,
+                "begin",
+            ) or not hasattr(
+                morpheme,
+                "end",
+            ):
+                raise TypeError(
+                    "Sudachi morpheme must provide begin() and end() "
+                    "for occurrence tokenization"
+                )
+
+            local_start = morpheme.begin()
+            local_end = morpheme.end()
+
+            if not isinstance(
+                local_start,
+                int,
+            ) or not isinstance(
+                local_end,
+                int,
+            ):
+                raise TypeError(
+                    "Sudachi begin/end must be integers"
+                )
+
+            part = select_sudachi_corpus_part_record(
+                morpheme
+            )
+
+            if part is None:
+                continue
+
+            yield make_occurrence(
+                part=part,
+                source_start=(
+                    segment_start
+                    + local_start
+                ),
+                source_end=(
+                    segment_start
+                    + local_end
+                ),
+                source_text=source_text,
+            )
+
+    def read(
+        text: str,
+    ) -> Iterable[JapaneseCorpusOccurrence]:
+        chunk_start = 0
+
+        for chunk in split_text_by_utf8_bytes(
+            text
+        ):
+            for morpheme in tokenizer.tokenize(
+                chunk
+            ):
+                if not hasattr(
+                    morpheme,
+                    "begin",
+                ) or not hasattr(
+                    morpheme,
+                    "end",
+                ):
+                    raise TypeError(
+                        "Sudachi morpheme must provide begin() and end() "
+                        "for occurrence tokenization"
+                    )
+
+                morpheme_start = morpheme.begin()
+                morpheme_end = morpheme.end()
+
+                if not isinstance(
+                    morpheme_start,
+                    int,
+                ) or not isinstance(
+                    morpheme_end,
+                    int,
+                ):
+                    raise TypeError(
+                        "Sudachi begin/end must be integers"
+                    )
+
+                absolute_morpheme_start = (
+                    chunk_start
+                    + morpheme_start
+                )
+
+                segments = (
+                    split_ideographic_zero_cjk_oov(
+                        morpheme
+                    )
+                )
+
+                if segments is not None:
+                    relative_segment_start = 0
+
+                    for index, segment in enumerate(
+                        segments
+                    ):
+                        if index > 0:
+                            zero_start = (
+                                absolute_morpheme_start
+                                + relative_segment_start
+                                - 1
+                            )
+
+                            zero_part = JapaneseCorpusPart(
+                                kind=(
+                                    JapaneseCorpusPartKind.JAPANESE_LEXICAL
+                                ),
+                                source_text="〇",
+                                processing_text="〇",
+                            )
+
+                            yield make_occurrence(
+                                part=zero_part,
+                                source_start=zero_start,
+                                source_end=zero_start + 1,
+                                source_text=text,
+                            )
+
+                        if segment:
+                            yield from read_segment(
+                                segment=segment,
+                                segment_start=(
+                                    absolute_morpheme_start
+                                    + relative_segment_start
+                                ),
+                                source_text=text,
+                            )
+
+                        relative_segment_start += (
+                            len(segment) + 1
+                        )
+
+                    continue
+
+                part = select_sudachi_corpus_part_record(
+                    morpheme
+                )
+
+                if part is not None:
+                    yield make_occurrence(
+                        part=part,
+                        source_start=(
+                            chunk_start
+                            + morpheme_start
+                        ),
+                        source_end=(
+                            chunk_start
+                            + morpheme_end
+                        ),
+                        source_text=text,
+                    )
+
+            chunk_start += len(
+                chunk
+            )
+
+    return read
 
 
 def make_sudachi_corpus_part_tokenizer(
@@ -654,6 +871,15 @@ def _make_default_sudachi_engine() -> SudachiTokenizer:
         dict="core"
     ).create(
         mode=SplitMode.C
+    )
+
+
+def make_default_sudachi_corpus_occurrence_tokenizer() -> Callable[
+    [str],
+    Iterable[JapaneseCorpusOccurrence],
+]:
+    return make_sudachi_corpus_occurrence_tokenizer(
+        _make_default_sudachi_engine()
     )
 
 

@@ -8,6 +8,7 @@ from corpus_builder.sudachi_reader import (
     extract_sudachi_readings,
     make_default_sudachi_corpus_part_tokenizer,
     make_default_sudachi_tokenizer,
+    make_sudachi_corpus_occurrence_tokenizer,
     make_sudachi_corpus_part_tokenizer,
     make_sudachi_tokenizer,
     select_sudachi_corpus_part,
@@ -1381,3 +1382,361 @@ def test_make_default_sudachi_corpus_part_tokenizer_preserves_standalone_ideogra
     )
     assert part.source_text == "〇"
     assert part.processing_text == "〇"
+
+class PositionalFakeMorpheme(FakeMorpheme):
+    def __init__(
+        self,
+        reading: str,
+        *,
+        surface: str | None = None,
+        part_of_speech: str = "名詞",
+        begin: int,
+        end: int,
+        is_oov: bool = False,
+    ) -> None:
+        super().__init__(
+            reading,
+            surface=surface,
+            part_of_speech=part_of_speech,
+        )
+        self._begin = begin
+        self._end = end
+        self._is_oov = is_oov
+
+    def begin(
+        self,
+    ) -> int:
+        return self._begin
+
+    def end(
+        self,
+    ) -> int:
+        return self._end
+
+    def is_oov(
+        self,
+    ) -> bool:
+        return self._is_oov
+
+
+def test_occurrence_tokenizer_preserves_exact_source_spans(
+) -> None:
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            assert text == "今日Python！"
+
+            return (
+                PositionalFakeMorpheme(
+                    "キョウ",
+                    surface="今日",
+                    begin=0,
+                    end=2,
+                ),
+                PositionalFakeMorpheme(
+                    "パイソン",
+                    surface="Python",
+                    begin=2,
+                    end=8,
+                ),
+                PositionalFakeMorpheme(
+                    "！",
+                    surface="！",
+                    part_of_speech="補助記号",
+                    begin=8,
+                    end=9,
+                ),
+            )
+
+    read = make_sudachi_corpus_occurrence_tokenizer(
+        FakeTokenizer()
+    )
+
+    source = "今日Python！"
+
+    occurrences = tuple(
+        read(source)
+    )
+
+    assert tuple(
+        (
+            occurrence.part.source_text,
+            occurrence.part.processing_text,
+            occurrence.source_start,
+            occurrence.source_end,
+        )
+        for occurrence in occurrences
+    ) == (
+        (
+            "今日",
+            "キョウ",
+            0,
+            2,
+        ),
+        (
+            "Python",
+            "Python",
+            2,
+            8,
+        ),
+        (
+            "！",
+            "！",
+            8,
+            9,
+        ),
+    )
+
+    for occurrence in occurrences:
+        occurrence.validate_source(
+            source
+        )
+
+
+def test_occurrence_tokenizer_tracks_chunk_absolute_offsets(
+) -> None:
+    received: list[str] = []
+
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            received.append(text)
+
+            return (
+                PositionalFakeMorpheme(
+                    "ア",
+                    surface=text[0],
+                    begin=0,
+                    end=1,
+                ),
+            )
+
+    read = make_sudachi_corpus_occurrence_tokenizer(
+        FakeTokenizer()
+    )
+
+    source = "あ" * 20_000
+
+    occurrences = tuple(
+        read(source)
+    )
+
+    assert len(received) > 1
+    assert len(occurrences) == len(received)
+
+    expected_start = 0
+
+    for occurrence, chunk in zip(
+        occurrences,
+        received,
+        strict=True,
+    ):
+        assert occurrence.source_start == expected_start
+        assert occurrence.source_end == expected_start + 1
+
+        occurrence.validate_source(
+            source
+        )
+
+        expected_start += len(
+            chunk
+        )
+
+
+def test_occurrence_tokenizer_tracks_ideographic_zero_salvage_spans(
+) -> None:
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            if text == "〇魚菜店":
+                return (
+                    PositionalFakeMorpheme(
+                        "〇魚菜店",
+                        surface="〇魚菜店",
+                        begin=0,
+                        end=4,
+                        is_oov=True,
+                    ),
+                )
+
+            if text == "魚菜店":
+                return (
+                    PositionalFakeMorpheme(
+                        "サカナ",
+                        surface="魚",
+                        begin=0,
+                        end=1,
+                    ),
+                    PositionalFakeMorpheme(
+                        "ナ",
+                        surface="菜",
+                        begin=1,
+                        end=2,
+                    ),
+                    PositionalFakeMorpheme(
+                        "テン",
+                        surface="店",
+                        begin=2,
+                        end=3,
+                    ),
+                )
+
+            raise AssertionError(
+                f"Unexpected tokenize input: {text!r}"
+            )
+
+    read = make_sudachi_corpus_occurrence_tokenizer(
+        FakeTokenizer()
+    )
+
+    source = "〇魚菜店"
+
+    occurrences = tuple(
+        read(source)
+    )
+
+    assert tuple(
+        (
+            occurrence.part.source_text,
+            occurrence.source_start,
+            occurrence.source_end,
+        )
+        for occurrence in occurrences
+    ) == (
+        (
+            "〇",
+            0,
+            1,
+        ),
+        (
+            "魚",
+            1,
+            2,
+        ),
+        (
+            "菜",
+            2,
+            3,
+        ),
+        (
+            "店",
+            3,
+            4,
+        ),
+    )
+
+    for occurrence in occurrences:
+        occurrence.validate_source(
+            source
+        )
+
+
+def test_occurrence_tokenizer_tracks_middle_ideographic_zero_spans(
+) -> None:
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            if text == "魚〇店":
+                return (
+                    PositionalFakeMorpheme(
+                        "魚〇店",
+                        surface="魚〇店",
+                        begin=0,
+                        end=3,
+                        is_oov=True,
+                    ),
+                )
+
+            if text == "魚":
+                return (
+                    PositionalFakeMorpheme(
+                        "サカナ",
+                        surface="魚",
+                        begin=0,
+                        end=1,
+                    ),
+                )
+
+            if text == "店":
+                return (
+                    PositionalFakeMorpheme(
+                        "テン",
+                        surface="店",
+                        begin=0,
+                        end=1,
+                    ),
+                )
+
+            raise AssertionError(
+                f"Unexpected tokenize input: {text!r}"
+            )
+
+    read = make_sudachi_corpus_occurrence_tokenizer(
+        FakeTokenizer()
+    )
+
+    source = "魚〇店"
+
+    occurrences = tuple(
+        read(source)
+    )
+
+    assert tuple(
+        (
+            occurrence.part.source_text,
+            occurrence.source_start,
+            occurrence.source_end,
+        )
+        for occurrence in occurrences
+    ) == (
+        (
+            "魚",
+            0,
+            1,
+        ),
+        (
+            "〇",
+            1,
+            2,
+        ),
+        (
+            "店",
+            2,
+            3,
+        ),
+    )
+
+
+def test_occurrence_tokenizer_requires_positional_morphemes(
+) -> None:
+    class FakeTokenizer:
+        def tokenize(
+            self,
+            text: str,
+        ):
+            return (
+                FakeMorpheme(
+                    "キョウ",
+                    surface="今日",
+                ),
+            )
+
+    read = make_sudachi_corpus_occurrence_tokenizer(
+        FakeTokenizer()
+    )
+
+    with pytest.raises(
+        TypeError,
+        match="must provide begin",
+    ):
+        tuple(
+            read("今日")
+        )
