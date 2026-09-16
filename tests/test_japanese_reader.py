@@ -159,3 +159,77 @@ def test_make_default_japanese_reader_supports_structured_parts() -> None:
     )
     assert part.source_text == "〇"
     assert part.processing_text == "〇"
+
+def test_japanese_reader_read_occurrences_returns_exact_occurrences() -> None:
+    from corpus_builder.japanese_corpus_occurrence import (
+        JapaneseCorpusOccurrence,
+    )
+
+    occurrence = JapaneseCorpusOccurrence(
+        part=JapaneseCorpusPart(
+            kind=JapaneseCorpusPartKind.JAPANESE_LEXICAL,
+            source_text="今日",
+            processing_text="キョウ",
+        ),
+        source_start=0,
+        source_end=2,
+    )
+
+    def fake_occurrence_tokenizer(
+        text: str,
+    ) -> tuple[JapaneseCorpusOccurrence, ...]:
+        assert text == "今日"
+
+        return (
+            occurrence,
+        )
+
+    reader = JapaneseReader(
+        tokenizer=lambda text: (text,),
+        occurrence_tokenizer=fake_occurrence_tokenizer,
+    )
+
+    assert reader.read_occurrences(
+        "今日"
+    ) == (
+        occurrence,
+    )
+
+
+def test_japanese_reader_read_occurrences_requires_occurrence_tokenizer() -> None:
+    reader = JapaneseReader(
+        tokenizer=lambda text: (text,)
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="does not have an occurrence tokenizer",
+    ):
+        reader.read_occurrences(
+            "日本語"
+        )
+
+
+def test_make_default_japanese_reader_supports_occurrences() -> None:
+    reader = make_default_japanese_reader()
+
+    occurrences = reader.read_occurrences(
+        "〇"
+    )
+
+    assert len(occurrences) == 1
+
+    occurrence = occurrences[0]
+
+    assert (
+        occurrence.part.kind
+        is JapaneseCorpusPartKind.JAPANESE_LEXICAL
+    )
+    assert occurrence.part.source_text == "〇"
+    assert occurrence.part.processing_text == "〇"
+    assert occurrence.source_start == 0
+    assert occurrence.source_end == 1
+
+    occurrence.validate_source(
+        "〇"
+    )
