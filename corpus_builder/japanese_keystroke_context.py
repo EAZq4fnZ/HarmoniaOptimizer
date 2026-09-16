@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 
 
@@ -7,6 +8,35 @@ class JapaneseKeystrokeContextEvidence(str, Enum):
     NONE = "none"
     DECORATIVE_ADJACENT = "decorative_adjacent"
     KAOMOJI_STRUCTURAL = "kaomoji_structural"
+
+
+@dataclass(frozen=True, slots=True)
+class JapaneseKeystrokeStructuralRegion:
+    source_start: int
+    source_end: int
+    evidence: JapaneseKeystrokeContextEvidence
+
+    def __post_init__(
+        self,
+    ) -> None:
+        if self.source_start < 0:
+            raise ValueError(
+                "source_start must be non-negative"
+            )
+
+        if self.source_end <= self.source_start:
+            raise ValueError(
+                "source_end must be greater than source_start"
+            )
+
+        if (
+            self.evidence
+            is not JapaneseKeystrokeContextEvidence.KAOMOJI_STRUCTURAL
+        ):
+            raise ValueError(
+                "structural region evidence must be "
+                "KAOMOJI_STRUCTURAL"
+            )
 
 
 _DECORATIVE_CHARACTERS = frozenset(
@@ -97,13 +127,32 @@ def _find_enclosing_pair(
     return best_pair
 
 
-def _has_face_pair_structure(
+def find_japanese_keystroke_structural_region_at(
     *,
     source_text: str,
     context: str,
     start: int,
-    end: int,
-) -> bool:
+) -> JapaneseKeystrokeStructuralRegion | None:
+    """Return the structural region for one exact source occurrence."""
+    if not source_text or not context:
+        return None
+
+    if start < 0:
+        return None
+
+    end = start + len(
+        source_text
+    )
+
+    if end > len(context):
+        return None
+
+    if (
+        context[start:end]
+        != source_text
+    ):
+        return None
+
     enclosing_pair = _find_enclosing_pair(
         context=context,
         start=start,
@@ -111,7 +160,7 @@ def _has_face_pair_structure(
     )
 
     if enclosing_pair is None:
-        return False
+        return None
 
     left, right = enclosing_pair
 
@@ -124,8 +173,9 @@ def _has_face_pair_structure(
     right_side = context[
         end:interior_end
     ]
+
     if not left_side or not right_side:
-        return False
+        return None
 
     enclosing_characters = frozenset(
         character
@@ -139,7 +189,7 @@ def _has_face_pair_structure(
             left_side + right_side
         )
     ):
-        return False
+        return None
 
     has_left_face_character = any(
         character in _FACE_PAIR_CHARACTERS
@@ -151,9 +201,18 @@ def _has_face_pair_structure(
         for character in right_side
     )
 
-    return (
+    if not (
         has_left_face_character
         and has_right_face_character
+    ):
+        return None
+
+    return JapaneseKeystrokeStructuralRegion(
+        source_start=left,
+        source_end=right + 1,
+        evidence=(
+            JapaneseKeystrokeContextEvidence.KAOMOJI_STRUCTURAL
+        ),
     )
 
 
@@ -223,11 +282,13 @@ def classify_japanese_keystroke_context_at(
     ):
         return JapaneseKeystrokeContextEvidence.NONE
 
-    if _has_face_pair_structure(
-        source_text=source_text,
-        context=context,
-        start=start,
-        end=end,
+    if (
+        find_japanese_keystroke_structural_region_at(
+            source_text=source_text,
+            context=context,
+            start=start,
+        )
+        is not None
     ):
         return (
             JapaneseKeystrokeContextEvidence.KAOMOJI_STRUCTURAL

@@ -2,8 +2,10 @@ import pytest
 
 from corpus_builder.japanese_keystroke_context import (
     JapaneseKeystrokeContextEvidence,
+    JapaneseKeystrokeStructuralRegion,
     classify_japanese_keystroke_context,
     classify_japanese_keystroke_context_at,
+    find_japanese_keystroke_structural_region_at,
 )
 
 
@@ -361,3 +363,172 @@ def test_ordinary_parenthetical_is_not_structural(
         )
         is not JapaneseKeystrokeContextEvidence.KAOMOJI_STRUCTURAL
     )
+
+@pytest.mark.parametrize(
+    (
+        "source_text",
+        "context",
+        "expected_start",
+        "expected_end",
+    ),
+    [
+        (
+            "○",
+            "(^○^)",
+            0,
+            5,
+        ),
+        (
+            "×",
+            "（^×^）",
+            0,
+            5,
+        ),
+        (
+            "∀",
+            "(ﾟ∀ﾟ)",
+            0,
+            5,
+        ),
+        (
+            "▽",
+            "(*ﾟ▽ﾟ*)",
+            0,
+            7,
+        ),
+    ],
+)
+def test_finds_exact_structural_region(
+    source_text: str,
+    context: str,
+    expected_start: int,
+    expected_end: int,
+) -> None:
+    start = context.index(
+        source_text
+    )
+
+    assert (
+        find_japanese_keystroke_structural_region_at(
+            source_text=source_text,
+            context=context,
+            start=start,
+        )
+        == JapaneseKeystrokeStructuralRegion(
+            source_start=expected_start,
+            source_end=expected_end,
+            evidence=(
+                JapaneseKeystrokeContextEvidence.KAOMOJI_STRUCTURAL
+            ),
+        )
+    )
+
+
+def test_structural_region_does_not_bridge_nested_enclosures(
+) -> None:
+    context = "（「(ﾟ∀ﾟ)」と「('Д`)」）"
+
+    start = context.index(
+        "」"
+    )
+
+    assert (
+        find_japanese_keystroke_structural_region_at(
+            source_text="」",
+            context=context,
+            start=start,
+        )
+        is None
+    )
+
+
+def test_structural_region_keeps_inner_enclosure(
+) -> None:
+    context = "「(ﾟ∀ﾟ)」と「('Д`)」"
+
+    start = context.index(
+        "∀"
+    )
+
+    assert (
+        find_japanese_keystroke_structural_region_at(
+            source_text="∀",
+            context=context,
+            start=start,
+        )
+        == JapaneseKeystrokeStructuralRegion(
+            source_start=1,
+            source_end=6,
+            evidence=(
+                JapaneseKeystrokeContextEvidence.KAOMOJI_STRUCTURAL
+            ),
+        )
+    )
+
+
+def test_structural_region_is_none_for_semantic_symbol(
+) -> None:
+    context = "正解は○です。"
+
+    start = context.index(
+        "○"
+    )
+
+    assert (
+        find_japanese_keystroke_structural_region_at(
+            source_text="○",
+            context=context,
+            start=start,
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "source_start",
+        "source_end",
+    ),
+    [
+        (
+            -1,
+            1,
+        ),
+        (
+            1,
+            1,
+        ),
+        (
+            2,
+            1,
+        ),
+    ],
+)
+def test_structural_region_rejects_invalid_span(
+    source_start: int,
+    source_end: int,
+) -> None:
+    with pytest.raises(
+        ValueError
+    ):
+        JapaneseKeystrokeStructuralRegion(
+            source_start=source_start,
+            source_end=source_end,
+            evidence=(
+                JapaneseKeystrokeContextEvidence.KAOMOJI_STRUCTURAL
+            ),
+        )
+
+
+def test_structural_region_rejects_non_structural_evidence(
+) -> None:
+    with pytest.raises(
+        ValueError
+    ):
+        JapaneseKeystrokeStructuralRegion(
+            source_start=0,
+            source_end=1,
+            evidence=(
+                JapaneseKeystrokeContextEvidence.DECORATIVE_ADJACENT
+            ),
+        )
