@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 
+from .japanese_corpus_occurrence import (
+    JapaneseCorpusOccurrence,
+)
 from .japanese_corpus_part import (
     JapaneseCorpusPart,
 )
@@ -84,6 +87,34 @@ def preprocess_japanese_corpus_part(
         )
 
     return normalized
+
+
+def preprocess_japanese_corpus_occurrences(
+    occurrences: Iterable[JapaneseCorpusOccurrence],
+    *,
+    romanizer: Callable[[str], str],
+    canonicalizer: Callable[[str], str],
+) -> str:
+    result = "".join(
+        preprocess_japanese_corpus_part(
+            occurrence.part,
+            romanizer=romanizer,
+            canonicalizer=canonicalizer,
+        )
+        for occurrence in occurrences
+    )
+
+    output = normalize_text(
+        result
+    )
+
+    if not output:
+        raise ValueError(
+            "Japanese corpus occurrence preprocessing "
+            "output must not be empty"
+        )
+
+    return output
 
 
 def preprocess_structured_japanese_source(
