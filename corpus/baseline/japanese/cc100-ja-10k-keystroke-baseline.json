@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "corpus": {
+    "name": "CC100 JA",
+    "raw_file": "cc100-ja-seed-20260905-20000.jsonl",
+    "raw_sha256": "eb1aee1ea3d462b24378cb135ca2c32bd64ea0a47c1acad5ba587a9b59610877"
+  },
+  "sample": {
+    "size": 10000,
+    "seed": 20260905,
+    "min_length": 100
+  },
+  "environment": {
+    "python": "3.14.3",
+    "sudachipy": "0.6.11",
+    "sudachidict_core": "20260723"
+  },
+  "result": {
+    "total_occurrences": 3273966,
+    "ambiguous_occurrences": 63588
+  },
+  "tokenizer_equivalence": {
+    "part_equals_occurrence": true,
+    "mismatch_documents": 0,
+    "sequence_sha256": "f772de4d6a0cd76a9b0871e7b1dad3fc7eb4e241b8982dc8395c55fc20765342"
+  },
+  "structural_context": {
+    "structural_occurrences": 59,
+    "structural_regions": 57
+  }
+}
