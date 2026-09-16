@@ -9,6 +9,9 @@ from corpus_builder.japanese_corpus_part import (
 from corpus_builder.japanese_keystroke_ambiguity import (
     JapaneseKeystrokeAmbiguityClass,
 )
+from corpus_builder.japanese_keystroke_context import (
+    JapaneseKeystrokeContextEvidence,
+)
 from corpus_builder.japanese_source_processing_relation import (
     JapaneseSourceProcessingRelation,
 )
@@ -82,3 +85,31 @@ def resolve_ambiguous_japanese_keystroke_policy(
     del relation
 
     return JapaneseKeystrokePolicy.AMBIGUOUS
+
+
+def resolve_contextual_japanese_keystroke_policy(
+    *,
+    ambiguity_class: JapaneseKeystrokeAmbiguityClass,
+    relation: JapaneseSourceProcessingRelation,
+    context_evidence: JapaneseKeystrokeContextEvidence,
+) -> JapaneseKeystrokePolicy:
+    """Resolve ambiguity policy using contextual keystroke evidence.
+
+    A structurally identified kaomoji region is explicit evidence that
+    the ambiguous occurrence belongs to decorative input rather than
+    Japanese lexical keystrokes, so it is excluded.
+
+    Weaker or absent contextual evidence does not resolve Contract v1
+    ambiguity and therefore falls back to the existing ambiguity
+    resolver.
+    """
+    if (
+        context_evidence
+        is JapaneseKeystrokeContextEvidence.KAOMOJI_STRUCTURAL
+    ):
+        return JapaneseKeystrokePolicy.EXCLUDE
+
+    return resolve_ambiguous_japanese_keystroke_policy(
+        ambiguity_class=ambiguity_class,
+        relation=relation,
+    )
