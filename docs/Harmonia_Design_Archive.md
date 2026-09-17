@@ -1945,3 +1945,50 @@ Firmware Export
 -   Python / Sudachi dependency provenance と sequence digest を記録。
 -   test status を 2026-09-16 の `1316 passed` へ更新。
 -   Physical Layouts workstream の対象に Elora を明示。
+------------------------------------------------------------------------
+
+# 32. v0.3 Revision Note
+
+### v0.3 --- 2026-09-17
+
+-   Stage 2G.5-e.9d occurrence-aware integration を e.9d.6 まで完了。
+-   production corpus builder に occurrence-aware path を第三の明示的な
+    processing mode として統合。
+-   legacy / structured mode は維持。
+-   verified CC100 JA 10k sample を用いて structured path と
+    occurrence-aware path を document 単位で比較。
+-   比較条件:
+    - raw SHA256:
+      `eb1aee1ea3d462b24378cb135ca2c32bd64ea0a47c1acad5ba587a9b59610877`
+    - sample size: `10000`
+    - seed: `20260905`
+    - min length: `100`
+-   比較結果:
+    - structured success / occurrence-aware success: `2624`
+    - structured error / occurrence-aware success: `1`
+    - structured error / occurrence-aware error: `7375`
+    - structured success / occurrence-aware error: `0`
+    - structured success / occurrence-aware excluded: `0`
+    - structured error / occurrence-aware excluded: `0`
+-   両経路が成功した `2624` documents は全件で出力一致。
+    - equal: `2624`
+    - different: `0`
+-   この固定 10k sample では、既存 structured-success case に対する
+    occurrence-aware path の regression は観測されなかった。
+-   唯一の structured error / occurrence-aware success は
+    document index `5583` の文末 `(^◇^;)`。
+    - structured path は ambiguous `◇` で停止。
+    - `◇` occurrence: `[388,389)`
+    - context evidence: `KAOMOJI_STRUCTURAL`
+    - excluded structural region: `[386,392)`
+    - structural region は顔文字 `(^◇^;)` 全体に一致。
+    - 周囲の日本語本文は exclusion region に含まれない。
+-   上記 recovery は Canonicalization Contract §21 の
+    context-sensitive decorative exclusion と整合。
+-   `7375` documents は依然 unresolved ambiguity により失敗するため、
+    e.9d.6 は occurrence-aware architecture の 10k regression evidence
+    であり、日本語 ambiguity policy 全体の完成を意味しない。
+-   Canonicalization Contract v1 は未 freeze のままとし、
+    §28 の unresolved policy を引き続き明示的に扱う。
+-   e.9d.6 検証時の implementation HEAD:
+    `51b1419 Integrate occurrence-aware Japanese corpus building`

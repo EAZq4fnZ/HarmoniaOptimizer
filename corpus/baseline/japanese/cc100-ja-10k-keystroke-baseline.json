@@ -27,5 +27,44 @@
   "structural_context": {
     "structural_occurrences": 59,
     "structural_regions": 57
+  },
+  "occurrence_aware_comparison": {
+    "stage": "2G.5-e.9d.6",
+    "implementation_head": "51b1419",
+    "outcome_pairs": {
+      "structured_success_occurrence_success": 2624,
+      "structured_error_occurrence_success": 1,
+      "structured_error_occurrence_error": 7375,
+      "structured_success_occurrence_error": 0,
+      "structured_success_occurrence_excluded": 0,
+      "structured_error_occurrence_excluded": 0
+    },
+    "shared_success": {
+      "equal": 2624,
+      "different": 0
+    },
+    "success_sequences": {
+      "structured_count": 2624,
+      "structured_sha256": "13c802e7fbcfe40e40ed8fcc31ed12262997dc9f1e9a092acf77f93060fc719f",
+      "occurrence_aware_count": 2625,
+      "occurrence_aware_sha256": "0179129d0198da2a17d231699d0c08461c4f143eca7041cc241d55fc58dfee2e"
+    },
+    "observed_regression_count": 0,
+    "verified_recovery": {
+      "document_index": 5583,
+      "structured_error_source_text": "◇",
+      "source_suffix": "(^◇^;)",
+      "ambiguous_occurrence_span": [
+        388,
+        389
+      ],
+      "excluded_structural_region": [
+        386,
+        392
+      ],
+      "context_evidence": "kaomoji_structural",
+      "occurrence_aware_status": "success"
+    },
+    "scope_note": "No regression was observed among the 2624 documents where both paths succeeded in this fixed 10000-document sample. This is empirical evidence for this sample, not proof of global equivalence or completion of Japanese ambiguity policy."
   }
 }
