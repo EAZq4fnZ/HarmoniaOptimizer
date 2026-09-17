@@ -12,6 +12,9 @@ from .japanese_keystroke_policy import (
     JapaneseKeystrokePolicy,
     resolve_japanese_keystroke_policy,
 )
+from .japanese_keystroke_selection import (
+    select_japanese_corpus_occurrences_by_policy,
+)
 from .text_normalizer import (
     normalize_fullwidth_ascii,
     normalize_text,
@@ -115,6 +118,49 @@ def preprocess_japanese_corpus_occurrences(
         )
 
     return output
+
+
+def preprocess_occurrence_aware_japanese_source(
+    text: str,
+    *,
+    occurrence_reader: Callable[
+        [str],
+        Iterable[JapaneseCorpusOccurrence],
+    ],
+    romanizer: Callable[[str], str],
+    canonicalizer: Callable[[str], str],
+) -> str | None:
+    normalized = normalize_japanese_source_text(
+        text
+    )
+
+    occurrences = tuple(
+        occurrence_reader(
+            normalized
+        )
+    )
+
+    if not occurrences:
+        raise ValueError(
+            "occurrence-aware Japanese preprocessing "
+            "requires at least one occurrence"
+        )
+
+    selected = (
+        select_japanese_corpus_occurrences_by_policy(
+            normalized,
+            occurrences,
+        )
+    )
+
+    if not selected:
+        return None
+
+    return preprocess_japanese_corpus_occurrences(
+        selected,
+        romanizer=romanizer,
+        canonicalizer=canonicalizer,
+    )
 
 
 def preprocess_structured_japanese_source(
