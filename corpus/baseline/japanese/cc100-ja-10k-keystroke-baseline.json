@@ -66,5 +66,16 @@
       "occurrence_aware_status": "success"
     },
     "scope_note": "No regression was observed among the 2624 documents where both paths succeeded in this fixed 10000-document sample. This is empirical evidence for this sample, not proof of global equivalence or completion of Japanese ambiguity policy."
+  },
+  "unresolved_keystroke_inventory": {
+    "stage": "2G.5-f",
+    "document_count": 10000,
+    "total_occurrences": 3273966,
+    "ambiguous_occurrences": 63588,
+    "inventory_rows": 434,
+    "artifact": "corpus/audits/cc100-ja/cc100-ja-seed-20260905-sample-10000-unresolved-keystroke-inventory.json",
+    "artifact_tracking": "ignored_regenerated",
+    "baseline_match": true,
+    "scope_note": "This inventory records unresolved ambiguity observations for the fixed 10000-document sample. It does not resolve Canonicalization Contract section 28 policies or freeze Contract v1."
   }
 }

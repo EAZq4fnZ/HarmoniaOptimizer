@@ -1992,3 +1992,80 @@ Firmware Export
     §28 の unresolved policy を引き続き明示的に扱う。
 -   e.9d.6 検証時の implementation HEAD:
     `51b1419 Integrate occurrence-aware Japanese corpus building`
+
+------------------------------------------------------------------------
+
+# 33. v0.4 Revision Note
+
+### v0.4 --- 2026-09-19
+
+-   Stage 2G.5-f unresolved Japanese keystroke policy audit を
+    production inventory として再現可能にした。
+-   exact occurrence を基礎として、未解決 ambiguity を次の exact key で
+    corpus-level に集計する
+    `JapaneseKeystrokeInventory` を追加。
+    - source text
+    - processing text
+    - ambiguity class
+    - source-processing relation
+    - context evidence
+-   各 exact key について次の二つを分離して保持する。
+    - occurrence count
+    - document count
+-   document count は、その exact key が 1 回以上出現した input document
+    の数として定義する。
+-   inventory は policy-neutral とし、contextual policy resolver を
+    呼び出して policy を決定しない。
+-   `KAOMOJI_STRUCTURAL` / `DECORATIVE_ADJACENT` / `NONE` は
+    observation として保持し、それ自体を新しい policy 決定とはしない。
+-   production inventory API を再実行するための
+    `tools.audit_japanese_keystroke_inventory` CLI を追加。
+-   CLI の正式な repo-root 実行形式は
+    `python -m tools.audit_japanese_keystroke_inventory ...` とする。
+-   verified CC100 JA 10k sample を production inventory API で再測定。
+    - raw SHA256:
+      `eb1aee1ea3d462b24378cb135ca2c32bd64ea0a47c1acad5ba587a9b59610877`
+    - sample size: `10000`
+    - seed: `20260905`
+    - min length: `100`
+    - documents: `10000`
+    - total occurrences: `3273966`
+    - ambiguous occurrences: `63588`
+    - exact inventory rows: `434`
+-   total / ambiguous occurrence counts は既存 verified baseline と完全一致。
+-   TEMP full-occurrence audit、production inventory API、正式 CLI から生成した
+    JSON artifact の間で主要 exact rows が一致することを確認。
+-   代表的な観測例:
+    - `「 → 「 / japanese_punctuation / identical / none`:
+      `16992 occurrences / 4679 documents`
+    - `・ → ・ / japanese_punctuation / identical / decorative_adjacent`:
+      `5201 / 1132`
+    - `〜 → 〜 / input_method / identical / none`:
+      `539 / 348`
+    - `○ → ○ / semantic_symbol / identical / none`:
+      `228 / 102`
+    - `℃ → ド / compatibility / linguistic_reading / none`:
+      `61 / 40`
+    - `Σ → シグマ / semantic_symbol / linguistic_reading / none`:
+      `6 / 5`
+    - `㎏ → キログラム / compatibility / linguistic_reading / none`:
+      `6 / 5`
+-   実測は引き続き次の設計判断と整合する。
+    - `DECORATIVE_ADJACENT` は `EXCLUDE` を意味しない。
+    - `LINGUISTIC_READING` は `ROMANIZE` を意味しない。
+    - `NONE` は semantic typing intent の確定を意味しない。
+-   特に `・` は `decorative_adjacent` として `5201` occurrences
+    観測されており、decorative adjacency 単独による exclusion が
+    通常の日本語 punctuation を大量に巻き込むことを再確認した。
+-   `℃ → ド`、`㎏ → キログラム`、`Σ → シグマ` は、
+    linguistic processing result と canonical keystroke intent を
+    同一視できない具体例として保持する。
+-   detailed inventory JSON は
+    `corpus/audits/cc100-ja/` 配下の再生成可能 artifact とする。
+    この directory は既存 `.gitignore` 方針に従い Git 追跡しない。
+-   tracked Source of Truth は production inventory API、再実行 CLI、
+    tests、verified baseline metadata とする。
+-   Canonicalization Contract §28 の ambiguity policy は未解決のまま。
+    この stage は観測 infrastructure の production 化であり、
+    policy resolution ではない。
+-   Canonicalization Contract v1 は未 freeze のままとする。
