@@ -2069,3 +2069,180 @@ Firmware Export
     この stage は観測 infrastructure の production 化であり、
     policy resolution ではない。
 -   Canonicalization Contract v1 は未 freeze のままとする。
+
+------------------------------------------------------------------------
+
+# 34. v0.5 Revision Note
+
+### v0.5 --- 2026-09-19
+
+-   Stage 2G.5-g Japanese punctuation family actual-corpus usage audit を進め、
+    高頻度 unresolved Japanese punctuation の source-level structure を
+    fixed CC100 JA 10k sample 上で観測した。
+-   initial observation target は次の 8 source symbols。
+    - `「`
+    - `」`
+    - `『`
+    - `』`
+    - `【`
+    - `】`
+    - `・`
+    - `…`
+-   exact unresolved occurrence による context observation では、
+    target occurrences は合計 `55010`。
+-   context observation から、既存の context evidence は semantic usage
+    classifier ではないことを再確認した。
+    - `DECORATIVE_ADJACENT` には通常の quotation / title / label /
+      lexical punctuation usage が含まれる。
+    - `NONE` は semantic typing intent の確定を意味しない。
+    - `KAOMOJI_STRUCTURAL` は strong positive evidence だが、
+      decorative usage 全体を網羅するものではない。
+-   この結果は既存 policy と整合し、
+    `DECORATIVE_ADJACENT → AMBIGUOUS` を維持する。
+    `DECORATIVE_ADJACENT → EXCLUDE` への policy 変更は行わない。
+
+-   `・` と `…` について、同一 source character の連続 run を
+    fixed 10k sample 全体で追加測定した。
+-   `…`:
+    - inventory occurrences: `3322`
+    - measured runs: `2850`
+    - measured occurrences: `3322`
+    - inventory occurrence count と完全一致。
+    - singleton runs: `2393`
+    - length 2 runs: `444`
+    - length >= 3 runs: `13`
+-   `・`:
+    - inventory occurrences: `11816`
+    - measured runs: `8725`
+    - measured occurrences: `11816`
+    - inventory occurrence count と完全一致。
+    - singleton runs: `7124`
+    - length >= 3 runs: `1305`
+    - length >= 3 occurrences: `4100`
+    - fixed sample では length >= 3 の `・` run はすべて
+      `DECORATIVE_ADJACENT` evidence を持った。
+    - 一方、length 2 run は `NONE` も多数存在するため、
+      repeated punctuation shape 単独を exclusion rule として扱わない。
+-   run length / run position は observed shape であり、
+    semantic usage や keystroke policy そのものではない。
+    `・` の repeated run を自動的に decorative / `EXCLUDE` とする
+    production rule は追加しない。
+
+-   `「」`、`『』`、`【】` については、
+    Sudachi / `JapaneseCorpusOccurrence` から独立した
+    normalized-source character structure として測定した。
+-   fixed CC100 JA 10k sample の source counts:
+    - `「`: `17212`
+    - `」`: `17181`
+    - `『`: `2069`
+    - `』`: `2051`
+    - `【`: `686`
+    - `】`: `682`
+-   strict typed-stack による matched pair measurement:
+    - `「」`: `16979` matched pairs
+    - `『』`: `2042` matched pairs
+    - `【】`: `678` matched pairs
+-   unmatched counts:
+    - `「」`: `233` unmatched opens / `193` unmatched closes
+    - `『』`: `27` unmatched opens / `9` unmatched closes
+    - `【】`: `8` unmatched opens / `4` unmatched closes
+-   mismatched closes:
+    - total: `9`
+    - documents: `8`
+    - `」` / expected `「` / actual stack top `『`:
+      `8 occurrences / 7 documents`
+    - `」` / expected `「` / actual stack top `【`:
+      `1 occurrence / 1 document`
+-   edge-context inspection では、これら 9 mismatches は
+    source text 上の異種 bracket close として説明可能だった。
+    ただし CC100 は Web-derived corpus であるため、
+    original author typo、page extraction、その他 source artifact の
+    原因分類までは行わない。
+
+-   strict typed-stack measurement では:
+    - nested matched pairs: `1125`
+    - documents with nested matched pairs: `247`
+    - maximum strict stack depth: `9`
+-   high-depth context を全件確認した結果、
+    stack depth を semantic nesting depth と解釈してはならないことを
+   確認した。
+-   特に maximum depth `9` の document index `8039` は、
+    Web snippet / `続きを読む` を含む複数の独立した opening quote が
+    closing quote 不足のまま source 上で連結され、
+    strict stack に累積した例だった。
+-   したがって旧 TEMP measurement 上の
+    `maximum_nesting_depth` という解釈は採用せず、
+    production terminology を
+    `maximum_strict_stack_depth` とする。
+-   一方で `「...『...』...」` のような実際の nested quotation
+    structure も観測されているため、
+    nested matched pair 自体を source artifact とみなすこともしない。
+
+-   bracket source-character measurement 中に、
+    normalized-source character occurrence と
+    `JapaneseCorpusOccurrence` が同一単位ではないことを実データで確認した。
+-   例として `「:)」「:)」` 周辺では、
+    Sudachi occurrence が `:)」「:)」` のような複数文字 source span を
+    単一 `AMBIGUOUS` occurrence として返す場合がある。
+-   fixed 10k sample の source-character count と
+    exact-source-text inventory count の差:
+    - `「`: `+2`
+    - `」`: `+3`
+    - `『`: `+1`
+    - `』`: `+3`
+    - `【`: `0`
+    - `】`: `0`
+-   この差から次の監査原則を明示する。
+    - normalized-source character occurrence と
+      `JapaneseCorpusOccurrence` を同一視しない。
+    - source punctuation structure に関する問いは、
+      Sudachi occurrence segmentation から独立して
+      normalized source text 上で測定する。
+    - linguistic / preprocessing occurrence と source-character structure の
+      比較が必要な場合は、両者を混在させず別の comparison layer で扱う。
+
+-   上記 source-level bracket measurement を再利用可能にするため、
+    production module
+    `corpus_builder/japanese_source_punctuation_audit.py`
+    を追加。
+-   production API は normalized source text の punctuation structure
+    のみを扱い、次の責務を持たない。
+    - Sudachi tokenization
+    - `JapaneseCorpusOccurrence`
+    - keystroke ambiguity classification
+    - context evidence classification
+    - keystroke policy resolution
+    - semantic usage classification
+-   production result は少なくとも次を明示的に分離する。
+    - source open / close counts
+    - matched pairs
+    - unmatched opens / closes
+    - typed mismatches
+    - mismatch document counts
+    - nested matched pairs
+    - documents with nested matched pairs
+    - maximum strict stack depth
+-   mismatch recovery は strict typed-stack semantics とし、
+    wrong-type close は mismatch として記録するが stack を mutate しない。
+
+-   production API を独立した fixed 10k TEMP runner から再実行し、
+    prior TEMP structural measurement と完全一致することを確認。
+    - documents: `10000`
+    - documents with target brackets: `5222`
+    - `「」`: `16979` matched / `4672` documents
+    - `『』`: `2042` matched / `855` documents
+    - `【】`: `678` matched / `392` documents
+    - mismatched closes: `9 / 8 documents`
+    - nested matched pairs: `1125 / 247 documents`
+    - maximum strict stack depth: `9`
+-   production implementation には dedicated unit tests を追加し、
+    matched / unmatched / mismatch / non-mutating mismatch recovery /
+    nested matched pair / strict stack depth / per-document reset /
+    document counts / empty corpus / unrelated punctuation を検証。
+-   Stage 2G.5-g のここまでの結果は observational infrastructure と
+    source-structure evidence であり、
+    Japanese punctuation の canonical keystroke policy 決定ではない。
+-   `「」`、`『』`、`【】`、`・`、`…` の最終 keystroke intent /
+    canonicalization policy は引き続き未確定。
+-   Canonicalization Contract §28 は未解決のままとし、
+    Canonicalization Contract v1 は未 freeze のままとする。
