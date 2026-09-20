@@ -12,6 +12,7 @@ from corpus_builder.japanese_corpus_part import (
     JapaneseCorpusPartKind,
 )
 from corpus_builder.japanese_keystroke_canonicalizer import (
+    DIRECT_JAPANESE_BRACKET_MAP,
     FULLWIDTH_ASCII_PUNCTUATION_MAP,
     HALFWIDTH_JAPANESE_PUNCTUATION_MAP,
     HARMONIA_NATIVE_CHARACTERS,
@@ -234,6 +235,8 @@ def classify_sudachi_corpus_part(
             char in FULLWIDTH_ASCII_PUNCTUATION_MAP
             or char
             in HALFWIDTH_JAPANESE_PUNCTUATION_MAP
+            or char
+            in DIRECT_JAPANESE_BRACKET_MAP
         )
         for char in surface
     ):

@@ -2246,3 +2246,160 @@ Firmware Export
     canonicalization policy は引き続き未確定。
 -   Canonicalization Contract §28 は未解決のままとし、
     Canonicalization Contract v1 は未 freeze のままとする。
+
+------------------------------------------------------------------------
+
+# 35. v0.6 Revision Note
+
+### v0.6 --- 2026-09-20
+
+-   Stage 2G.5-g.3b.7d では、Japanese bracket family のうち
+    `「」`、`『』`、`【】` について、
+    source structure / ObservedUsage だけでは確定できない
+    InputRoute / KeystrokeIntent を追加調査した。
+-   ObservedUsage と InputRoute は別軸として扱う。
+    source text 上で quotation / title / label のいずれとして
+    使用されているかだけでは、original input route は確定しない。
+
+-   Windows / Microsoft IME / romaji input の実機確認では、
+    次の direct logical-key route を確認した。
+    - `[` → `「`
+    - `]` → `」`
+-   同じ環境で、`kakko` + conversion から
+    `「」`、`『』`、`【】` が候補として得られることも確認した。
+-   さらに、
+    - `[` → `「` → conversion → `『` / `【`
+    - `]` → `」` → conversion → `』` / `】`
+    という per-character conversion route も確認した。
+-   したがって `『』`、`【】` については source character だけから
+    historical input route を一意に復元できない。
+    pair-level reading conversion と per-character conversion の
+    複数 route が存在するため、引き続き unresolved とする。
+
+-   現在の Harmonia Japanese corpus architecture を再確認した結果、
+    corpus は IME operation event stream ではなく、
+    logical character-producing keystroke sequence を主対象としている。
+-   現行 pipeline は IME candidate selection、conversion operation、
+    commit operation、IME state transition をイベントとして保持しない。
+-   `〇 → maru` のような reading-based keystroke reconstruction は存在するが、
+    IME conversion / candidate-selection operation 自体を
+    corpus event としてモデル化しているわけではない。
+-   このため bracket family のみについて Space / candidate selection /
+    commit operation を導入することは、現行 architecture と整合しない。
+-   full IME-operation modeling が将来必要になった場合は、
+    bracket canonicalization とは独立した architecture decision とする。
+
+-   上記の実機 evidence と現行 architecture boundary に基づき、
+    `「」「」` の canonical keystroke policy を次のように決定した。
+    - `「` → `[`
+    - `」` → `]`
+-   これは Unicode normalization ではなく、
+    Harmonia keystroke canonicalization である。
+-   `「」「」` は `HARMONIA_NATIVE_CHARACTERS` には追加しない。
+    Sudachi corpus-part classification では `PUNCTUATION` とし、
+    既存の
+    `PUNCTUATION → CANONICALIZE`
+    policy を通して US logical key `[]` へ canonicalize する。
+-   contextual ambiguity resolver を
+    `「」「」` の解決のために拡張しない。
+    occurrence selection layer も変更しない。
+    direct-key pair の解決は punctuation classification /
+    canonicalization layer の責務とする。
+
+-   halfwidth Japanese brackets についても、
+    final canonical keystroke token を直接表現する。
+    - `｢` → `[`
+    - `｣` → `]`
+-   `｢ → 「 → [` のような chained canonicalization は採用しない。
+    canonicalizer は one-pass semantics を維持し、
+    map の値自体を final keystroke token とする。
+
+-   bracket family の現時点の policy boundary は次のとおり。
+    - `「` → `[` : resolved / canonicalize
+    - `」` → `]` : resolved / canonicalize
+    - `｢` → `[` : resolved / canonicalize
+    - `｣` → `]` : resolved / canonicalize
+    - `『` : unresolved / ambiguous
+    - `』` : unresolved / ambiguous
+    - `【` : unresolved / ambiguous
+    - `】` : unresolved / ambiguous
+-   `『』`、`【】` を `[]` へ canonicalize する判断は行わない。
+
+-   production integration point の監査では、
+    ambiguous occurrence に対する contextual resolver は
+    primarily exclusion-region selection に使用され、
+    non-`EXCLUDE` occurrence の resolved policy を
+    preprocessing layer へ伝播する API ではないことを確認した。
+-   そのため `「」「」` を contextual resolver で
+    `CANONICALIZE` に変更する設計は採用しなかった。
+-   direct bracket を `PUNCTUATION` として分類し、
+    既存 base policy と canonicalizer を利用することで、
+    resolver / selection / preprocessor の責務境界を維持した。
+
+-   final direct-bracket rule の production 化前後を、
+    fixed CC100 JA 10k sample で比較した。
+    sampling condition は既存 verified baseline と同一。
+    - sample size: `10000`
+    - seed: `20260905`
+    - min length: `100`
+-   historical production commit `285d602` の再実行では、
+    既知 baseline を完全再現した。
+    - successful documents: `2625`
+    - success digest:
+      `0179129d0198da2a17d231699d0c08461c4f143eca7041cc241d55fc58dfee2e`
+-   historical production に final direct-bracket candidate
+    (`「」 → []`, `｢｣ → []`) を適用した結果:
+    - successful documents: `4244`
+    - failed documents: `5756`
+    - newly recovered documents: `1619`
+    - existing success → failure: `0`
+    - shared successful documents: `2625`
+    - byte-identical shared outputs: `2617`
+    - intentionally changed shared outputs: `8`
+    - success digest:
+      `9193e26d28f3d2fc9100e850bc1efac9220e66bfb57d468035c9a64a206a2ade`
+-   shared-success 8 documents の出力差は、
+    final candidate で halfwidth Japanese brackets を
+    `｢｣ → []` と直接 canonicalize したことによる
+    intentional change である。
+    existing successful document が failure へ regression した例はない。
+
+-   current production implementation を candidate emulation なしで
+    fixed 10k sample に再実行した結果:
+    - successful documents: `4244`
+    - failed documents: `5756`
+    - success digest:
+      `9193e26d28f3d2fc9100e850bc1efac9220e66bfb57d468035c9a64a206a2ade`
+-   historical final candidate と current production の
+    success count および output digest が完全一致した。
+-   current production の主要 failure reasons も
+    final historical candidate と一致した。
+    - `・`: `2402`
+    - `…`: `751`
+    - `『`: `489`
+    - `※`: `299`
+    - `【`: `221`
+    - `〜`: `181`
+-   この結果から、fixed 10k sample の範囲では、
+    final direct-bracket candidate が current production に
+    意図どおり移植されたことを確認した。
+    これは corpus 全体に対する一般的な無回帰証明ではない。
+
+-   dedicated tests では次の policy boundary を固定した。
+    - direct Japanese brackets `「」「」` are canonicalized to `[]`
+    - halfwidth Japanese brackets `｢｣` are canonicalized directly to `[]`
+    - `「」「」` and `｢｣` classify as `PUNCTUATION`
+    - `『』『』【】` remain `AMBIGUOUS`
+    - Harmonia-native `、。－` remain unchanged
+-   full test suite:
+    - `1551 passed`
+-   Ruff:
+    - `All checks passed!`
+
+-   この decision により `「」「」` / `｢｣` の direct logical-key
+    canonicalization は resolved とする。
+-   一方、Canonicalization Contract §28 の他の ambiguity family、
+    特に `『』`、`【】`、`・`、`…`、`※`、`〜` などは
+    引き続き unresolved である。
+-   したがって Canonicalization Contract v1 は
+    **未 freeze のまま**とする。

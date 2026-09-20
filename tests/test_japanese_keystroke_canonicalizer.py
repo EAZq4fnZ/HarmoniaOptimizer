@@ -1,6 +1,9 @@
+# test/test_japanese_keystroke_canonicalizer.py
+
 import pytest
 
 from corpus_builder.japanese_keystroke_canonicalizer import (
+    DIRECT_JAPANESE_BRACKET_MAP,
     FULLWIDTH_ASCII_PUNCTUATION_MAP,
     HALFWIDTH_JAPANESE_PUNCTUATION_MAP,
     HARMONIA_NATIVE_CHARACTERS,
@@ -70,8 +73,27 @@ def test_halfwidth_japanese_punctuation_is_canonicalized(
 def test_halfwidth_japanese_punctuation_sequence_is_canonicalized() -> None:
     assert canonicalize_japanese_keystroke_text(
         "｢ﾃｽﾄ･ﾃﾞｽ｡｣"
-    ) == "「ﾃｽﾄ・ﾃﾞｽ。」"
+    ) == "[ﾃｽﾄ・ﾃﾞｽ。]"
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    tuple(
+        DIRECT_JAPANESE_BRACKET_MAP.items()
+    ),
+)
+def test_direct_japanese_brackets_are_canonicalized(
+    source: str,
+    expected: str,
+) -> None:
+    assert canonicalize_japanese_keystroke_character(
+        source
+    ) == expected
+
+
+def test_direct_japanese_bracket_sequence_is_canonicalized() -> None:
+    assert canonicalize_japanese_keystroke_text(
+        "「テスト」"
+    ) == "[テスト]"
 
 @pytest.mark.parametrize(
     "text",
@@ -86,8 +108,6 @@ def test_halfwidth_japanese_punctuation_sequence_is_canonicalized() -> None:
         "㎏",
         "①",
         "Ⅱ",
-        "「",
-        "」",
         "『",
         "』",
         "【",
@@ -113,8 +133,8 @@ def test_ascii_literal_is_preserved() -> None:
 
 def test_mixed_resolved_and_unresolved_text() -> None:
     assert canonicalize_japanese_keystroke_text(
-        "「ＡＢＣ！？」〜〆㎡、。－"
-    ) == "「ＡＢＣ!?」〜〆㎡、。－"
+        "「ＡＢＣ！？」『〜〆㎡』、。－"
+    ) == "[ＡＢＣ!?]『〜〆㎡』、。－"
 
 
 def test_character_canonicalizer_rejects_empty_string() -> None:

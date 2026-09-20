@@ -47,11 +47,15 @@ FULLWIDTH_ASCII_PUNCTUATION_MAP = {
 HALFWIDTH_JAPANESE_PUNCTUATION_MAP = {
     "｡": "。",
     "､": "、",
-    "｢": "「",
-    "｣": "」",
+    "｢": "[",
+    "｣": "]",
     "･": "・",
 }
 
+DIRECT_JAPANESE_BRACKET_MAP = {
+    "「": "[",
+    "」": "]",
+}
 
 def canonicalize_japanese_keystroke_character(
     char: str,
@@ -81,6 +85,15 @@ def canonicalize_japanese_keystroke_character(
 
     if halfwidth_japanese is not None:
         return halfwidth_japanese
+
+    direct_japanese_bracket = (
+        DIRECT_JAPANESE_BRACKET_MAP.get(
+            char
+        )
+    )
+
+    if direct_japanese_bracket is not None:
+        return direct_japanese_bracket
 
     return char
 
