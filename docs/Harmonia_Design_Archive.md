@@ -2727,3 +2727,309 @@ The optimizer's current alphabet/scoring integration is a separate Core
 responsibility. Resolving a corpus-level logical keystroke representation
 does not by itself redefine the optimizer's accepted alphabet or scoring
 model.
+
+# 37. v0.8 Revision Note — Horizontal Ellipsis Investigation
+
+### v0.8 — 2026-09-21
+
+Stage 2G.5-h investigated the unresolved horizontal ellipsis `…` using
+controlled Microsoft IME behavior, the current production unresolved
+inventory, normalized-source run measurement, exact occurrence-span tracing,
+and current context evidence.
+
+This stage does not change production canonicalization behavior.
+
+The purpose of the investigation was to determine whether `…` has sufficient
+evidence for a stable Harmonia logical-keystroke representation and whether
+changing its current ambiguous status could affect existing structural
+exclusion behavior.
+
+## 37.1 Controlled Microsoft IME evidence
+
+Controlled testing was performed on Windows with Microsoft IME in
+romaji-input mode.
+
+Observed direct key behavior:
+
+```text
+.          → 。
+Shift+.    → ＞
+...        → 。。。
+```
+
+Observed conversion behavior:
+
+```text
+santen + Space → … available
+kigou + Space  → … available
+sannriten      → … not observed
+```
+
+No stable direct logical-key route to `…` was observed.
+
+In particular, typing three period keys does not produce `…`; it produces
+three Japanese full stops.
+
+Therefore the visual resemblance between `…` and repeated periods is not
+sufficient evidence for a canonical mapping such as:
+
+```text
+… → ...
+```
+
+The observed routes through `santen` and `kigou` are conversion routes rather
+than stable direct logical-key routes.
+
+This differs from the previously resolved middle dot, for which a stable
+direct route `/ → ・` was observed.
+
+## 37.2 Current fixed-10k unresolved inventory
+
+The unresolved-keystroke inventory was regenerated from current production
+behavior after the direct-bracket and middle-dot changes.
+
+Sampling conditions:
+
+```text
+sample size: 10000
+seed:        20260905
+min length:  100
+```
+
+Observed totals:
+
+```text
+document count:         10000
+total occurrences:    3273966
+ambiguous occurrences:  17384
+inventory rows:            427
+```
+
+The total occurrence count remains identical to the established fixed-10k
+baseline.
+
+The primary exact `source_text == "…"` inventory rows were:
+
+```text
+source_text  evidence               occurrence_count
+…            NONE                              3257
+…            DECORATIVE_ADJACENT                 65
+```
+
+Therefore:
+
+```text
+exact source_text == "…" occurrences: 3322
+```
+
+No `KAOMOJI_STRUCTURAL` inventory row was observed for the exact `…`
+occurrences.
+
+## 37.3 Normalized-source run-shape audit
+
+A separate fixed-10k audit counted literal `…` characters directly in the
+sampled normalized source text and measured consecutive `…` runs independently
+of `JapaneseCorpusOccurrence` segmentation.
+
+Observed results:
+
+```text
+literal source ellipsis characters: 3323
+total source runs:                  2851
+maximum run length:                    4
+```
+
+Run-length distribution:
+
+```text
+run length  runs  ellipsis characters
+1           2394                 2394
+2            444                  888
+3             11                   33
+4              2                    8
+--------------------------------------
+total       2851                 3323
+```
+
+Single-character runs account for most runs. Two-character runs are also
+present in ordinary prose, and longer runs occur much less frequently.
+
+Representative contexts showed both single and repeated ellipses in ordinary
+prose, including pause-like and trailing-thought usage.
+
+Run length is therefore retained as observed source shape only.
+
+It is not treated as evidence of the historical input route, and repeated
+ellipsis runs are not classified as decorative merely because they repeat.
+
+## 37.4 Relationship to the earlier v0.5 run measurement
+
+The earlier v0.5 audit recorded:
+
+```text
+inventory occurrences: 3322
+measured runs:          2850
+measured occurrences:   3322
+singleton runs:         2393
+length 2 runs:           444
+length >= 3 runs:         13
+```
+
+The new normalized-source measurement records:
+
+```text
+literal characters: 3323
+source runs:         2851
+singleton runs:      2394
+length 2 runs:        444
+length >= 3 runs:      13
+```
+
+The difference is exactly:
+
+```text
+characters:     +1
+runs:           +1
+singleton runs: +1
+```
+
+An exact occurrence-span trace was performed rather than treating this as a
+corpus or reader regression.
+
+Results:
+
+```text
+source ellipsis count:     3323
+covered ellipsis count:    3323
+uncovered ellipsis count:     0
+```
+
+The covering occurrence spans were:
+
+```text
+count  kind       source_text  processing_text
+3322   ambiguous  …            …
+1      ambiguous  .…           .…
+```
+
+Therefore no literal `…` character is missing from the occurrence
+infrastructure.
+
+The remaining literal `…` is covered by the second row in the table above,
+rather than by an exact `source_text == "…"` row.
+
+Accordingly, the current normalized-source audit includes one literal
+singleton `…` that is not represented by an exact
+`source_text == "…"` inventory row.
+
+The earlier v0.5 measurement and the current measurement use different
+observation units:
+
+```text
+v0.5:
+exact unresolved occurrence-oriented measurement
+
+v0.8:
+literal normalized-source character/run measurement
+```
+
+The earlier v0.5 record is retained rather than overwritten.
+
+This reinforces the existing audit rule that normalized-source character
+structure and `JapaneseCorpusOccurrence` segmentation must not be treated as
+identical units.
+
+## 37.5 Context and structural-exclusion boundary
+
+Current production context evidence for the exact
+`source_text == "…"` occurrences is:
+
+```text
+NONE                 3257
+DECORATIVE_ADJACENT    65
+KAOMOJI_STRUCTURAL       0
+```
+
+The production structural detector and decorative-adjacency detector use
+different evidence mechanisms.
+
+`find_japanese_keystroke_structural_region_at()` determines structural
+regions from supported enclosing pairs and face-pair evidence around an exact
+source occurrence.
+
+`_KAOMOJI_CHARACTERS`, by contrast, participates in the
+decorative-adjacency heuristic and is not itself the structural-region trigger
+set.
+
+Therefore the fact that `…` is absent from `_KAOMOJI_CHARACTERS` is not used
+as an explanation for the observed `KAOMOJI_STRUCTURAL` count.
+
+The relevant fixed-10k observation is simply:
+
+```text
+exact "…" occurrences with KAOMOJI_STRUCTURAL evidence: 0
+```
+
+No existing fixed-10k structural exclusion was therefore observed to be
+initiated by an ambiguous exact `…` occurrence.
+
+This is evidence for the current fixed sample and current production
+classifier only. It is not a general proof about all future corpora or future
+context classifiers.
+
+## 37.6 Decision
+
+`…` remains:
+
+```text
+AMBIGUOUS
+```
+
+No production canonicalization mapping is added.
+
+In particular, Harmonia does not adopt:
+
+```text
+… → ...
+```
+
+and `…` is not globally excluded.
+
+The decision is based on the following evidence:
+
+1. no stable direct logical-key route to `…` was observed in the controlled
+   Microsoft IME test;
+2. the observed `santen` and `kigou` paths are conversion routes;
+3. repeated period input does not directly produce `…`;
+4. source run shape does not identify the historical input route;
+5. ordinary prose contains both single and repeated ellipsis uses;
+6. current context evidence does not justify treating `…` globally as
+   decorative input;
+7. no exact fixed-10k `…` occurrence currently has
+   `KAOMOJI_STRUCTURAL` evidence.
+
+This decision is consistent with the direct-route principle established
+during the middle-dot investigation:
+
+> If a source character has a stable direct logical-key route in the target
+> IME environment, Harmonia may use that direct logical key as its canonical
+> keystroke representation even when the historical input route cannot be
+> uniquely reconstructed.
+
+For `…`, that sufficient direct-route evidence has not been established.
+
+This does not prove that no canonical representation for `…` can ever be
+defined. It means the evidence collected in this stage is insufficient to
+resolve the ambiguity under the current Harmonia policy.
+
+## 37.7 Contract status
+
+The Canonicalization Contract is unchanged by this investigation.
+
+`…` remains unresolved under the current symbol-entry policy.
+
+The Contract remains **unfrozen**.
+
+Further unresolved punctuation and symbol classes should continue to be
+evaluated using controlled IME evidence, corpus evidence, and structural
+exclusion impact rather than visual similarity alone.
