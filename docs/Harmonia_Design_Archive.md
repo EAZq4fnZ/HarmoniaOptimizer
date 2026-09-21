@@ -2403,3 +2403,327 @@ Firmware Export
     引き続き unresolved である。
 -   したがって Canonicalization Contract v1 は
     **未 freeze のまま**とする。
+
+---
+
+# 36. v0.7 Revision Note
+
+### v0.7 — 2026-09-21
+
+Stage 2G.5-g.3c investigated the remaining high-frequency middle-dot
+ambiguity using controlled Microsoft IME behavior, fixed-10k source-context
+audits, structural-exclusion analysis, candidate comparison, and a final
+production-only verification.
+
+## 36.1 Controlled Microsoft IME evidence
+
+Controlled testing on Windows with Microsoft IME in romaji-input mode
+confirmed the following direct logical-key route:
+
+```text
+/ → ・
+```
+
+The same environment also confirmed reading-conversion routes:
+
+```text
+nakaguro + Space → ・
+ten + Space      → ・
+```
+
+Therefore `・` has multiple possible historical input routes.
+
+The source character alone does not establish which route was actually used.
+However, unlike unresolved forms such as `『』` and `【】`, `・` has a stable
+direct logical-key route in the target IME environment.
+
+This establishes the following Harmonia canonicalization principle:
+
+> If a source character has a stable direct logical-key route in the target
+> IME environment, Harmonia may use that direct logical key as its canonical
+> keystroke representation even when the historical input route cannot be
+> uniquely reconstructed. Coexisting conversion routes alone do not
+> invalidate direct canonicalization.
+
+This principle defines a canonical logical-keystroke representation. It does
+not claim that every source occurrence was historically entered through the
+direct route.
+
+## 36.2 Middle-dot decision
+
+The following mappings are now resolved:
+
+```text
+・ → /
+･ → /
+```
+
+`・` and `･` are classified as punctuation and therefore use the existing:
+
+```text
+PUNCTUATION → CANONICALIZE
+```
+
+policy path.
+
+The halfwidth mapping is intentionally one-pass:
+
+```text
+･ → /
+```
+
+rather than:
+
+```text
+･ → ・ → /
+```
+
+This preserves the existing canonicalizer design in which mapping values are
+final canonical keystroke tokens rather than inputs to another
+canonicalization pass.
+
+This is Harmonia keystroke canonicalization, not generic Unicode
+normalization.
+
+The existing Harmonia-native exceptions remain unchanged:
+
+```text
+、
+。
+－
+```
+
+## 36.3 Relationship to the direct-bracket decision
+
+The middle-dot decision follows the same direct logical-key principle already
+established for:
+
+```text
+[ → 「
+] → 」
+```
+
+and therefore:
+
+```text
+「 → [
+」 → ]
+｢ → [
+｣ → ]
+```
+
+The following remain unresolved:
+
+```text
+『 』
+【 】
+```
+
+Controlled IME testing demonstrated conversion routes for these forms, but no
+equivalent direct logical-key rule has been adopted.
+
+The direct-bracket and middle-dot decisions therefore resolve:
+
+```text
+「 → [
+」 → ]
+｢ → [
+｣ → ]
+・ → /
+･ → /
+```
+
+without generalizing that visually or semantically related Japanese
+punctuation should automatically map to ASCII keys.
+
+## 36.4 Fixed-10k middle-dot context audit
+
+The fixed 10,000-document Japanese sample was inspected separately for
+middle-dot occurrence and run structure.
+
+Observed totals:
+
+```text
+middle-dot occurrences: 12237
+middle-dot runs:         9146
+```
+
+The audit showed that singleton `・` is polysemous and occurs in ordinary
+lexical/list-separator contexts as well as decorative contexts.
+
+Repeated middle-dot runs frequently represent ellipsis or pause-like
+structures.
+
+Therefore run length is useful as observed source shape, but it is not by
+itself evidence of semantic usage or historical input route.
+
+The semantic diversity of `・` does not invalidate the direct logical-key
+canonicalization because the corpus model is defining a canonical
+logical-keystroke representation rather than reconstructing the exact
+historical IME operation sequence.
+
+## 36.5 Structural-exclusion boundary audit
+
+Promoting `・` from an ambiguous character to punctuation changes whether the
+middle dot itself participates in contextual ambiguity resolution.
+
+A fixed-10k structural-trigger audit was therefore performed to determine
+whether this promotion would remove an existing kaomoji structural exclusion.
+
+Observed results:
+
+```text
+structural regions:                         57
+regions with a middle-dot structural trigger: 1
+middle-dot-only structural-trigger regions:   0
+```
+
+The single structural region containing a middle-dot trigger also retained
+another ambiguous structural trigger.
+
+Therefore no fixed-10k case was observed in which promoting `・` to
+punctuation caused an existing structural exclusion to disappear.
+
+This is evidence for the current fixed sample only. It is not a general proof
+that no future corpus can contain a middle-dot-only structural case.
+
+## 36.6 Candidate comparison
+
+Before modifying production behavior, the middle-dot candidate was compared
+against the direct-bracket production baseline on the same fixed 10,000
+documents.
+
+Results:
+
+```text
+production success / candidate success: 4244
+production success / candidate error:      0
+production error   / candidate success: 1630
+production error   / candidate error:   4126
+
+production success count: 4244
+candidate success count:  5874
+
+shared success equal:     4211
+shared success different:   33
+```
+
+The candidate recovered 1,630 documents that failed under the previous
+production policy.
+
+No previously successful document became an error.
+
+The 33 changed outputs among shared successes were inspected as intentional
+consequences of the newly resolved middle-dot mapping, including lexical
+separator and repeated pause-like uses.
+
+## 36.7 Production-only fixed-10k verification
+
+After integrating the middle-dot policy into the production implementation,
+a separate verifier was run using production APIs only.
+
+The verifier did not emulate the candidate policy.
+
+Sampling conditions:
+
+```text
+sample size: 10000
+seed:        20260905
+min length:  100
+```
+
+Production result:
+
+```text
+document count: 10000
+success count:   5874
+error count:     4126
+```
+
+These counts exactly reproduce the previously predicted candidate result.
+
+This verifies that the tested candidate behavior is realized by the current
+production implementation on the fixed 10,000-document sample.
+
+A digest from this verifier is intentionally not used as a regression
+comparison against the historical direct-bracket digest because the
+serialization used by the historical verifier was not established to be
+identical.
+
+The document-level success/error counts and the candidate-to-production
+reproduction are the acceptance evidence for this stage.
+
+## 36.8 Implementation and tests
+
+The production implementation now includes:
+
+```text
+DIRECT_JAPANESE_PUNCTUATION_MAP
+・ → /
+```
+
+and the halfwidth punctuation mapping:
+
+```text
+･ → /
+```
+
+The Sudachi corpus-part classifier recognizes both `・` and `･` as
+punctuation.
+
+The implementation preserves the existing responsibility boundaries:
+
+```text
+Context Evidence
+→ Keystroke Policy
+→ Source Selection / Exclusion
+```
+
+Middle-dot canonicalization does not move contextual logic into
+`preprocess_japanese_corpus_part()` and does not change `EXCLUDE` into an
+empty-output operation.
+
+Validation after the implementation change:
+
+```text
+targeted tests: 127 passed
+full test suite: 1555 passed
+ruff: All checks passed
+```
+
+## 36.9 Contract status
+
+The Canonicalization Contract now records the following as resolved:
+
+```text
+「 → [
+」 → ]
+｢ → [
+｣ → ]
+・ → /
+･ → /
+```
+
+The following classes remain intentionally unresolved, including:
+
+```text
+〜
+『 』
+【 】
+Greek and mathematical symbols
+○ / ×
+〆 / 〆切
+technical-unit compatibility characters
+circled digits
+Roman numerals
+foreign literal routing
+intentional emoji/decorative input
+other unresolved IME symbol-entry methods
+```
+
+Therefore the Canonicalization Contract v1 remains **unfrozen**.
+
+The optimizer's current alphabet/scoring integration is a separate Core
+responsibility. Resolving a corpus-level logical keystroke representation
+does not by itself redefine the optimizer's accepted alphabet or scoring
+model.

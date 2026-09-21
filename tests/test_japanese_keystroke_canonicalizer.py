@@ -4,6 +4,7 @@ import pytest
 
 from corpus_builder.japanese_keystroke_canonicalizer import (
     DIRECT_JAPANESE_BRACKET_MAP,
+    DIRECT_JAPANESE_PUNCTUATION_MAP,
     FULLWIDTH_ASCII_PUNCTUATION_MAP,
     HALFWIDTH_JAPANESE_PUNCTUATION_MAP,
     HARMONIA_NATIVE_CHARACTERS,
@@ -73,7 +74,8 @@ def test_halfwidth_japanese_punctuation_is_canonicalized(
 def test_halfwidth_japanese_punctuation_sequence_is_canonicalized() -> None:
     assert canonicalize_japanese_keystroke_text(
         "｢ﾃｽﾄ･ﾃﾞｽ｡｣"
-    ) == "[ﾃｽﾄ・ﾃﾞｽ。]"
+    ) == "[ﾃｽﾄ/ﾃﾞｽ。]"
+
 
 @pytest.mark.parametrize(
     ("source", "expected"),
@@ -94,6 +96,36 @@ def test_direct_japanese_bracket_sequence_is_canonicalized() -> None:
     assert canonicalize_japanese_keystroke_text(
         "「テスト」"
     ) == "[テスト]"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    tuple(
+        DIRECT_JAPANESE_PUNCTUATION_MAP.items()
+    ),
+)
+def test_direct_japanese_punctuation_is_canonicalized(
+    source: str,
+    expected: str,
+) -> None:
+    assert canonicalize_japanese_keystroke_character(
+        source
+    ) == expected
+
+
+def test_middle_dot_routes_are_canonicalized_to_slash() -> None:
+    assert canonicalize_japanese_keystroke_character(
+        "・"
+    ) == "/"
+
+    assert canonicalize_japanese_keystroke_character(
+        "･"
+    ) == "/"
+
+    assert canonicalize_japanese_keystroke_text(
+        "・･"
+    ) == "//"
+
 
 @pytest.mark.parametrize(
     "text",

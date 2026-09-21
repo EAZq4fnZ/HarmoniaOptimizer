@@ -1763,7 +1763,26 @@ def test_classify_sudachi_corpus_part_resolves_direct_japanese_brackets_as_punct
         )
         is JapaneseCorpusPartKind.PUNCTUATION
     )
+@pytest.mark.parametrize(
+    "surface",
+    (
+        "・",
+        "･",
+    ),
+)
+def test_classify_sudachi_corpus_part_resolves_direct_middle_dot_as_punctuation(
+    surface: str,
+) -> None:
+    from corpus_builder.sudachi_reader import (
+        classify_sudachi_corpus_part,
+    )
 
+    assert (
+        classify_sudachi_corpus_part(
+            surface=surface
+        )
+        is JapaneseCorpusPartKind.PUNCTUATION
+    )
 
 @pytest.mark.parametrize(
     "surface",

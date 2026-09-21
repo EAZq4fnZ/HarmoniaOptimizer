@@ -49,13 +49,20 @@ HALFWIDTH_JAPANESE_PUNCTUATION_MAP = {
     "､": "、",
     "｢": "[",
     "｣": "]",
-    "･": "・",
+    "･": "/",
 }
+
 
 DIRECT_JAPANESE_BRACKET_MAP = {
     "「": "[",
     "」": "]",
 }
+
+
+DIRECT_JAPANESE_PUNCTUATION_MAP = {
+    "・": "/",
+}
+
 
 def canonicalize_japanese_keystroke_character(
     char: str,
@@ -94,6 +101,15 @@ def canonicalize_japanese_keystroke_character(
 
     if direct_japanese_bracket is not None:
         return direct_japanese_bracket
+
+    direct_japanese_punctuation = (
+        DIRECT_JAPANESE_PUNCTUATION_MAP.get(
+            char
+        )
+    )
+
+    if direct_japanese_punctuation is not None:
+        return direct_japanese_punctuation
 
     return char
 

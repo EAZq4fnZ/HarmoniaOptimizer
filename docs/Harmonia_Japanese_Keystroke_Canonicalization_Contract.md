@@ -437,47 +437,75 @@ This canonicalization represents equivalent logical keys on the US layout.
 
 # 10. Halfwidth Japanese punctuation
 
-The following compatibility relationships are considered structurally safe candidates:
+Halfwidth Japanese punctuation is canonicalized according to the resolved
+logical-keystroke policy for each character.
+
+The following mappings are currently resolved:
 
 ```text
 ｡ → 。
 ､ → 、
-｢ → 「
-｣ → 」
-･ → ・
+｢ → [
+｣ → ]
+･ → /
 ```
 
-However, canonicalizing a character does not automatically determine whether the resulting punctuation itself belongs in the final optimized alphabet.
+The mappings for `｢`, `｣`, and `･` are deliberately one-pass mappings to
+their final canonical keystroke tokens.
 
-For example:
+Harmonia does not model these as chained transformations such as
+`｢ → 「 → [` or `･ → ・ → /`.
 
-```text
-｢ → 「
-```
-
-may be safe as Unicode normalization while the final policy for `「` may still be determined separately.
+This is Harmonia keystroke canonicalization, not generic Unicode
+normalization.
 
 ---
 
 # 11. Japanese brackets and quotation marks
 
-Characters such as:
+Controlled Windows / Microsoft IME verification established the following
+stable direct logical-key routes:
 
 ```text
-「 」
+[ → 「
+] → 」
+```
+
+Therefore Harmonia canonicalizes:
+
+```text
+「 → [
+」 → ]
+```
+
+These mappings represent Harmonia logical-keystroke canonicalization, not
+generic Unicode normalization.
+
+The same controlled environment also confirmed conversion routes for other
+Japanese bracket forms. In particular, `『』` and `【】` can be obtained through
+IME conversion from `「」`, and pair-level reading conversion is also possible.
+
+Therefore the source characters alone do not uniquely reconstruct the
+historical input route for:
+
+```text
 『 』
 【 】
+```
+
+These forms remain unresolved and MUST NOT currently be canonicalized to
+ASCII bracket keys.
+
+Other Japanese bracket forms such as:
+
+```text
 〈 〉
 《 》
 〔 〕
 〝 〟
 ```
 
-SHALL NOT yet be automatically converted to ASCII bracket keys.
-
-Their actual input method depends on IME behavior and user typing habits.
-
-Until a separate input rule is defined, they remain outside automatic keystroke canonicalization.
+also remain unresolved unless a separate Harmonia input rule is established.
 
 ---
 
@@ -977,6 +1005,18 @@ fullwidth US-key-equivalent punctuation
 → canonicalize to logical US key
 except －
 
+direct Japanese brackets
+「 → [
+」 → ]
+
+halfwidth Japanese brackets
+｢ → [
+｣ → ]
+
+middle dot
+・ → /
+･ → /
+
 decorative kaomoji context
 → do not treat symbols as Japanese lexical readings
 
@@ -993,8 +1033,8 @@ The following remain intentionally unresolved:
 ```text
 〜 input semantics
 
-Japanese quotation/bracket input
-「」『』【】 etc.
+Japanese quotation/bracket input other than resolved direct brackets
+『』【】 and other unresolved bracket forms
 
 Greek and mathematical symbols
 
@@ -1012,7 +1052,7 @@ foreign literal routing between Japanese and Other
 
 emoji/decorative symbols with intentional user input
 
-exact policy for symbol-entry methods through IME
+exact policy for unresolved symbol-entry methods through IME
 ```
 
 These MUST NOT be silently resolved by implementation assumptions.
