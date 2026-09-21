@@ -3033,3 +3033,372 @@ The Contract remains **unfrozen**.
 Further unresolved punctuation and symbol classes should continue to be
 evaluated using controlled IME evidence, corpus evidence, and structural
 exclusion impact rather than visual similarity alone.
+
+# 38. v0.9 Revision Note — Converted Japanese Bracket Investigation
+
+### v0.9 — 2026-09-21
+
+Stage 2G.5-i investigated the remaining unresolved Japanese bracket pairs:
+
+```text
+『 』
+【 】
+```
+
+The investigation combined:
+
+- previously collected controlled Microsoft IME evidence;
+- the existing production source-punctuation audit;
+- the current fixed-10k unresolved-keystroke inventory;
+- exact production occurrence-span tracing.
+
+This stage does not change production canonicalization behavior.
+
+The purpose was to distinguish two separate questions:
+
+1. whether these characters are structurally used as paired brackets in the
+   source corpus;
+2. whether there is sufficient input-route evidence to assign them a stable
+   Harmonia logical-keystroke representation.
+
+A strong answer to the first question does not by itself answer the second.
+
+## 38.1 Controlled Microsoft IME evidence
+
+Previously collected controlled testing on Windows with Microsoft IME in
+romaji-input mode established the following direct routes:
+
+```text
+[ → 「
+] → 」
+```
+
+The same investigation also observed conversion routes involving the remaining
+bracket forms:
+
+```text
+kakko + Space → candidates include 「」, 『』, 【】
+
+「 → conversion → 『 or 【 available
+」 → conversion → 』 or 】 available
+```
+
+No stable direct logical-key route comparable to `[ → 「` or `] → 」` has
+been established for:
+
+```text
+『 』
+【 】
+```
+
+Therefore the existence of conversion routes is not treated as sufficient
+evidence for mappings such as:
+
+```text
+『 → [
+』 → ]
+【 → [
+】 → ]
+```
+
+This follows the direct-route principle established during the middle-dot
+investigation and retained during the horizontal-ellipsis investigation.
+
+## 38.2 Fixed-10k source-level bracket structure
+
+The existing production `audit_japanese_source_punctuation()` implementation
+already audits the three typed bracket pairs:
+
+```text
+「 」
+『 』
+【 】
+```
+
+The audit uses a strict typed stack. A closing symbol matches only the
+corresponding opening symbol at the top of the stack. A typed mismatch is
+recorded without mutating the stack.
+
+The fixed-10k sample used the established conditions:
+
+```text
+sample size: 10000
+seed:        20260905
+min length:  100
+```
+
+Observed corpus-level totals were:
+
+```text
+document_count:         10000
+documents_with_brackets: 5222
+```
+
+Pair results were:
+
+```text
+pair  open   close  matched  unmatched_open  unmatched_close  documents
+「」   17212  17181    16979             233              193       4672
+『』    2069   2051     2042              27                9        855
+【】     686    682      678               8                4        392
+```
+
+Global strict-stack observations were:
+
+```text
+mismatched_close_count:               9
+documents_with_mismatch:              8
+nested_matched_pair_count:         1125
+documents_with_nested_matched_pairs: 247
+maximum_strict_stack_depth:           9
+```
+
+Observed typed mismatches were:
+
+```text
+close  expected_open  actual_stack_top  count  documents
+」     「             『                    8          7
+」     「             【                    1          1
+```
+
+No typed mismatch with `』` or `】` as the closing symbol was observed in this
+fixed sample.
+
+The source-level evidence therefore shows that both `『』` and `【】` are
+predominantly used as paired bracket structures in the sampled corpus.
+
+This is source-structure evidence only. It does not identify the historical
+input route and does not by itself establish a canonical Harmonia keystroke.
+
+## 38.3 Current fixed-10k unresolved inventory
+
+The unresolved-keystroke inventory was regenerated from current production
+behavior using the same fixed-10k sampling conditions.
+
+Observed totals were:
+
+```text
+document_count:         10000
+total_occurrences:    3273966
+ambiguous_occurrences:  17384
+inventory_rows:            427
+```
+
+The exact unresolved rows for the four investigated symbols were:
+
+```text
+source  processing  ambiguity_class       relation   evidence              occurrences  documents
+『      『          japanese_punctuation  identical  DECORATIVE_ADJACENT            37         30
+『      『          japanese_punctuation  identical  NONE                         2031        854
+』      』          japanese_punctuation  identical  DECORATIVE_ADJACENT            41         36
+』      』          japanese_punctuation  identical  NONE                         2007        848
+【      【          japanese_punctuation  identical  DECORATIVE_ADJACENT            21         20
+【      【          japanese_punctuation  identical  NONE                          665        383
+】      】          japanese_punctuation  identical  DECORATIVE_ADJACENT            18         16
+】      】          japanese_punctuation  identical  NONE                          664        388
+```
+
+Summing the exact rows gives:
+
+```text
+symbol  exact unresolved occurrences
+『                              2068
+』                              2048
+【                               686
+】                               682
+```
+
+All exact rows have:
+
+```text
+ambiguity_class = japanese_punctuation
+relation        = identical
+```
+
+Only `NONE` and `DECORATIVE_ADJACENT` context evidence were observed for these
+exact rows.
+
+No exact `『`, `』`, `【`, or `】` row had `KAOMOJI_STRUCTURAL` evidence in
+this fixed sample.
+
+The weak `DECORATIVE_ADJACENT` evidence is not sufficient to classify these
+symbols globally as decorative input.
+
+## 38.4 Exact occurrence-span coverage
+
+The source-level audit and exact unresolved inventory initially showed a small
+difference for `『` and `』`:
+
+```text
+symbol  literal source count  exact occurrence count  difference
+『                      2069                    2068           1
+』                      2051                    2048           3
+【                       686                     686           0
+】                       682                     682           0
+```
+
+A production occurrence-span trace was therefore performed using
+`make_default_japanese_reader()` and `JapaneseReader.read_occurrences()`.
+
+Observed coverage was:
+
+```text
+symbol  literal  covered  exact  composite  uncovered
+『         2069     2069   2068          1          0
+』         2051     2051   2048          3          0
+【          686      686    686          0          0
+】          682      682    682          0          0
+```
+
+Every literal occurrence of all four investigated symbols was covered by the
+production occurrence infrastructure.
+
+The four characters not represented by exact one-character `source_text`
+occurrences were contained in the following composite ambiguous occurrences:
+
+```text
+target  kind       source_text  processing_text  count
+『      ambiguous  』➡『         』➡『                 1
+』      ambiguous  ❤』          ❤』                  2
+』      ambiguous  』➡『         』➡『                 1
+```
+
+Therefore:
+
+```text
+uncovered 『 occurrences: 0
+uncovered 』 occurrences: 0
+uncovered 【 occurrences: 0
+uncovered 】 occurrences: 0
+```
+
+The difference between literal source counts and exact unresolved occurrence
+counts is not a reader-loss or span-coverage defect.
+
+As with the horizontal-ellipsis investigation, this demonstrates that literal
+source-character counts and exact `JapaneseCorpusOccurrence.source_text`
+counts are different observation units and must not be treated as identical.
+
+## 38.5 Interpretation
+
+The source-level and occurrence-level evidence answer different questions.
+
+The source-punctuation audit provides strong evidence that `『』` and `【】`
+are ordinarily functioning as paired bracket structures in the fixed sample.
+
+The unresolved inventory independently shows that the exact occurrences remain
+Japanese punctuation with an identical source/processing relation. The observed
+context evidence does not support global decorative exclusion.
+
+Neither result establishes how a source `『`, `』`, `【`, or `】` was
+historically entered.
+
+In particular, a high matched-pair rate does not imply that the corresponding
+source characters should inherit the direct logical keys used for `「` and
+`」`.
+
+The distinction is:
+
+```text
+source structural role != historical input route
+source structural role != canonical logical keystroke
+```
+
+The controlled IME evidence remains decisive for the current canonicalization
+question.
+
+For `「` and `」`, stable direct routes were observed:
+
+```text
+[ → 「
+] → 」
+```
+
+For `『』` and `【】`, only conversion routes have been established so far.
+
+Therefore the corpus evidence strengthens the interpretation of these
+characters as bracket punctuation, but does not supply the missing direct-route
+evidence needed to canonicalize them to `[` and `]`.
+
+## 38.6 Decision
+
+The four investigated characters remain:
+
+```text
+『 → AMBIGUOUS
+』 → AMBIGUOUS
+【 → AMBIGUOUS
+】 → AMBIGUOUS
+```
+
+No production canonicalization mapping is added.
+
+In particular, Harmonia does not currently adopt:
+
+```text
+『 → [
+』 → ]
+【 → [
+】 → ]
+```
+
+and these characters are not globally excluded.
+
+The decision is based on the following evidence:
+
+1. `『』` and `【】` show strong paired-bracket structure in the fixed-10k
+   source audit;
+2. paired source structure does not identify the historical input route;
+3. controlled Microsoft IME testing has not established a stable direct
+   logical-key route for these four characters;
+4. the observed routes through `kakko` or conversion from `「` / `」` are
+   conversion routes;
+5. the exact unresolved occurrences remain
+   `japanese_punctuation / identical`;
+6. exact-occurrence context evidence is limited to `NONE` and
+   `DECORATIVE_ADJACENT` in the fixed sample;
+7. no exact investigated occurrence has `KAOMOJI_STRUCTURAL` evidence in the
+   fixed sample;
+8. production occurrence-span tracing covers every literal occurrence of all
+   four symbols, so the exact-count differences for `『` and `』` are not
+   reader-loss defects.
+
+This decision is consistent with the existing direct-route principle:
+
+> If a source character has a stable direct logical-key route in the target
+> IME environment, Harmonia may use that direct logical key as its canonical
+> keystroke representation even when the historical input route cannot be
+> uniquely reconstructed.
+
+For `『`, `』`, `【`, and `】`, sufficient direct-route evidence has not been
+established.
+
+This does not prove that these symbols can never receive canonical logical-key
+representations. It means the evidence collected so far is insufficient to
+resolve them under the current Harmonia policy.
+
+## 38.7 Contract status
+
+The Canonicalization Contract is unchanged by this investigation.
+
+The current resolved direct Japanese bracket mappings remain:
+
+```text
+「 → [
+」 → ]
+｢ → [
+｣ → ]
+```
+
+The following remain unresolved:
+
+```text
+『 』
+【 】
+```
+
+The Contract remains **unfrozen**.
+
+Future resolution of these bracket forms requires additional input-route
+evidence or an explicit Harmonia policy decision that is clearly distinguished
+from reconstruction of the historical source input route.
