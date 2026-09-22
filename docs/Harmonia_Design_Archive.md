@@ -3402,3 +3402,381 @@ The Contract remains **unfrozen**.
 Future resolution of these bracket forms requires additional input-route
 evidence or an explicit Harmonia policy decision that is clearly distinguished
 from reconstruction of the historical source input route.
+
+
+# 39. v0.9 Revision Note — Wave Dash Input-Method Investigation
+
+Stage 2G.5-j investigated the unresolved Japanese wave dash `〜`
+(U+301C WAVE DASH).
+
+The purpose of this investigation was to determine whether the current
+`INPUT_METHOD` ambiguity classification can be resolved into a canonical
+Harmonia keystroke representation.
+
+The investigation combined:
+
+- the current production classification and canonicalization behavior,
+- fixed-10k unresolved-keystroke inventory data,
+- production occurrence-span coverage,
+- linguistic-reading behavior observed through the production reader, and
+- controlled Microsoft IME input-route evidence.
+
+No production canonicalization behavior was changed during this
+investigation.
+
+## 39.1 Current implementation state
+
+The current implementation intentionally distinguishes three visually or
+functionally related characters:
+
+```text
+ー U+30FC PROLONGED SOUND MARK
+～ U+FF5E FULLWIDTH TILDE
+〜 U+301C WAVE DASH
+```
+
+Their current Harmonia treatment is different:
+
+```text
+ー → Japanese Romanizer handling, producing "-"
+～ → canonicalized to "~"
+〜 → INPUT_METHOD ambiguity
+```
+
+`classify_japanese_keystroke_ambiguity()` explicitly classifies source text
+containing `〜` as `INPUT_METHOD`.
+
+The canonicalizer does not currently map `〜` to another character.
+
+This distinction must not be collapsed merely because `〜` and `～` are
+visually similar.
+
+## 39.2 Fixed-10k inventory evidence
+
+The fixed Japanese sample remained:
+
+```text
+raw:
+corpus/raw/cc100-ja/cc100-ja-seed-20260905-20000.jsonl
+
+sample_size = 10000
+seed = 20260905
+min_length = 100
+```
+
+The unresolved inventory reported:
+
+```text
+document_count:        10000
+total_occurrences:     3273966
+ambiguous_occurrences: 17384
+inventory_rows:        427
+```
+
+For exact `source_text == "〜"` occurrences:
+
+```text
+source_text  processing_text  ambiguity_class  relation   evidence             occurrence_count  document_count
+〜            〜                input_method     identical  decorative_adjacent  59                48
+〜            〜                input_method     identical  none                 539               348
+```
+
+Therefore the exact-occurrence total was:
+
+```text
+598 occurrences
+```
+
+The inventory also contained 48 distinct composite rows whose
+`source_text` contained `〜` but was not exactly `〜`.
+
+Those rows represented:
+
+```text
+composite occurrences:             179
+covered "〜" characters in them:    211
+```
+
+Representative linguistic-reading cases included:
+
+```text
+あ〜             → アア
+あ〜〜           → アー
+う〜ん           → ウウン
+くださ〜い       → クダサイ
+けっこ〜〜〜〜〜 → ケッコー
+ず〜っと         → ズット
+です〜           → デス
+ど〜             → ドウ
+な〜             → ナ
+な〜ん           → ナニ
+ね〜             → ネ
+よ〜             → ヨ
+```
+
+The inventory therefore demonstrates that `〜` is not used only as an
+isolated punctuation-like symbol. It also occurs inside Japanese expressions
+for which the linguistic reader may produce a reading that does not preserve
+the source `〜` literally.
+
+Such linguistic readings are evidence about language processing, not by
+themselves evidence of the historical or canonical keystrokes used to enter
+the source character.
+
+## 39.3 Production occurrence-span coverage
+
+A production-reader trace was run against the same fixed-10k sample.
+
+The trace independently counted literal `〜` characters in normalized source
+text and compared them with the source spans returned by
+`JapaneseReader.read_occurrences()`.
+
+The result was:
+
+```text
+document_count: 10000
+literal:        809
+covered:        809
+exact:          598
+composite:      211
+uncovered:        0
+```
+
+Here, `exact` and `composite` count covered `〜` characters rather than merely
+the number of occurrence objects.
+
+This distinction matters because a single composite occurrence may contain
+multiple `〜` characters. Examples in the fixed-10k sample included:
+
+```text
+〜〜
+〜〜〜
+〜〜〜〜
+あ〜〜
+い〜〜〜
+うわ〜〜
+けっこ〜〜〜〜〜
+た〜〜
+ちゃお〜〜〜
+な〜〜〜〜
+なぁ〜〜
+```
+
+The coverage identity was therefore:
+
+```text
+598 exact-covered characters
++ 211 composite-covered characters
+= 809 covered characters
+= 809 literal source characters
+```
+
+No source `〜` character was left uncovered.
+
+This establishes that the difference between isolated and composite `〜`
+observations is explained by the production occurrence model. There is no
+reader-loss or source-span-coverage defect for `〜` in the fixed-10k sample.
+
+## 39.4 Controlled Microsoft IME evidence
+
+Controlled testing was performed with Microsoft IME enabled on the target
+US-layout input environment.
+
+Direct input around the key immediately to the right of `=` produced:
+
+```text
+direct input result  Unicode
+＾                   U+FF3E FULLWIDTH CIRCUMFLEX
+～                   U+FF5E FULLWIDTH TILDE
+```
+
+Repeating the corresponding shifted/unshifted key tests continued to produce
+`＾` or `～`.
+
+No tested direct-key route produced:
+
+```text
+〜 U+301C WAVE DASH
+```
+
+The generated characters were verified by Unicode code point rather than by
+visual appearance.
+
+Additional IME conversion tests produced:
+
+```text
+tested input  observed result
+nami          no relevant conversion candidate observed
+karamade      ～まで
+kara          ～
+kigou         ～
+```
+
+The `～` characters obtained from these tests were verified as:
+
+```text
+U+FF5E FULLWIDTH TILDE
+```
+
+not:
+
+```text
+U+301C WAVE DASH
+```
+
+The controlled evidence therefore distinguishes the two visually similar
+characters:
+
+```text
+～ U+FF5E
+    direct/input-method routes observed
+    current Harmonia canonicalization: "~"
+
+〜 U+301C
+    no tested stable direct logical-key route observed
+    current Harmonia classification: INPUT_METHOD
+```
+
+This evidence does not prove that U+301C can never be produced through any
+Microsoft IME path. It establishes only that the tested direct and conversion
+routes did not provide a stable logical-key route for U+301C.
+
+## 39.5 Interpretation
+
+The evidence supports keeping three distinct concepts separate:
+
+1. the source character present in the corpus,
+2. the linguistic reading produced by Sudachi, and
+3. the logical keystroke representation used by Harmonia.
+
+For example, composite source forms such as:
+
+```text
+な〜   → ナ
+ど〜   → ドウ
+な〜ん → ナニ
+```
+
+show that Sudachi may interpret `〜` as part of a Japanese linguistic
+expression.
+
+Other cases may convert one or more source `〜` characters into a prolonged
+sound mark in the linguistic reading:
+
+```text
+あ〜〜           → アー
+けっこ〜〜〜〜〜 → ケッコー
+```
+
+These transformations must not be interpreted as evidence that the source
+`〜` was historically entered with the logical key represented by `-`.
+
+Likewise, visual similarity between:
+
+```text
+〜 U+301C WAVE DASH
+～ U+FF5E FULLWIDTH TILDE
+```
+
+is not sufficient evidence for canonicalizing `〜` to `~`.
+
+The controlled Microsoft IME investigation strengthens this distinction:
+the tested routes produced U+FF5E, while no tested stable direct route
+produced U+301C.
+
+The fixed-10k context evidence also does not support global exclusion.
+Exact `〜` occurrences appeared with both:
+
+```text
+NONE
+DECORATIVE_ADJACENT
+```
+
+and the corpus contained substantial linguistic composite usage.
+
+Therefore none of the following transformations is justified by the current
+evidence:
+
+```text
+〜 → ~
+〜 → -
+〜 → excluded globally
+〜 → linguistic reading unconditionally
+```
+
+This is another application of the existing Harmonia principle:
+
+> Sudachi processing text is linguistic evidence, not keystroke truth.
+
+## 39.6 Decision
+
+Stage 2G.5-j does not change production behavior.
+
+The decision is:
+
+```text
+〜 U+301C WAVE DASH
+    ambiguity class: INPUT_METHOD
+    keystroke policy: AMBIGUOUS
+```
+
+No canonical keystroke mapping is introduced.
+
+In particular:
+
+```text
+〜 → ~
+```
+
+is not adopted.
+
+The existing:
+
+```text
+～ → ~
+```
+
+mapping remains unchanged because U+FF5E and U+301C are treated as distinct
+source characters with different evidence.
+
+Similarly:
+
+```text
+〜 → -
+```
+
+is not adopted merely because some linguistic readings represent elongated
+speech using `ー`.
+
+Global exclusion is also not adopted. The fixed-10k corpus demonstrates both
+isolated and linguistic uses of `〜`, and the current context evidence is not
+sufficient to classify all such occurrences as decorative.
+
+The current `INPUT_METHOD` ambiguity therefore remains intentional rather
+than being treated as an implementation gap.
+
+## 39.7 Contract status
+
+The Canonicalization Contract is unchanged by this investigation.
+
+The relevant distinctions remain:
+
+```text
+ー U+30FC
+    handled by the Japanese Romanizer
+
+～ U+FF5E
+    canonicalized to "~"
+
+〜 U+301C
+    AMBIGUOUS_INPUT_METHOD
+```
+
+`〜` remains unresolved.
+
+The Contract remains **unfrozen**.
+
+Future resolution of U+301C requires either additional input-route evidence
+that establishes an appropriate canonical logical keystroke or an explicit
+Harmonia policy decision that is clearly distinguished from reconstruction
+of the historical source input route.
