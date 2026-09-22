@@ -3780,3 +3780,259 @@ Future resolution of U+301C requires either additional input-route evidence
 that establishes an appropriate canonical logical keystroke or an explicit
 Harmonia policy decision that is clearly distinguished from reconstruction
 of the historical source input route.
+
+# 40. Stage 2G.5-k — `〆` semantic-symbol investigation
+
+## 40.1 Purpose
+
+Stage 2G.5-k investigates U+3006 IDEOGRAPHIC CLOSING MARK:
+
+```text
+〆
+```
+
+The purpose is to determine whether the existing ambiguity should be
+resolved into a canonical keystroke policy.
+
+The investigation distinguishes:
+
+```text
+source character
+Sudachi linguistic reading
+actual IME input route
+canonical Harmonia keystroke
+```
+
+These are not assumed to be equivalent.
+
+## 40.2 Current implementation state
+
+Before this investigation, `〆` is explicitly included in:
+
+```text
+SEMANTIC_SYMBOL_CHARACTERS
+AMBIGUOUS_JAPANESE_CORPUS_CHARACTERS
+```
+
+and is classified as:
+
+```text
+JapaneseKeystrokeAmbiguityClass.SEMANTIC_SYMBOL
+```
+
+The canonicalizer does not currently transform `〆`.
+
+Existing source-processing relation tests also demonstrate that Sudachi may
+produce linguistic readings such as:
+
+```text
+〆   → シメ
+〆切 → シメキリ
+```
+
+These readings are treated as linguistic evidence rather than proof of the
+historical keystroke sequence.
+
+## 40.3 Fixed-10k inventory evidence
+
+The fixed Japanese 10k sample was audited using:
+
+```text
+source:
+corpus/raw/cc100-ja/cc100-ja-seed-20260905-20000.jsonl
+
+sample_size: 10000
+seed: 20260905
+min_length: 100
+```
+
+The overall inventory remained:
+
+```text
+document_count: 10000
+total_occurrences: 3273966
+ambiguous_occurrences: 17384
+inventory_rows: 427
+```
+
+Rows containing `〆` were:
+
+```text
+source_text  processing_text  ambiguity_class  relation             count
+〆            〆               semantic_symbol  identical                1
+〆            シメ             semantic_symbol  linguistic_reading       3
+〆切          シメキリ         other            linguistic_reading       1
+〆切日        シメキリビ       other            linguistic_reading       1
+```
+
+The production occurrence-span trace independently confirmed:
+
+```text
+literal:             6
+covered:             6
+exact:               4
+composite:           2
+matched_occurrences: 6
+uncovered:           0
+```
+
+Therefore all six normalized source `〆` characters in the fixed-10k sample
+are represented by production occurrences. No reader/span loss was observed.
+
+## 40.4 Source-context evidence
+
+The six observed `〆` characters occurred in semantic or lexical contexts.
+
+Observed uses included forms corresponding to:
+
+```text
+〆切日
+〆切らせていただく
+〆切期間
+〆切りたい
+飲んだ後の〆
+〆でラーメン
+```
+
+No decorative use of `〆` was observed in this fixed sample.
+
+This is evidence about the fixed-10k sample only. Because only six literal
+characters were observed, it must not be generalized into a claim that every
+possible use of `〆` is lexical or semantic.
+
+The trace also exposed an important reading distinction. Semantically similar
+uses were not processed uniformly by Sudachi. For example, some exact `〆`
+occurrences had:
+
+```text
+processing_text = シメ
+```
+
+while another semantic use had:
+
+```text
+processing_text = 〆
+```
+
+This reinforces the existing Harmonia principle:
+
+> Sudachi processing text is linguistic evidence, not keystroke truth.
+
+## 40.5 Controlled Microsoft IME evidence
+
+Controlled testing with Microsoft IME on the target US-layout environment
+confirmed the following conversion routes:
+
+```text
+shime     → 〆
+shimekiri → 〆切
+kigou     → 〆
+```
+
+Code-point verification confirmed that the resulting character was:
+
+```text
+〆 U+3006 IDEOGRAPHIC CLOSING MARK
+```
+
+and that the `〆切` result contained:
+
+```text
+〆 U+3006
+切 U+5207
+```
+
+The important result is that more than one valid IME input route can produce
+the same source character.
+
+In particular, both a semantic reading route:
+
+```text
+shime → 〆
+```
+
+and a generic symbol-conversion route:
+
+```text
+kigou → 〆
+```
+
+were observed.
+
+Therefore the source character alone does not uniquely reconstruct the
+keystrokes used by the original author.
+
+## 40.6 Interpretation
+
+The corpus evidence strongly supports treating observed `〆` uses as
+meaningful rather than globally decorative.
+
+However, it does not establish a unique canonical keystroke sequence.
+
+Adopting:
+
+```text
+〆 → shime
+```
+
+would represent one observed Microsoft IME route but would discard another
+observed route:
+
+```text
+kigou → 〆
+```
+
+Conversely, adopting:
+
+```text
+〆 → kigou
+```
+
+would privilege the generic symbol-conversion route despite the fixed-10k
+contexts being semantic or lexical.
+
+Preserving literal `〆` as though it represented a direct logical keystroke is
+also not justified by the current evidence.
+
+Global exclusion is not justified because all observed fixed-10k uses were
+semantic or lexical.
+
+Therefore none of the following unconditional policies is supported:
+
+```text
+〆 → shime
+〆 → kigou
+〆 → preserved literal keystroke
+〆 → excluded globally
+```
+
+## 40.7 Decision
+
+Stage 2G.5-k does not change production behavior.
+
+The decision is:
+
+```text
+〆 U+3006 IDEOGRAPHIC CLOSING MARK
+    ambiguity class: SEMANTIC_SYMBOL
+    keystroke policy: AMBIGUOUS
+```
+
+No canonical keystroke mapping is introduced.
+
+The existing ambiguity is intentional: multiple valid Microsoft IME routes
+produce the same source character, while the corpus source does not preserve
+which route was historically used.
+
+## 40.8 Contract status
+
+The Canonicalization Contract is unchanged by this investigation.
+
+`〆` remains unresolved as a semantic symbol with ambiguous keystroke origin.
+
+The Contract remains **unfrozen**.
+
+Future resolution would require either an explicit Harmonia policy choosing a
+canonical semantic input independently of historical reconstruction, or
+additional evidence sufficient to justify a narrower context-dependent
+policy.
